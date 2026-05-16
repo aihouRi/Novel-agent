@@ -8,6 +8,33 @@
 
 docs/design.md 是本项目 MVP 范围、数据结构、API、Workflow、Roadmap 的唯一依据。
 
+## 开发总结
+每个阶段结束后，总结该阶段做了什么，以便后续复盘。记入以下文件：
+
+- docs/.local-progress.md
+
+## Branch 命名规范
+
+统一格式：
+
+- `<type>/<short-description>`
+
+`type` 只使用以下取值：
+
+- `feature/`：新功能
+- `fix/`：bug 修复
+- `chore/`：配置、依赖、项目结构、文档等杂项
+- `refactor/`：不改变功能的代码整理
+- `docs/`：只改文档
+
+命名规则：
+
+- 全小写
+- 用 `-` 连接单词
+- 不要用空格
+- 不要用中文
+- 描述尽量短
+
 ## 开发原则
 
 - 不要一次性实现完整项目。

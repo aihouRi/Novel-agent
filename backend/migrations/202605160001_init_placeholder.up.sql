@@ -1,0 +1,2 @@
+-- MVP phase 2 placeholder migration.
+-- Intentionally no table definitions in this stage.
