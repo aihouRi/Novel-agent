@@ -1,4 +1,4 @@
-# Novel Agent (MVP Phase 1)
+# Novel Agent
 
 This repository is initialized as a minimal monorepo skeleton for the Novel Agent MVP.
 
@@ -38,9 +38,16 @@ go mod tidy
 go run ./cmd/api
 ```
 
-Backend endpoint:
+Optional environment variables:
+
+- `PORT` (default: `8080`)
+- `MYSQL_DSN` (default points to local docker-compose MySQL)
+- `JWT_SECRET` (placeholder for future auth wiring)
+
+Backend endpoints:
 
 - health check: `GET http://localhost:8080/health`
+- db check: `GET http://localhost:8080/health/db`
 
 ## Start Frontend
 
@@ -56,5 +63,5 @@ Frontend URL:
 
 ## Notes
 
-- This phase only includes project initialization and health check endpoint.
+- Current progress includes Phase 1 (project initialization) and Phase 2 (backend infrastructure baseline: config + DB connection + health endpoints).
 - Auth, CRUD, OpenAI generation, RAG, MCP, Google Drive, and multi-agent workflow are intentionally not implemented.
