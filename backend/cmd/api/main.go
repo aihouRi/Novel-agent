@@ -7,7 +7,10 @@ import (
 	"time"
 
 	"novel-agent/backend/internal/config"
+	"novel-agent/backend/internal/handler"
+	appmiddleware "novel-agent/backend/internal/middleware"
 	"novel-agent/backend/internal/repository"
+	"novel-agent/backend/internal/usecase"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -28,11 +31,11 @@ func main() {
 		panic(err)
 	}
 
-	e := newServer(db)
+	e := newServer(db, cfg)
 	e.Logger.Fatal(e.Start(":" + cfg.Port))
 }
 
-func newServer(db *sql.DB) *echo.Echo {
+func newServer(db *sql.DB, cfg config.AppConfig) *echo.Echo {
 	e := echo.New()
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
@@ -54,6 +57,15 @@ func newServer(db *sql.DB) *echo.Echo {
 
 		return c.JSON(http.StatusOK, map[string]string{"status": "ok"})
 	})
+
+	userRepo := repository.NewUserRepository(db)
+	authUC := usecase.NewAuthUsecase(userRepo, cfg.JWTSecret)
+	authHandler := handler.NewAuthHandler(authUC)
+
+	auth := e.Group("/auth")
+	auth.POST("/register", authHandler.Register)
+	auth.POST("/login", authHandler.Login)
+	auth.GET("/me", authHandler.Me, appmiddleware.JWTAuth(cfg.JWTSecret))
 
 	return e
 }
