@@ -1,5 +1,5 @@
 import { ClipboardEvent, KeyboardEvent, useEffect, useMemo, useState } from 'react'
-import { Box, Button, Card, CardContent, Container, FormControl, IconButton, InputLabel, MenuItem, Select, Stack, TextField, Typography } from '@mui/material'
+import { Alert, Box, Button, Card, CardContent, Container, FormControl, IconButton, InputLabel, MenuItem, Select, Snackbar, Stack, TextField, Typography } from '@mui/material'
 import CloseIcon from '@mui/icons-material/Close'
 import ArrowBackIosNewRoundedIcon from '@mui/icons-material/ArrowBackIosNewRounded'
 import HistoryRoundedIcon from '@mui/icons-material/HistoryRounded'
@@ -35,9 +35,17 @@ export default function ChapterEditorPage({
   type SidePanel = 'summary' | 'outline' | 'instruction' | null
 
   const INDENT = '　　'
+  const latestVolumeID = useMemo(() => {
+    if (volumes.length === 0) return 0
+    return volumes.reduce((latest, current) => {
+      if (current.volume_number > latest.volume_number) return current
+      if (current.volume_number === latest.volume_number && current.id > latest.id) return current
+      return latest
+    }).id
+  }, [volumes])
 
   const [chapterNumber, setChapterNumber] = useState(initialChapter?.chapter_number ?? defaultChapterNumber)
-  const [volumeID, setVolumeID] = useState<number>(initialChapter?.volume_id ?? (volumes[0]?.id ?? 0))
+  const [volumeID, setVolumeID] = useState<number>(initialChapter?.volume_id ?? latestVolumeID)
   const [chapterTitle, setChapterTitle] = useState(initialChapter?.title ?? '')
   const [chapterBody, setChapterBody] = useState(ensureIndentedBody(initialChapter?.body ?? INDENT))
   const [chapterSummary, setChapterSummary] = useState(initialChapter?.summary ?? '')
@@ -45,6 +53,8 @@ export default function ChapterEditorPage({
   const [chapterInstruction, setChapterInstruction] = useState(initialChapter?.generation_instruction ?? '')
   const [saving, setSaving] = useState(false)
   const [sidePanel, setSidePanel] = useState<SidePanel>(null)
+  const [localSuccess, setLocalSuccess] = useState('')
+  const [localError, setLocalError] = useState('')
 
   const chapterWordCount = useMemo(() => chapterBody.replace(/\s/g, '').length, [chapterBody])
   const isEdit = Boolean(initialChapter)
@@ -54,10 +64,17 @@ export default function ChapterEditorPage({
   )
 
   useEffect(() => {
-    if (volumeID > 0) return
-    if (volumes.length === 0) return
-    setVolumeID(volumes[0].id)
-  }, [volumeID, volumes])
+    if (volumes.length === 0) {
+      if (volumeID !== 0) setVolumeID(0)
+      return
+    }
+    if (!isEdit && volumeID <= 0) {
+      setVolumeID(latestVolumeID)
+      return
+    }
+    const matched = volumes.some((v) => v.id === volumeID)
+    if (!matched) setVolumeID(isEdit ? volumes[0].id : latestVolumeID)
+  }, [isEdit, latestVolumeID, volumeID, volumes])
 
   useEffect(() => {
     const saved = localStorage.getItem(draftKey)
@@ -72,7 +89,12 @@ export default function ChapterEditorPage({
         chapterOutline: string
         chapterInstruction: string
       }
-      setVolumeID(draft.volumeID ?? volumeID)
+      if (isEdit) {
+        setVolumeID(draft.volumeID ?? volumeID)
+      } else {
+        // For new chapters, always prefer the latest volume instead of stale draft volume.
+        setVolumeID(latestVolumeID)
+      }
       setChapterNumber(draft.chapterNumber ?? chapterNumber)
       setChapterTitle(draft.chapterTitle ?? '')
       setChapterBody(ensureIndentedBody(draft.chapterBody ?? ''))
@@ -83,7 +105,7 @@ export default function ChapterEditorPage({
       localStorage.removeItem(draftKey)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draftKey])
+  }, [draftKey, isEdit, latestVolumeID])
 
   function ensureIndentedBody(text: string): string {
     if (!text) return INDENT
@@ -221,11 +243,15 @@ export default function ChapterEditorPage({
 
   async function handleSave() {
     if (chapterNumber <= 0) {
-      onNotifyError('章节编号必须大于 0。')
+      const msg = '章节编号必须大于 0。'
+      onNotifyError(msg)
+      setLocalError(msg)
       return
     }
     if (volumeID <= 0) {
-      onNotifyError('请先选择分卷。')
+      const msg = '请先选择分卷。'
+      onNotifyError(msg)
+      setLocalError(msg)
       return
     }
 
@@ -245,16 +271,20 @@ export default function ChapterEditorPage({
       if (isEdit && initialChapter) {
         await updateChapter(token, novelId, initialChapter.id, payload)
         onNotifySuccess('Chapter updated.')
+        setLocalSuccess('章节已保存。')
       } else {
         await createChapter(token, novelId, payload)
         onNotifySuccess('Chapter created.')
+        setLocalSuccess('章节已创建。')
       }
 
       localStorage.removeItem(draftKey)
       await onSaved()
       onBack()
     } catch (e) {
-      onNotifyError(e instanceof Error ? e.message : 'Failed to save chapter')
+      const msg = e instanceof Error ? e.message : 'Failed to save chapter'
+      onNotifyError(msg)
+      setLocalError(msg)
     } finally {
       setSaving(false)
     }
@@ -329,7 +359,7 @@ export default function ChapterEditorPage({
               </Button>
               <Button
                 variant="outlined"
-                disabled={saving || chapterNumber <= 0}
+                disabled={saving || chapterNumber <= 0 || volumeID <= 0}
                 onClick={() => void handleSave()}
                 sx={{
                   borderRadius: 999,
@@ -558,7 +588,7 @@ export default function ChapterEditorPage({
             </Button>
             <Button
               variant="outlined"
-              disabled={saving || chapterNumber <= 0}
+              disabled={saving || chapterNumber <= 0 || volumeID <= 0}
               onClick={() => void handleSave()}
               sx={{
                 borderRadius: 999,
@@ -573,6 +603,17 @@ export default function ChapterEditorPage({
             </Button>
           </Stack>
         </Box>
+
+        <Snackbar open={Boolean(localSuccess)} autoHideDuration={2400} onClose={() => setLocalSuccess('')}>
+          <Alert severity="success" onClose={() => setLocalSuccess('')} sx={{ width: '100%' }}>
+            {localSuccess}
+          </Alert>
+        </Snackbar>
+        <Snackbar open={Boolean(localError)} autoHideDuration={3200} onClose={() => setLocalError('')}>
+          <Alert severity="error" onClose={() => setLocalError('')} sx={{ width: '100%' }}>
+            {localError}
+          </Alert>
+        </Snackbar>
       </Container>
     </Box>
   )
