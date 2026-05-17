@@ -1,28 +1,20 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   Alert,
-  Box,
   Button,
   Card,
   CardContent,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogContentText,
-  DialogTitle,
-  IconButton,
   Stack,
   TextField,
   Typography,
 } from '@mui/material'
-import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
-import EditOutlinedIcon from '@mui/icons-material/EditOutlined'
-import type { Character } from '../api/characters'
-import { createCharacter, deleteCharacter, listCharacters, updateCharacter } from '../api/characters'
+import { createCharacter, updateCharacter, type Character } from '../api/characters'
 
 type Props = {
   token: string
   novelId: number
+  initialCharacter?: Character | null
+  onDone?: () => void
 }
 
 const EMPTY_FORM = {
@@ -39,33 +31,36 @@ const EMPTY_FORM = {
   memo: '',
 }
 
-export default function CharacterManager({ token, novelId }: Props) {
-  const [characters, setCharacters] = useState<Character[]>([])
+export default function CharacterManager({ token, novelId, initialCharacter, onDone }: Props) {
   const [form, setForm] = useState(EMPTY_FORM)
   const [editingId, setEditingId] = useState<number | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
-  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null)
 
   const canSubmit = useMemo(() => form.name.trim().length > 0 && !loading, [form.name, loading])
 
   useEffect(() => {
-    void refreshCharacters()
-  }, [novelId])
-
-  async function refreshCharacters() {
-    setLoading(true)
-    setError('')
-    try {
-      const data = await listCharacters(token, novelId)
-      setCharacters(data.characters)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load characters')
-    } finally {
-      setLoading(false)
+    if (!initialCharacter) {
+      setForm(EMPTY_FORM)
+      setEditingId(null)
+      return
     }
-  }
+    setEditingId(initialCharacter.id)
+    setForm({
+      name: initialCharacter.name,
+      aliases: initialCharacter.aliases,
+      role: initialCharacter.role,
+      personality: initialCharacter.personality,
+      realm_or_ability: initialCharacter.realm_or_ability,
+      goal: initialCharacter.goal,
+      relationships: initialCharacter.relationships,
+      speech_style: initialCharacter.speech_style,
+      first_appearance_chapter: initialCharacter.first_appearance_chapter,
+      last_appearance_chapter: initialCharacter.last_appearance_chapter,
+      memo: initialCharacter.memo,
+    })
+  }, [initialCharacter])
 
   async function submit() {
     if (!form.name.trim()) return
@@ -74,15 +69,14 @@ export default function CharacterManager({ token, novelId }: Props) {
     setMessage('')
     try {
       if (editingId) {
-        const data = await updateCharacter(token, novelId, editingId, form)
-        setCharacters((prev) => prev.map((c) => (c.id === editingId ? data.character : c)))
+        await updateCharacter(token, novelId, editingId, form)
         setMessage('Character updated.')
       } else {
-        const data = await createCharacter(token, novelId, form)
-        setCharacters((prev) => [data.character, ...prev])
+        await createCharacter(token, novelId, form)
         setMessage('Character created.')
       }
       resetForm()
+      onDone?.()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to save character')
     } finally {
@@ -93,52 +87,6 @@ export default function CharacterManager({ token, novelId }: Props) {
   function resetForm() {
     setForm(EMPTY_FORM)
     setEditingId(null)
-  }
-
-  function startEdit(c: Character) {
-    setEditingId(c.id)
-    setForm({
-      name: c.name,
-      aliases: c.aliases,
-      role: c.role,
-      personality: c.personality,
-      realm_or_ability: c.realm_or_ability,
-      goal: c.goal,
-      relationships: c.relationships,
-      speech_style: c.speech_style,
-      first_appearance_chapter: c.first_appearance_chapter,
-      last_appearance_chapter: c.last_appearance_chapter,
-      memo: c.memo,
-    })
-    setError('')
-    setMessage('')
-  }
-
-  function askDelete(id: number) {
-    setConfirmDeleteId(id)
-  }
-
-  function closeDeleteDialog() {
-    setConfirmDeleteId(null)
-  }
-
-  async function confirmDelete() {
-    if (!confirmDeleteId) return
-    const id = confirmDeleteId
-    setConfirmDeleteId(null)
-    setLoading(true)
-    setError('')
-    setMessage('')
-    try {
-      await deleteCharacter(token, novelId, id)
-      setCharacters((prev) => prev.filter((c) => c.id !== id))
-      if (editingId === id) resetForm()
-      setMessage('Character deleted.')
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to delete character')
-    } finally {
-      setLoading(false)
-    }
   }
 
   return (
@@ -200,64 +148,14 @@ export default function CharacterManager({ token, novelId }: Props) {
             <Button variant="contained" disabled={!canSubmit} onClick={() => void submit()}>
               {editingId ? 'Update Character' : 'Create Character'}
             </Button>
-            {editingId && (
-              <Button variant="outlined" onClick={resetForm} disabled={loading}>
-                Cancel
-              </Button>
-            )}
+            <Button variant="outlined" onClick={() => onDone?.()} disabled={loading}>
+              Back
+            </Button>
           </Stack>
         </Stack>
 
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
         {message && <Alert severity="success" sx={{ mb: 2 }}>{message}</Alert>}
-
-        <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 600 }}>
-          Characters
-        </Typography>
-        {characters.length === 0 ? (
-          <Typography variant="body2" color="text.secondary">
-            No characters yet.
-          </Typography>
-        ) : (
-          <Stack spacing={1}>
-            {characters.map((c) => (
-              <Box
-                key={c.id}
-                sx={{ border: '1px solid #e2e8f0', borderRadius: 2, p: 1.5, display: 'flex', justifyContent: 'space-between' }}
-              >
-                <Box>
-                  <Typography sx={{ fontWeight: 600 }}>{c.name}</Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {c.role || 'No role'}
-                  </Typography>
-                </Box>
-                <Stack direction="row" spacing={0.5}>
-                  <IconButton onClick={() => startEdit(c)} disabled={loading}>
-                    <EditOutlinedIcon />
-                  </IconButton>
-                  <IconButton onClick={() => askDelete(c.id)} disabled={loading}>
-                    <DeleteOutlineIcon />
-                  </IconButton>
-                </Stack>
-              </Box>
-            ))}
-          </Stack>
-        )}
-
-        <Dialog open={confirmDeleteId !== null} onClose={closeDeleteDialog}>
-          <DialogTitle>Delete Character</DialogTitle>
-          <DialogContent>
-            <DialogContentText>
-              Are you sure you want to delete this character? This action cannot be undone.
-            </DialogContentText>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={closeDeleteDialog}>Cancel</Button>
-            <Button color="error" variant="contained" onClick={() => void confirmDelete()}>
-              Delete
-            </Button>
-          </DialogActions>
-        </Dialog>
       </CardContent>
     </Card>
   )
