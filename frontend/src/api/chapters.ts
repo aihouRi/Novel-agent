@@ -24,6 +24,19 @@ export type UpsertChapterPayload = {
   summary: string
 }
 
+export type GenerateChapterPayload = {
+  volume_id: number
+  chapter_number: number
+  title: string
+  generation_instruction: string
+}
+
+export type GenerateChapterResponse = {
+  outline: string
+  body: string
+  summary: string
+}
+
 const JSON_HEADERS = {
   'Content-Type': 'application/json',
 }
@@ -64,6 +77,23 @@ export async function updateChapter(
 ): Promise<{ chapter: Chapter }> {
   const res = await fetch(`/novels/${novelId}/chapters/${id}`, {
     method: 'PUT',
+    headers: {
+      ...JSON_HEADERS,
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
+  })
+  if (!res.ok) throw new Error(await extractError(res))
+  return res.json()
+}
+
+export async function generateChapter(
+  token: string,
+  novelId: number,
+  payload: GenerateChapterPayload,
+): Promise<GenerateChapterResponse> {
+  const res = await fetch(`/novels/${novelId}/chapters/generate`, {
+    method: 'POST',
     headers: {
       ...JSON_HEADERS,
       Authorization: `Bearer ${token}`,

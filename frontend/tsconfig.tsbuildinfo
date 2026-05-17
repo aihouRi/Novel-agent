@@ -1,0 +1,1 @@
+{"root":["./src/main.tsx","./src/api/auth.ts","./src/api/chapters.ts","./src/api/characters.ts","./src/api/novels.ts","./src/api/volumes.ts","./src/components/charactermanager.tsx","./src/components/userprofilecard.tsx","./src/pages/authpage.tsx","./src/pages/chaptereditorpage.tsx","./src/pages/novelspage.tsx"],"version":"5.9.3"}
