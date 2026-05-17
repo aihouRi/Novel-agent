@@ -32,6 +32,7 @@ import SettingsIcon from '@mui/icons-material/Settings'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import type { AuthUser } from '../api/auth'
 import { createNovel, deleteNovel, listNovels, type Novel, updateNovel } from '../api/novels'
+import CharacterManager from '../components/CharacterManager'
 
 type Props = {
   token: string
@@ -332,45 +333,49 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
         )}
 
         {mode === 'detail' && selectedNovel && (
-          <Card variant="outlined" sx={{ borderRadius: 3, mb: 2 }}>
-            <CardContent>
-              <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
-                <IconButton onClick={openList}>
-                  <ArrowBackIcon />
-                </IconButton>
-                <Typography variant="h6">Novel Detail</Typography>
-              </Stack>
+          <>
+            <Card variant="outlined" sx={{ borderRadius: 3, mb: 2 }}>
+              <CardContent>
+                <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
+                  <IconButton onClick={openList}>
+                    <ArrowBackIcon />
+                  </IconButton>
+                  <Typography variant="h6">Novel Detail</Typography>
+                </Stack>
 
-              <NovelForm
-                title={title}
-                genre={genre}
-                language={language}
-                styleProfile={styleProfile}
-                worldview={worldview}
-                powerSystem={powerSystem}
-                mainPlot={mainPlot}
-                writingRules={writingRules}
-                forbiddenRules={forbiddenRules}
-                recentChapterCount={recentChapterCount}
-                onTitle={setTitle}
-                onGenre={setGenre}
-                onLanguage={setLanguage}
-                onStyleProfile={setStyleProfile}
-                onWorldview={setWorldview}
-                onPowerSystem={setPowerSystem}
-                onMainPlot={setMainPlot}
-                onWritingRules={setWritingRules}
-                onForbiddenRules={setForbiddenRules}
-                onRecentChapterCount={setRecentChapterCount}
-              />
+                <NovelForm
+                  title={title}
+                  genre={genre}
+                  language={language}
+                  styleProfile={styleProfile}
+                  worldview={worldview}
+                  powerSystem={powerSystem}
+                  mainPlot={mainPlot}
+                  writingRules={writingRules}
+                  forbiddenRules={forbiddenRules}
+                  recentChapterCount={recentChapterCount}
+                  onTitle={setTitle}
+                  onGenre={setGenre}
+                  onLanguage={setLanguage}
+                  onStyleProfile={setStyleProfile}
+                  onWorldview={setWorldview}
+                  onPowerSystem={setPowerSystem}
+                  onMainPlot={setMainPlot}
+                  onWritingRules={setWritingRules}
+                  onForbiddenRules={setForbiddenRules}
+                  onRecentChapterCount={setRecentChapterCount}
+                />
 
-              <Stack direction="row" spacing={1.5} sx={{ mt: 2 }}>
-                <Button variant="contained" disabled={!title.trim() || loading} onClick={handleUpdate}>
-                  Update
-                </Button>
-              </Stack>
-            </CardContent>
-          </Card>
+                <Stack direction="row" spacing={1.5} sx={{ mt: 2 }}>
+                  <Button variant="contained" disabled={!title.trim() || loading} onClick={handleUpdate}>
+                    Update
+                  </Button>
+                </Stack>
+              </CardContent>
+            </Card>
+
+            <CharacterManager token={token} novelId={selectedNovel.id} />
+          </>
         )}
 
         {error && (
