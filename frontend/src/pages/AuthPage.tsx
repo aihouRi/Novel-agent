@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Alert, Box, Button, Card, CardContent, Container, Stack, TextField, Typography } from '@mui/material'
 import { login, me, register, type AuthUser } from '../api/auth'
-import { UserProfileCard } from '../components/UserProfileCard'
+import NovelsPage from './NovelsPage'
 
 type Mode = 'login' | 'register'
 const TOKEN_KEY = 'novel_agent_token'
@@ -76,6 +76,10 @@ export default function AuthPage() {
     setMode((prev) => (prev === 'login' ? 'register' : 'login'))
     setError('')
     setMessage('')
+  }
+
+  if (token && user) {
+    return <NovelsPage token={token} user={user} onLogout={handleLogout} />
   }
 
   return (
@@ -169,15 +173,6 @@ export default function AuthPage() {
           <Alert severity="success" sx={{ mt: 2 }}>
             {message}
           </Alert>
-        )}
-
-        {token && user && (
-          <>
-            <UserProfileCard user={user} />
-            <Button sx={{ mt: 2 }} variant="outlined" onClick={handleLogout}>
-              Logout
-            </Button>
-          </>
         )}
       </Container>
     </Box>
