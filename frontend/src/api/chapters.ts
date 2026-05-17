@@ -29,6 +29,7 @@ export type GenerateChapterPayload = {
   chapter_number: number
   title: string
   generation_instruction: string
+  character_ids: number[]
 }
 
 export type GenerateChapterResponse = {

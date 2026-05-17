@@ -20,10 +20,11 @@ func NewChapterGenerateHandler(generate *usecase.ChapterGenerateUsecase) *Chapte
 }
 
 type chapterGenerateRequest struct {
-	VolumeID              int64  `json:"volume_id"`
-	ChapterNumber         int    `json:"chapter_number"`
-	Title                 string `json:"title"`
-	GenerationInstruction string `json:"generation_instruction"`
+	VolumeID              int64   `json:"volume_id"`
+	ChapterNumber         int     `json:"chapter_number"`
+	Title                 string  `json:"title"`
+	GenerationInstruction string  `json:"generation_instruction"`
+	CharacterIDs          []int64 `json:"character_ids"`
 }
 
 func (h *ChapterGenerateHandler) Generate(c echo.Context) error {
@@ -46,6 +47,7 @@ func (h *ChapterGenerateHandler) Generate(c echo.Context) error {
 		ChapterNumber:         req.ChapterNumber,
 		Title:                 req.Title,
 		GenerationInstruction: req.GenerationInstruction,
+		CharacterIDs:          req.CharacterIDs,
 	})
 	if err != nil {
 		switch {

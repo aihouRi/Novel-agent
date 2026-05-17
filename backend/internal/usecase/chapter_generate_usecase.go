@@ -18,6 +18,7 @@ type ChapterGenerateInput struct {
 	ChapterNumber         int
 	Title                 string
 	GenerationInstruction string
+	CharacterIDs          []int64
 }
 
 type ChapterGenerateUsecase struct {
@@ -59,6 +60,10 @@ func (u *ChapterGenerateUsecase) Generate(ctx context.Context, userID, novelID i
 		return nil, err
 	}
 	characters, err := u.characters.List(ctx, userID, novelID)
+	if err != nil {
+		return nil, err
+	}
+	characters, err = filterCharactersBySelectedIDs(characters, in.CharacterIDs)
 	if err != nil {
 		return nil, err
 	}
@@ -105,11 +110,11 @@ func buildChapterGeneratePrompt(
 
 	b.WriteString("【主要人物】\n")
 	for _, c := range characters {
-		if c.ImportanceLevel < 5 {
-			continue
-		}
 		b.WriteString(fmt.Sprintf("- %s（身份：%s；性格：%s；目标：%s；说话风格：%s）\n",
 			c.Name, c.Role, c.Personality, c.Goal, c.SpeechStyle))
+	}
+	if len(characters) == 0 {
+		b.WriteString("- 无\n")
 	}
 	b.WriteString("\n")
 
@@ -164,4 +169,37 @@ func pickRecentSummaries(chapters []domain.Chapter, count int) []string {
 		out = append(out, fmt.Sprintf("第%d章：%s", c.ChapterNumber, strings.TrimSpace(c.Summary)))
 	}
 	return out
+}
+
+func filterCharactersBySelectedIDs(all []domain.Character, selectedIDs []int64) ([]domain.Character, error) {
+	// Fallback mode: if no explicit selection, use major characters.
+	if len(selectedIDs) == 0 {
+		filtered := make([]domain.Character, 0)
+		for _, c := range all {
+			if c.ImportanceLevel >= 5 {
+				filtered = append(filtered, c)
+			}
+		}
+		return filtered, nil
+	}
+
+	selectedSet := make(map[int64]bool, len(selectedIDs))
+	for _, id := range selectedIDs {
+		if id <= 0 {
+			return nil, errors.New("character_ids contains invalid id")
+		}
+		selectedSet[id] = true
+	}
+
+	filtered := make([]domain.Character, 0, len(selectedSet))
+	for _, c := range all {
+		if selectedSet[c.ID] {
+			filtered = append(filtered, c)
+		}
+	}
+	if len(filtered) != len(selectedSet) {
+		return nil, errors.New("character_ids contains non-existing character")
+	}
+	sort.Slice(filtered, func(i, j int) bool { return filtered[i].ID < filtered[j].ID })
+	return filtered, nil
 }
