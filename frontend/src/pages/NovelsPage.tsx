@@ -103,6 +103,10 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
     () => chapters.find((c) => c.id === confirmDeleteChapterId) ?? null,
     [chapters, confirmDeleteChapterId],
   )
+  const nextChapterNumber = useMemo(
+    () => (chapters.length === 0 ? 1 : Math.max(...chapters.map((c) => c.chapter_number)) + 1),
+    [chapters],
+  )
   const visibleChapters = useMemo(() => {
     const keyword = chapterSearch.trim().toLowerCase()
     const filtered = chapters.filter((c) => {
@@ -400,6 +404,7 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
         novelId={selectedNovel.id}
         novelTitle={selectedNovel.title}
         initialChapter={chapterEditorTarget}
+        defaultChapterNumber={nextChapterNumber}
         onBack={() => {
           setChapterEditorOpen(false)
           setChapterEditorTarget(null)
