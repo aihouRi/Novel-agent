@@ -5,6 +5,7 @@ import "time"
 type Chapter struct {
 	ID                    int64     `json:"id"`
 	NovelID               int64     `json:"novel_id"`
+	VolumeID              int64     `json:"volume_id"`
 	ChapterNumber         int       `json:"chapter_number"`
 	Title                 string    `json:"title"`
 	Body                  string    `json:"body"`

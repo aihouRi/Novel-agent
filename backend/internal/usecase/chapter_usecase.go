@@ -32,6 +32,9 @@ func (u *ChapterUsecase) Create(ctx context.Context, userID, novelID int64, in *
 	if in.ChapterNumber <= 0 {
 		return nil, errors.New("chapter_number must be greater than 0")
 	}
+	if in.VolumeID <= 0 {
+		return nil, errors.New("volume_id is required")
+	}
 	in.WordCount = countNonSpaceChars(in.Body)
 
 	chapter, err := u.chapters.Create(ctx, userID, in)
@@ -68,6 +71,9 @@ func (u *ChapterUsecase) Update(ctx context.Context, userID, novelID, id int64, 
 
 	if in.ChapterNumber <= 0 {
 		return nil, errors.New("chapter_number must be greater than 0")
+	}
+	if in.VolumeID <= 0 {
+		return nil, errors.New("volume_id is required")
 	}
 	in.WordCount = countNonSpaceChars(in.Body)
 
