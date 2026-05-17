@@ -41,7 +41,7 @@ import type { AuthUser } from '../api/auth'
 import { createNovel, deleteNovel, listNovels, type Novel, updateNovel } from '../api/novels'
 import { deleteCharacter, listCharacters, type Character } from '../api/characters'
 import { deleteChapter, listChapters, type Chapter } from '../api/chapters'
-import { createVolume, listVolumes, type Volume } from '../api/volumes'
+import { createVolume, listVolumes, type Volume, updateVolume } from '../api/volumes'
 import ChapterEditorPage from './ChapterEditorPage'
 import CharacterManager from '../components/CharacterManager'
 
@@ -77,6 +77,8 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
   const [chapterSearch, setChapterSearch] = useState('')
   const [chapterSort, setChapterSort] = useState<'number_asc' | 'number_desc' | 'updated_desc'>('number_desc')
   const [newVolumeTitle, setNewVolumeTitle] = useState('')
+  const [editingVolume, setEditingVolume] = useState<Volume | null>(null)
+  const [editingVolumeTitle, setEditingVolumeTitle] = useState('')
 
   const [characters, setCharacters] = useState<Character[]>([])
   const [characterLoading, setCharacterLoading] = useState(false)
@@ -259,6 +261,36 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
       notifySuccess('Volume created.')
     } catch (e) {
       notifyError(e instanceof Error ? e.message : 'Failed to create volume')
+    }
+  }
+
+  function openEditVolume(volume: Volume) {
+    setEditingVolume(volume)
+    setEditingVolumeTitle(volume.title)
+  }
+
+  function closeEditVolume() {
+    setEditingVolume(null)
+    setEditingVolumeTitle('')
+  }
+
+  async function handleUpdateVolume() {
+    if (!selectedNovelId || !editingVolume) return
+    const title = editingVolumeTitle.trim()
+    if (!title) {
+      notifyError('卷名不能为空。')
+      return
+    }
+    try {
+      await updateVolume(token, selectedNovelId, editingVolume.id, {
+        volume_number: editingVolume.volume_number,
+        title,
+      })
+      await refreshVolumes(selectedNovelId)
+      notifySuccess('卷名已更新。')
+      closeEditVolume()
+    } catch (e) {
+      notifyError(e instanceof Error ? e.message : 'Failed to update volume')
     }
   }
 
@@ -857,9 +889,14 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
                         {groupedChapters.map(({ volume, chapters: volumeChapters }) => (
                           <Card key={volume.id} variant="outlined" sx={{ borderRadius: 2 }}>
                             <CardContent>
-                              <Typography sx={{ fontWeight: 700, mb: 1 }}>
-                                第{volume.volume_number}卷：{volume.title}
-                              </Typography>
+                              <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
+                                <Typography sx={{ fontWeight: 700 }}>
+                                  第{volume.volume_number}卷：{volume.title}
+                                </Typography>
+                                <IconButton size="small" onClick={() => openEditVolume(volume)}>
+                                  <EditOutlinedIcon fontSize="small" />
+                                </IconButton>
+                              </Stack>
                               {volumeChapters.length === 0 ? (
                                 <Typography variant="body2" color="text.secondary">该分卷暂无章节</Typography>
                               ) : (
@@ -956,6 +993,28 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
           <DialogActions>
             <Button onClick={closeDeleteChapterDialog}>Cancel</Button>
             <Button onClick={() => void confirmDeleteChapter()} color="error" variant="contained">Delete</Button>
+          </DialogActions>
+        </Dialog>
+
+        <Dialog open={editingVolume !== null} onClose={closeEditVolume} fullWidth maxWidth="sm">
+          <DialogTitle>编辑卷名</DialogTitle>
+          <DialogContent>
+            <DialogContentText sx={{ mb: 1.5 }}>
+              {editingVolume ? `第${editingVolume.volume_number}卷` : ''}
+            </DialogContentText>
+            <TextField
+              label="卷名"
+              value={editingVolumeTitle}
+              onChange={(e) => setEditingVolumeTitle(e.target.value)}
+              fullWidth
+              autoFocus
+            />
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={closeEditVolume}>取消</Button>
+            <Button onClick={() => void handleUpdateVolume()} variant="contained" disabled={!editingVolumeTitle.trim()}>
+              保存
+            </Button>
           </DialogActions>
         </Dialog>
 
