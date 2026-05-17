@@ -40,7 +40,7 @@ import LibraryBooksOutlinedIcon from '@mui/icons-material/LibraryBooksOutlined'
 import type { AuthUser } from '../api/auth'
 import { createNovel, deleteNovel, listNovels, type Novel, updateNovel } from '../api/novels'
 import { deleteCharacter, listCharacters, type Character } from '../api/characters'
-import { deleteChapter, listChapters, type Chapter } from '../api/chapters'
+import { deleteChapter, listChapters, type Chapter, updateChapter } from '../api/chapters'
 import { createVolume, listVolumes, type Volume, updateVolume } from '../api/volumes'
 import ChapterEditorPage from './ChapterEditorPage'
 import CharacterManager from '../components/CharacterManager'
@@ -59,6 +59,7 @@ const DEFAULT_RECENT_COUNT = 3
 
 export default function NovelsPage({ token, user, onLogout }: Props) {
   const [novels, setNovels] = useState<Novel[]>([])
+  const [novelWordCounts, setNovelWordCounts] = useState<Record<number, number>>({})
   const [selectedNovelId, setSelectedNovelId] = useState<number | null>(null)
 
   const [mainTab, setMainTab] = useState<MainTab>('myNovels')
@@ -76,6 +77,7 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
   const [confirmDeleteChapterId, setConfirmDeleteChapterId] = useState<number | null>(null)
   const [chapterSearch, setChapterSearch] = useState('')
   const [chapterSort, setChapterSort] = useState<'number_asc' | 'number_desc' | 'updated_desc'>('number_desc')
+  const [movingChapterId, setMovingChapterId] = useState<number | null>(null)
   const [newVolumeTitle, setNewVolumeTitle] = useState('')
   const [editingVolume, setEditingVolume] = useState<Volume | null>(null)
   const [editingVolumeTitle, setEditingVolumeTitle] = useState('')
@@ -141,6 +143,19 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
       chapters: byVolume.get(v.id) ?? [],
     }))
   }, [visibleChapters, volumes])
+  const novelTotalWordCount = useMemo(
+    () => chapters.reduce((sum, c) => sum + (Number.isFinite(c.word_count) ? c.word_count : 0), 0),
+    [chapters],
+  )
+
+  function formatNovelMeta(novel: Novel): string {
+    const parts: string[] = [novel.genre || 'No genre']
+    if (novel.language && novel.language !== DEFAULT_LANGUAGE) {
+      parts.push(novel.language)
+    }
+    parts.push(`${(novelWordCounts[novel.id] ?? 0).toLocaleString()} 字`)
+    return parts.join(' · ')
+  }
 
   useEffect(() => {
     void refreshNovels()
@@ -194,6 +209,7 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
     try {
       const data = await listNovels(token)
       setNovels(data.novels)
+      void refreshNovelWordCounts(data.novels)
       if (!selectedNovelId && data.novels.length > 0) {
         setSelectedNovelId(data.novels[0].id)
       }
@@ -202,6 +218,28 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
     } finally {
       setLoading(false)
     }
+  }
+
+  async function refreshNovelWordCounts(novelList: Novel[]) {
+    if (novelList.length === 0) {
+      setNovelWordCounts({})
+      return
+    }
+    const entries = await Promise.all(
+      novelList.map(async (novel) => {
+        try {
+          const data = await listChapters(token, novel.id)
+          const total = data.chapters.reduce(
+            (sum, c) => sum + (Number.isFinite(c.word_count) ? c.word_count : 0),
+            0,
+          )
+          return [novel.id, total] as const
+        } catch {
+          return [novel.id, 0] as const
+        }
+      }),
+    )
+    setNovelWordCounts(Object.fromEntries(entries))
   }
 
   async function refreshCharacters(novelId: number) {
@@ -241,6 +279,7 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
     if (!selectedNovelId) return
     await refreshChapters(selectedNovelId)
     await refreshVolumes(selectedNovelId)
+    await refreshNovels()
   }
 
   async function handleCreateVolume() {
@@ -291,6 +330,29 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
       closeEditVolume()
     } catch (e) {
       notifyError(e instanceof Error ? e.message : 'Failed to update volume')
+    }
+  }
+
+  async function handleMoveChapterVolume(chapter: Chapter, nextVolumeID: number) {
+    if (!selectedNovelId || chapter.volume_id === nextVolumeID) return
+    setMovingChapterId(chapter.id)
+    try {
+      await updateChapter(token, selectedNovelId, chapter.id, {
+        volume_id: nextVolumeID,
+        chapter_number: chapter.chapter_number,
+        title: chapter.title,
+        body: chapter.body,
+        word_count: chapter.word_count,
+        generation_instruction: chapter.generation_instruction,
+        outline: chapter.outline,
+        summary: chapter.summary,
+      })
+      await refreshChapters(selectedNovelId)
+      notifySuccess('章节分卷已更新。')
+    } catch (e) {
+      notifyError(e instanceof Error ? e.message : 'Failed to move chapter volume')
+    } finally {
+      setMovingChapterId(null)
     }
   }
 
@@ -451,6 +513,7 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
       await deleteChapter(token, selectedNovelId, id)
       notifySuccess('Chapter deleted.')
       await refreshChapters(selectedNovelId)
+      await refreshNovels()
     } catch (e) {
       notifyError(e instanceof Error ? e.message : 'Failed to delete chapter')
     } finally {
@@ -688,7 +751,9 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
                               <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ p: 1.5 }}>
                                 <Box>
                                   <Typography sx={{ fontWeight: 600 }}>{novel.title}</Typography>
-                                  <Typography variant="body2" color="text.secondary">{novel.genre || 'No genre'} · {novel.language}</Typography>
+                                  <Typography variant="body2" color="text.secondary">
+                                    {formatNovelMeta(novel)}
+                                  </Typography>
                                 </Box>
                                 <Stack direction="row" spacing={0.5}>
                                   <IconButton onClick={(e) => { e.stopPropagation(); setSelectedNovelId(novel.id); setShowNovelEditor(true) }}><EditOutlinedIcon /></IconButton>
@@ -848,6 +913,9 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
                     </FormControl>
 
                     <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 600 }}>当前章节</Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+                      小说总字数：{novelTotalWordCount.toLocaleString()} 字
+                    </Typography>
                     <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} sx={{ mb: 2 }}>
                       <TextField
                         label="新分卷名"
@@ -889,14 +957,19 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
                         {groupedChapters.map(({ volume, chapters: volumeChapters }) => (
                           <Card key={volume.id} variant="outlined" sx={{ borderRadius: 2 }}>
                             <CardContent>
+                              {(() => {
+                                const volumeWordCount = volumeChapters.reduce((sum, c) => sum + (Number.isFinite(c.word_count) ? c.word_count : 0), 0)
+                                return (
                               <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
                                 <Typography sx={{ fontWeight: 700 }}>
-                                  第{volume.volume_number}卷：{volume.title}
+                                  第{volume.volume_number}卷：{volume.title}（{volumeChapters.length}章 / {volumeWordCount.toLocaleString()}字）
                                 </Typography>
                                 <IconButton size="small" onClick={() => openEditVolume(volume)}>
                                   <EditOutlinedIcon fontSize="small" />
                                 </IconButton>
                               </Stack>
+                                )
+                              })()}
                               {volumeChapters.length === 0 ? (
                                 <Typography variant="body2" color="text.secondary">该分卷暂无章节</Typography>
                               ) : (
@@ -910,7 +983,21 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
                                         </Typography>
                                       </Box>
                                       <Stack direction="row" spacing={0.5}>
+                                        <FormControl size="small" sx={{ minWidth: 150 }}>
+                                          <Select
+                                            value={c.volume_id}
+                                            onChange={(e) => void handleMoveChapterVolume(c, Number(e.target.value))}
+                                            disabled={movingChapterId === c.id}
+                                          >
+                                            {volumes.map((v) => (
+                                              <MenuItem key={v.id} value={v.id}>
+                                                第{v.volume_number}卷：{v.title}
+                                              </MenuItem>
+                                            ))}
+                                          </Select>
+                                        </FormControl>
                                         <IconButton
+                                          disabled={movingChapterId === c.id}
                                           onClick={() => {
                                             setChapterEditorTarget(c)
                                             setChapterEditorOpen(true)
@@ -918,7 +1005,7 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
                                         >
                                           <EditOutlinedIcon />
                                         </IconButton>
-                                        <IconButton onClick={() => requestDeleteChapter(c.id)}>
+                                        <IconButton disabled={movingChapterId === c.id} onClick={() => requestDeleteChapter(c.id)}>
                                           <DeleteOutlineIcon />
                                         </IconButton>
                                       </Stack>
