@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { ClipboardEvent, KeyboardEvent, useEffect, useMemo, useState } from 'react'
 import { Box, Button, Card, CardContent, Container, IconButton, Stack, TextField, Typography } from '@mui/material'
 import CloseIcon from '@mui/icons-material/Close'
 import ArrowBackIosNewRoundedIcon from '@mui/icons-material/ArrowBackIosNewRounded'
@@ -11,6 +11,7 @@ type Props = {
   novelId: number
   novelTitle: string
   initialChapter?: Chapter | null
+  defaultChapterNumber?: number
   onBack: () => void
   onNotifySuccess: (msg: string) => void
   onNotifyError: (msg: string) => void
@@ -22,6 +23,7 @@ export default function ChapterEditorPage({
   novelId,
   novelTitle,
   initialChapter,
+  defaultChapterNumber = 1,
   onBack,
   onNotifySuccess,
   onNotifyError,
@@ -29,9 +31,11 @@ export default function ChapterEditorPage({
 }: Props) {
   type SidePanel = 'summary' | 'outline' | 'instruction' | null
 
-  const [chapterNumber, setChapterNumber] = useState(initialChapter?.chapter_number ?? 1)
+  const INDENT = '　　'
+
+  const [chapterNumber, setChapterNumber] = useState(initialChapter?.chapter_number ?? defaultChapterNumber)
   const [chapterTitle, setChapterTitle] = useState(initialChapter?.title ?? '')
-  const [chapterBody, setChapterBody] = useState(initialChapter?.body ?? '')
+  const [chapterBody, setChapterBody] = useState(ensureIndentedBody(initialChapter?.body ?? INDENT))
   const [chapterSummary, setChapterSummary] = useState(initialChapter?.summary ?? '')
   const [chapterOutline, setChapterOutline] = useState(initialChapter?.outline ?? '')
   const [chapterInstruction, setChapterInstruction] = useState(initialChapter?.generation_instruction ?? '')
@@ -59,7 +63,7 @@ export default function ChapterEditorPage({
       }
       setChapterNumber(draft.chapterNumber ?? chapterNumber)
       setChapterTitle(draft.chapterTitle ?? '')
-      setChapterBody(draft.chapterBody ?? '')
+      setChapterBody(ensureIndentedBody(draft.chapterBody ?? ''))
       setChapterSummary(draft.chapterSummary ?? '')
       setChapterOutline(draft.chapterOutline ?? '')
       setChapterInstruction(draft.chapterInstruction ?? '')
@@ -68,6 +72,124 @@ export default function ChapterEditorPage({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draftKey])
+
+  function ensureIndentedBody(text: string): string {
+    if (!text) return INDENT
+    const lines = text.split('\n')
+    return lines
+      .map((line) => (line.startsWith(INDENT) ? line : `${INDENT}${line}`))
+      .join('\n')
+  }
+
+  function handleBodyKeyDown(e: KeyboardEvent<HTMLDivElement>) {
+    const target = e.target as HTMLTextAreaElement
+    if (!target) return
+    const start = target.selectionStart
+    const end = target.selectionEnd
+    if (start !== end) return
+
+    const lineStart = chapterBody.lastIndexOf('\n', start - 1) + 1
+    const indentEnd = lineStart + INDENT.length
+
+    // In non-first lines, Backspace inside the indent area behaves as
+    // logical "back to previous line" (merge lines).
+    if (e.key === 'Backspace' && start <= indentEnd && lineStart > 0) {
+      e.preventDefault()
+      const merged = `${chapterBody.slice(0, lineStart - 1)}${chapterBody.slice(indentEnd)}`
+      setChapterBody(merged)
+      window.requestAnimationFrame(() => {
+        const nextPos = lineStart - 1
+        target.selectionStart = nextPos
+        target.selectionEnd = nextPos
+      })
+      return
+    }
+
+    if (e.key === 'Backspace' && start <= indentEnd) {
+      e.preventDefault()
+      return
+    }
+
+    if (e.key === 'Delete' && start < indentEnd) {
+      e.preventDefault()
+      return
+    }
+
+    if (e.key !== 'Enter') return
+    e.preventDefault()
+    const next = `${chapterBody.slice(0, start)}\n${INDENT}${chapterBody.slice(end)}`
+    setChapterBody(next)
+    window.requestAnimationFrame(() => {
+      target.selectionStart = start + 1 + INDENT.length
+      target.selectionEnd = start + 1 + INDENT.length
+    })
+  }
+
+  function handleBodyPaste(e: ClipboardEvent<HTMLDivElement>) {
+    const target = e.target as HTMLTextAreaElement
+    if (!target) return
+    e.preventDefault()
+
+    const raw = e.clipboardData.getData('text')
+    const normalizedPaste = raw.replace(/\r\n/g, '\n')
+
+    let start = target.selectionStart
+    let end = target.selectionEnd
+
+    const lineStart = chapterBody.lastIndexOf('\n', start - 1) + 1
+    const indentEnd = lineStart + INDENT.length
+
+    // Do not allow paste before the required indent of current line.
+    if (start < indentEnd) start = indentEnd
+    if (end < indentEnd) end = indentEnd
+
+    const next = `${chapterBody.slice(0, start)}${normalizedPaste}${chapterBody.slice(end)}`
+    setChapterBody(next)
+
+    window.requestAnimationFrame(() => {
+      const pos = start + normalizedPaste.length
+      target.selectionStart = pos
+      target.selectionEnd = pos
+    })
+  }
+
+  function stripIndentForClipboard(text: string): string {
+    return text
+      .split('\n')
+      .map((line) => (line.startsWith(INDENT) ? line.slice(INDENT.length) : line))
+      .join('\n')
+  }
+
+  function handleBodyCopy(e: ClipboardEvent<HTMLDivElement>) {
+    const target = e.target as HTMLTextAreaElement
+    if (!target) return
+    const selected = target.value.slice(target.selectionStart, target.selectionEnd)
+    if (!selected) return
+    e.preventDefault()
+    e.clipboardData.setData('text/plain', stripIndentForClipboard(selected))
+  }
+
+  function handleBodyCut(e: ClipboardEvent<HTMLDivElement>) {
+    const target = e.target as HTMLTextAreaElement
+    if (!target) return
+    const start = target.selectionStart
+    const end = target.selectionEnd
+    if (start === end) return
+
+    e.preventDefault()
+    const selected = target.value.slice(start, end)
+    e.clipboardData.setData('text/plain', stripIndentForClipboard(selected))
+
+    // Apply deletion while preserving indentation invariants.
+    const next = ensureIndentedBody(`${chapterBody.slice(0, start)}${chapterBody.slice(end)}`)
+    setChapterBody(next)
+
+    window.requestAnimationFrame(() => {
+      const pos = Math.min(start, next.length)
+      target.selectionStart = pos
+      target.selectionEnd = pos
+    })
+  }
 
   useEffect(() => {
     const id = window.setTimeout(() => {
@@ -95,7 +217,7 @@ export default function ChapterEditorPage({
       const payload = {
         chapter_number: chapterNumber,
         title: chapterTitle.trim(),
-        body: chapterBody,
+        body: ensureIndentedBody(chapterBody),
         word_count: chapterWordCount,
         generation_instruction: chapterInstruction,
         outline: chapterOutline,
@@ -247,14 +369,19 @@ export default function ChapterEditorPage({
 
                         <Card variant="outlined" sx={{ borderRadius: 2 }}>
                           <CardContent>
-                            <TextField
-                              label="正文"
-                              multiline
-                              minRows={26}
-                              value={chapterBody}
-                              onChange={(e) => setChapterBody(e.target.value)}
-                              fullWidth
-                            />
+                          <TextField
+                            label="正文"
+                            multiline
+                            minRows={26}
+                            value={chapterBody}
+                            onChange={(e) => setChapterBody(e.target.value)}
+                            onKeyDown={handleBodyKeyDown}
+                            onPaste={handleBodyPaste}
+                            onCopy={handleBodyCopy}
+                            onCut={handleBodyCut}
+                            onBlur={() => setChapterBody((prev) => ensureIndentedBody(prev))}
+                            fullWidth
+                          />
                           </CardContent>
                         </Card>
                       </Stack>
