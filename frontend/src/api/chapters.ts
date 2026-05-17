@@ -84,6 +84,25 @@ export async function deleteChapter(token: string, novelId: number, id: number):
   if (!res.ok) throw new Error(await extractError(res))
 }
 
+export async function exportNovelMarkdown(
+  token: string,
+  novelId: number,
+): Promise<{ blob: Blob; filename: string }> {
+  const res = await fetch(`/novels/${novelId}/export/markdown`, {
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  })
+  if (!res.ok) throw new Error(await extractError(res))
+
+  const blob = await res.blob()
+  const disposition = res.headers.get('content-disposition') || ''
+  const match = disposition.match(/filename=\"?([^\";]+)\"?/)
+  const filename = match?.[1] || `novel-${novelId}.md`
+  return { blob, filename }
+}
+
 async function extractError(res: Response): Promise<string> {
   try {
     const data = (await res.json()) as { error?: string }
