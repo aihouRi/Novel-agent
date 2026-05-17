@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Box, Button, Card, CardContent, Container, IconButton, Stack, TextField, Typography } from '@mui/material'
 import CloseIcon from '@mui/icons-material/Close'
 import { createChapter, type Chapter, updateChapter } from '../api/chapters'
@@ -37,6 +37,50 @@ export default function ChapterEditorPage({
 
   const chapterWordCount = useMemo(() => chapterBody.replace(/\s/g, '').length, [chapterBody])
   const isEdit = Boolean(initialChapter)
+  const draftKey = useMemo(
+    () => `novel_agent_chapter_draft_${novelId}_${initialChapter?.id ?? 'new'}`,
+    [novelId, initialChapter?.id],
+  )
+
+  useEffect(() => {
+    const saved = localStorage.getItem(draftKey)
+    if (!saved) return
+    try {
+      const draft = JSON.parse(saved) as {
+        chapterNumber: number
+        chapterTitle: string
+        chapterBody: string
+        chapterSummary: string
+        chapterOutline: string
+        chapterInstruction: string
+      }
+      setChapterNumber(draft.chapterNumber ?? chapterNumber)
+      setChapterTitle(draft.chapterTitle ?? '')
+      setChapterBody(draft.chapterBody ?? '')
+      setChapterSummary(draft.chapterSummary ?? '')
+      setChapterOutline(draft.chapterOutline ?? '')
+      setChapterInstruction(draft.chapterInstruction ?? '')
+      onNotifySuccess('已恢复本地草稿。')
+    } catch {
+      localStorage.removeItem(draftKey)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draftKey])
+
+  useEffect(() => {
+    const id = window.setTimeout(() => {
+      const draft = {
+        chapterNumber,
+        chapterTitle,
+        chapterBody,
+        chapterSummary,
+        chapterOutline,
+        chapterInstruction,
+      }
+      localStorage.setItem(draftKey, JSON.stringify(draft))
+    }, 500)
+    return () => window.clearTimeout(id)
+  }, [draftKey, chapterNumber, chapterTitle, chapterBody, chapterSummary, chapterOutline, chapterInstruction])
 
   async function handleSave() {
     if (chapterNumber <= 0) {
@@ -64,6 +108,7 @@ export default function ChapterEditorPage({
         onNotifySuccess('Chapter created.')
       }
 
+      localStorage.removeItem(draftKey)
       await onSaved()
       onBack()
     } catch (e) {
@@ -224,6 +269,28 @@ export default function ChapterEditorPage({
           </Stack>
         </Box>
 
+        <Box
+          sx={{
+            position: 'fixed',
+            bottom: 16,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 20,
+            bgcolor: 'rgba(255,255,255,0.95)',
+            border: '1px solid #e2e8f0',
+            borderRadius: 999,
+            px: 2,
+            py: 1,
+            boxShadow: '0 8px 24px rgba(15,23,42,0.12)',
+          }}
+        >
+          <Stack direction="row" spacing={1.5}>
+            <Button variant="outlined" onClick={onBack}>返回章节列表</Button>
+            <Button variant="contained" disabled={saving || chapterNumber <= 0} onClick={() => void handleSave()}>
+              {isEdit ? '保存章节' : '创建章节'}
+            </Button>
+          </Stack>
+        </Box>
       </Container>
     </Box>
   )

@@ -72,6 +72,8 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
   const [chapterEditorTarget, setChapterEditorTarget] = useState<Chapter | null>(null)
   const [chapterEditorOpen, setChapterEditorOpen] = useState(false)
   const [confirmDeleteChapterId, setConfirmDeleteChapterId] = useState<number | null>(null)
+  const [chapterSearch, setChapterSearch] = useState('')
+  const [chapterSort, setChapterSort] = useState<'number_asc' | 'number_desc' | 'updated_desc'>('number_desc')
 
   const [characters, setCharacters] = useState<Character[]>([])
   const [characterLoading, setCharacterLoading] = useState(false)
@@ -97,6 +99,27 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null)
 
   const selectedNovel = useMemo(() => novels.find((n) => n.id === selectedNovelId) ?? null, [novels, selectedNovelId])
+  const chapterToDelete = useMemo(
+    () => chapters.find((c) => c.id === confirmDeleteChapterId) ?? null,
+    [chapters, confirmDeleteChapterId],
+  )
+  const visibleChapters = useMemo(() => {
+    const keyword = chapterSearch.trim().toLowerCase()
+    const filtered = chapters.filter((c) => {
+      if (!keyword) return true
+      return (
+        c.title.toLowerCase().includes(keyword) ||
+        c.chapter_number.toString().includes(keyword)
+      )
+    })
+    if (chapterSort === 'number_asc') {
+      return filtered.sort((a, b) => a.chapter_number - b.chapter_number)
+    }
+    if (chapterSort === 'number_desc') {
+      return filtered.sort((a, b) => b.chapter_number - a.chapter_number)
+    }
+    return filtered.sort((a, b) => Date.parse(b.updated_at) - Date.parse(a.updated_at))
+  }, [chapters, chapterSearch, chapterSort])
 
   useEffect(() => {
     void refreshNovels()
@@ -738,17 +761,40 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
                     </FormControl>
 
                     <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 600 }}>当前章节</Typography>
+                    <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} sx={{ mb: 2 }}>
+                      <TextField
+                        label="搜索章节（编号/标题）"
+                        value={chapterSearch}
+                        onChange={(e) => setChapterSearch(e.target.value)}
+                        fullWidth
+                      />
+                      <FormControl sx={{ minWidth: { xs: '100%', md: 220 } }}>
+                        <InputLabel id="chapter-sort-select">排序</InputLabel>
+                        <Select
+                          labelId="chapter-sort-select"
+                          label="排序"
+                          value={chapterSort}
+                          onChange={(e) => setChapterSort(e.target.value as 'number_asc' | 'number_desc' | 'updated_desc')}
+                        >
+                          <MenuItem value="number_desc">章节号（新到旧）</MenuItem>
+                          <MenuItem value="number_asc">章节号（旧到新）</MenuItem>
+                          <MenuItem value="updated_desc">最近更新</MenuItem>
+                        </Select>
+                      </FormControl>
+                    </Stack>
                     {chapterLoading ? (
                       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>Loading...</Typography>
-                    ) : chapters.length === 0 ? (
+                    ) : visibleChapters.length === 0 ? (
                       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>No chapters yet.</Typography>
                     ) : (
                       <Stack spacing={1.2} sx={{ mb: 2 }}>
-                        {chapters.map((c) => (
+                        {visibleChapters.map((c) => (
                           <Box key={c.id} sx={{ border: '1px solid #e2e8f0', borderRadius: 2, p: 1.2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <Box>
                               <Typography sx={{ fontWeight: 600 }}>第 {c.chapter_number} 章 · {c.title || 'Untitled'}</Typography>
-                              <Typography variant="body2" color="text.secondary">{c.word_count} words</Typography>
+                              <Typography variant="body2" color="text.secondary">
+                                {c.word_count} 字 · {c.summary.trim() ? '有总结' : '无总结'} · 更新于 {new Date(c.updated_at).toLocaleString()}
+                              </Typography>
                             </Box>
                             <Stack direction="row" spacing={0.5}>
                               <IconButton
@@ -814,7 +860,11 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
         <Dialog open={confirmDeleteChapterId !== null} onClose={closeDeleteChapterDialog}>
           <DialogTitle>Delete Chapter</DialogTitle>
           <DialogContent>
-            <DialogContentText>Are you sure you want to delete this chapter? This action cannot be undone.</DialogContentText>
+            <DialogContentText>
+              {chapterToDelete
+                ? `你将删除：第 ${chapterToDelete.chapter_number} 章《${chapterToDelete.title || 'Untitled'}》，此操作不可撤销。`
+                : 'Are you sure you want to delete this chapter? This action cannot be undone.'}
+            </DialogContentText>
           </DialogContent>
           <DialogActions>
             <Button onClick={closeDeleteChapterDialog}>Cancel</Button>
