@@ -30,8 +30,6 @@ import {
   Typography,
 } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
-import BookOutlinedIcon from '@mui/icons-material/BookOutlined'
-import PersonOutlineIcon from '@mui/icons-material/PersonOutline'
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
@@ -42,7 +40,8 @@ import LibraryBooksOutlinedIcon from '@mui/icons-material/LibraryBooksOutlined'
 import type { AuthUser } from '../api/auth'
 import { createNovel, deleteNovel, listNovels, type Novel, updateNovel } from '../api/novels'
 import { deleteCharacter, listCharacters, type Character } from '../api/characters'
-import { createChapter, deleteChapter, listChapters, type Chapter, updateChapter } from '../api/chapters'
+import { deleteChapter, listChapters, type Chapter } from '../api/chapters'
+import ChapterEditorPage from './ChapterEditorPage'
 import CharacterManager from '../components/CharacterManager'
 
 type Props = {
@@ -70,16 +69,9 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
   const [editingCharacter, setEditingCharacter] = useState<Character | null>(null)
   const [chapters, setChapters] = useState<Chapter[]>([])
   const [chapterLoading, setChapterLoading] = useState(false)
-  const [showChapterEditor, setShowChapterEditor] = useState(false)
-  const [editingChapter, setEditingChapter] = useState<Chapter | null>(null)
+  const [chapterEditorTarget, setChapterEditorTarget] = useState<Chapter | null>(null)
+  const [chapterEditorOpen, setChapterEditorOpen] = useState(false)
   const [confirmDeleteChapterId, setConfirmDeleteChapterId] = useState<number | null>(null)
-
-  const [chapterNumber, setChapterNumber] = useState(1)
-  const [chapterTitle, setChapterTitle] = useState('')
-  const [chapterBody, setChapterBody] = useState('')
-  const [chapterInstruction, setChapterInstruction] = useState('')
-  const [chapterOutline, setChapterOutline] = useState('')
-  const [chapterSummary, setChapterSummary] = useState('')
 
   const [characters, setCharacters] = useState<Character[]>([])
   const [characterLoading, setCharacterLoading] = useState(false)
@@ -105,7 +97,6 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null)
 
   const selectedNovel = useMemo(() => novels.find((n) => n.id === selectedNovelId) ?? null, [novels, selectedNovelId])
-  const chapterWordCount = useMemo(() => chapterBody.replace(/\s/g, '').length, [chapterBody])
 
   useEffect(() => {
     void refreshNovels()
@@ -147,8 +138,8 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
       setShowCharacterManager(false)
     }
     if (mainTab !== 'myNovels' || myNovelTab !== 'novelChapters') {
-      setShowChapterEditor(false)
-      setEditingChapter(null)
+      setChapterEditorOpen(false)
+      setChapterEditorTarget(null)
     }
   }, [mainTab, myNovelTab])
 
@@ -192,76 +183,9 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
     }
   }
 
-  function resetChapterForm() {
-    setChapterNumber(1)
-    setChapterTitle('')
-    setChapterBody('')
-    setChapterInstruction('')
-    setChapterOutline('')
-    setChapterSummary('')
-    setEditingChapter(null)
-  }
-
-  function fillChapterForm(chapter: Chapter) {
-    setChapterNumber(chapter.chapter_number)
-    setChapterTitle(chapter.title)
-    setChapterBody(chapter.body)
-    setChapterInstruction(chapter.generation_instruction)
-    setChapterOutline(chapter.outline)
-    setChapterSummary(chapter.summary)
-    setEditingChapter(chapter)
-  }
-
-  async function handleCreateChapter() {
+  async function handleChapterSaved() {
     if (!selectedNovelId) return
-    setChapterLoading(true)
-    setError('')
-    setMessage('')
-    try {
-      await createChapter(token, selectedNovelId, {
-        chapter_number: chapterNumber,
-        title: chapterTitle.trim(),
-        body: chapterBody,
-        word_count: chapterWordCount,
-        generation_instruction: chapterInstruction,
-        outline: chapterOutline,
-        summary: chapterSummary,
-      })
-      notifySuccess('Chapter created.')
-      setShowChapterEditor(false)
-      resetChapterForm()
-      await refreshChapters(selectedNovelId)
-    } catch (e) {
-      notifyError(e instanceof Error ? e.message : 'Failed to create chapter')
-    } finally {
-      setChapterLoading(false)
-    }
-  }
-
-  async function handleUpdateChapter() {
-    if (!selectedNovelId || !editingChapter) return
-    setChapterLoading(true)
-    setError('')
-    setMessage('')
-    try {
-      await updateChapter(token, selectedNovelId, editingChapter.id, {
-        chapter_number: chapterNumber,
-        title: chapterTitle.trim(),
-        body: chapterBody,
-        word_count: chapterWordCount,
-        generation_instruction: chapterInstruction,
-        outline: chapterOutline,
-        summary: chapterSummary,
-      })
-      notifySuccess('Chapter updated.')
-      setShowChapterEditor(false)
-      resetChapterForm()
-      await refreshChapters(selectedNovelId)
-    } catch (e) {
-      notifyError(e instanceof Error ? e.message : 'Failed to update chapter')
-    } finally {
-      setChapterLoading(false)
-    }
+    await refreshChapters(selectedNovelId)
   }
 
   function fillForm(novel: Novel) {
@@ -446,6 +370,24 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
     onLogout()
   }
 
+  if (chapterEditorOpen && selectedNovel && mainTab === 'myNovels' && myNovelTab === 'novelChapters') {
+    return (
+      <ChapterEditorPage
+        token={token}
+        novelId={selectedNovel.id}
+        novelTitle={selectedNovel.title}
+        initialChapter={chapterEditorTarget}
+        onBack={() => {
+          setChapterEditorOpen(false)
+          setChapterEditorTarget(null)
+        }}
+        onSaved={handleChapterSaved}
+        onNotifySuccess={notifySuccess}
+        onNotifyError={notifyError}
+      />
+    )
+  }
+
   return (
     <Box
       sx={{
@@ -531,8 +473,8 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
                       onClick={() => {
                         setMainTab('myNovels')
                         setMyNovelTab('novelChapters')
-                        setShowChapterEditor(false)
-                        resetChapterForm()
+                        setChapterEditorOpen(false)
+                        setChapterEditorTarget(null)
                         if (selectedNovelId) void refreshChapters(selectedNovelId)
                       }}
                       sx={{
@@ -555,6 +497,8 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
                     setMainTab('createNovel')
                     setShowNovelEditor(false)
                     setShowCharacterManager(false)
+                    setChapterEditorOpen(false)
+                    setChapterEditorTarget(null)
                     resetForm()
                   }}
                   sx={{
@@ -782,8 +726,8 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
                         onChange={(e) => {
                           const next = Number(e.target.value)
                           setSelectedNovelId(next)
-                          setShowChapterEditor(false)
-                          resetChapterForm()
+                          setChapterEditorOpen(false)
+                          setChapterEditorTarget(null)
                           void refreshChapters(next)
                         }}
                       >
@@ -793,124 +737,45 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
                       </Select>
                     </FormControl>
 
-                    {!showChapterEditor && (
-                      <>
-                        <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 600 }}>当前章节</Typography>
-                        {chapterLoading ? (
-                          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>Loading...</Typography>
-                        ) : chapters.length === 0 ? (
-                          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>No chapters yet.</Typography>
-                        ) : (
-                          <Stack spacing={1.2} sx={{ mb: 2 }}>
-                            {chapters.map((c) => (
-                              <Box key={c.id} sx={{ border: '1px solid #e2e8f0', borderRadius: 2, p: 1.2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <Box>
-                                  <Typography sx={{ fontWeight: 600 }}>第 {c.chapter_number} 章 · {c.title || 'Untitled'}</Typography>
-                                  <Typography variant="body2" color="text.secondary">{c.word_count} words</Typography>
-                                </Box>
-                                <Stack direction="row" spacing={0.5}>
-                                  <IconButton
-                                    onClick={() => {
-                                      fillChapterForm(c)
-                                      setShowChapterEditor(true)
-                                    }}
-                                  >
-                                    <EditOutlinedIcon />
-                                  </IconButton>
-                                  <IconButton onClick={() => requestDeleteChapter(c.id)}>
-                                    <DeleteOutlineIcon />
-                                  </IconButton>
-                                </Stack>
-                              </Box>
-                            ))}
-                          </Stack>
-                        )}
-                        <Button
-                          variant="contained"
-                          onClick={() => {
-                            resetChapterForm()
-                            setShowChapterEditor(true)
-                          }}
-                        >
-                          新增章节
-                        </Button>
-                      </>
-                    )}
-
-                    {showChapterEditor && (
-                      <Card variant="outlined" sx={{ borderRadius: 3, mt: 2 }}>
-                        <CardContent>
-                          <Typography variant="h6" sx={{ mb: 2 }}>
-                            {editingChapter ? 'Chapter Editor' : 'Create Chapter'}
-                          </Typography>
-                          <Stack spacing={1.5}>
-                            <TextField
-                              label="Chapter Number"
-                              type="number"
-                              value={chapterNumber}
-                              onChange={(e) => setChapterNumber(Number(e.target.value) || 0)}
-                            />
-                            <TextField
-                              label="Title"
-                              value={chapterTitle}
-                              onChange={(e) => setChapterTitle(e.target.value)}
-                            />
-                            <TextField
-                              label="Body"
-                              multiline
-                              minRows={6}
-                              value={chapterBody}
-                              onChange={(e) => setChapterBody(e.target.value)}
-                            />
-                            <TextField
-                              label="Word Count"
-                              type="number"
-                              value={chapterWordCount}
-                              InputProps={{ readOnly: true }}
-                            />
-                            <TextField
-                              label="Generation Instruction"
-                              multiline
-                              minRows={3}
-                              value={chapterInstruction}
-                              onChange={(e) => setChapterInstruction(e.target.value)}
-                            />
-                            <TextField
-                              label="Outline"
-                              multiline
-                              minRows={3}
-                              value={chapterOutline}
-                              onChange={(e) => setChapterOutline(e.target.value)}
-                            />
-                            <TextField
-                              label="Summary"
-                              multiline
-                              minRows={3}
-                              value={chapterSummary}
-                              onChange={(e) => setChapterSummary(e.target.value)}
-                            />
-                            <Stack direction="row" spacing={1.5}>
-                              <Button
-                                variant="contained"
-                                disabled={chapterLoading || chapterNumber <= 0}
-                                onClick={() => void (editingChapter ? handleUpdateChapter() : handleCreateChapter())}
-                              >
-                                {editingChapter ? 'Update Chapter' : 'Create Chapter'}
-                              </Button>
-                              <Button
-                                variant="outlined"
+                    <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 600 }}>当前章节</Typography>
+                    {chapterLoading ? (
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>Loading...</Typography>
+                    ) : chapters.length === 0 ? (
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>No chapters yet.</Typography>
+                    ) : (
+                      <Stack spacing={1.2} sx={{ mb: 2 }}>
+                        {chapters.map((c) => (
+                          <Box key={c.id} sx={{ border: '1px solid #e2e8f0', borderRadius: 2, p: 1.2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <Box>
+                              <Typography sx={{ fontWeight: 600 }}>第 {c.chapter_number} 章 · {c.title || 'Untitled'}</Typography>
+                              <Typography variant="body2" color="text.secondary">{c.word_count} words</Typography>
+                            </Box>
+                            <Stack direction="row" spacing={0.5}>
+                              <IconButton
                                 onClick={() => {
-                                  setShowChapterEditor(false)
-                                  resetChapterForm()
+                                  setChapterEditorTarget(c)
+                                  setChapterEditorOpen(true)
                                 }}
                               >
-                                Cancel
-                              </Button>
+                                <EditOutlinedIcon />
+                              </IconButton>
+                              <IconButton onClick={() => requestDeleteChapter(c.id)}>
+                                <DeleteOutlineIcon />
+                              </IconButton>
                             </Stack>
-                          </Stack>
-                        </CardContent>
-                      </Card>
+                          </Box>
+                        ))}
+                      </Stack>
                     )}
+                    <Button
+                      variant="contained"
+                      onClick={() => {
+                        setChapterEditorTarget(null)
+                        setChapterEditorOpen(true)
+                      }}
+                    >
+                      新增章节
+                    </Button>
                   </CardContent>
                 </Card>
               ) : (
