@@ -19,11 +19,12 @@ import {
   Typography,
 } from '@mui/material'
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
+import EditOutlinedIcon from '@mui/icons-material/EditOutlined'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import LogoutIcon from '@mui/icons-material/Logout'
 import SettingsIcon from '@mui/icons-material/Settings'
 import type { AuthUser } from '../api/auth'
-import { createNovel, deleteNovel, listNovels, type Novel } from '../api/novels'
+import { createNovel, deleteNovel, listNovels, type Novel, updateNovel } from '../api/novels'
 
 type Props = {
   token: string
@@ -46,6 +47,7 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
   const [writingRules, setWritingRules] = useState('')
   const [forbiddenRules, setForbiddenRules] = useState('')
   const [recentChapterCount, setRecentChapterCount] = useState(DEFAULT_RECENT_COUNT)
+  const [editingNovelId, setEditingNovelId] = useState<number | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
@@ -68,29 +70,36 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
     }
   }
 
-  async function handleCreate() {
+  async function handleCreateOrUpdate() {
     if (!title.trim()) return
     setLoading(true)
     setError('')
     setMessage('')
+    const payload = {
+      title: title.trim(),
+      genre: genre.trim(),
+      language: language.trim() || DEFAULT_LANGUAGE,
+      style_profile: styleProfile.trim(),
+      worldview: worldview.trim(),
+      power_system: powerSystem.trim(),
+      main_plot: mainPlot.trim(),
+      writing_rules: writingRules.trim(),
+      forbidden_rules: forbiddenRules.trim(),
+      recent_chapter_count: recentChapterCount > 0 ? recentChapterCount : DEFAULT_RECENT_COUNT,
+    }
     try {
-      const data = await createNovel(token, {
-        title: title.trim(),
-        genre: genre.trim(),
-        language: language.trim() || DEFAULT_LANGUAGE,
-        style_profile: styleProfile.trim(),
-        worldview: worldview.trim(),
-        power_system: powerSystem.trim(),
-        main_plot: mainPlot.trim(),
-        writing_rules: writingRules.trim(),
-        forbidden_rules: forbiddenRules.trim(),
-        recent_chapter_count: recentChapterCount > 0 ? recentChapterCount : DEFAULT_RECENT_COUNT,
-      })
-      setNovels((prev) => [data.novel, ...prev])
+      if (editingNovelId) {
+        const data = await updateNovel(token, editingNovelId, payload)
+        setNovels((prev) => prev.map((n) => (n.id === editingNovelId ? data.novel : n)))
+        setMessage('Novel updated.')
+      } else {
+        const data = await createNovel(token, payload)
+        setNovels((prev) => [data.novel, ...prev])
+        setMessage('Novel created.')
+      }
       resetForm()
-      setMessage('Novel created.')
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to create novel')
+      setError(e instanceof Error ? e.message : editingNovelId ? 'Failed to update novel' : 'Failed to create novel')
     } finally {
       setLoading(false)
     }
@@ -122,6 +131,23 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
     setWritingRules('')
     setForbiddenRules('')
     setRecentChapterCount(DEFAULT_RECENT_COUNT)
+    setEditingNovelId(null)
+  }
+
+  function startEdit(novel: Novel) {
+    setEditingNovelId(novel.id)
+    setTitle(novel.title)
+    setGenre(novel.genre)
+    setLanguage(novel.language || DEFAULT_LANGUAGE)
+    setStyleProfile(novel.style_profile)
+    setWorldview(novel.worldview)
+    setPowerSystem(novel.power_system)
+    setMainPlot(novel.main_plot)
+    setWritingRules(novel.writing_rules)
+    setForbiddenRules(novel.forbidden_rules)
+    setRecentChapterCount(novel.recent_chapter_count || DEFAULT_RECENT_COUNT)
+    setMessage('')
+    setError('')
   }
 
   function openMenu(event: MouseEvent<HTMLElement>) {
@@ -191,7 +217,7 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
         <Card variant="outlined" sx={{ borderRadius: 3, mb: 2 }}>
           <CardContent>
             <Typography variant="h6" sx={{ mb: 2 }}>
-              Create Novel
+              {editingNovelId ? 'Edit Novel' : 'Create Novel'}
             </Typography>
 
             <Accordion defaultExpanded disableGutters sx={{ border: '1px solid #e2e8f0', borderRadius: 2, mb: 2 }}>
@@ -273,9 +299,16 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
               </AccordionDetails>
             </Accordion>
 
-            <Button sx={{ mt: 2 }} variant="contained" disabled={!title.trim() || loading} onClick={handleCreate}>
-              Create
-            </Button>
+            <Stack direction="row" spacing={1.5} sx={{ mt: 2 }}>
+              <Button variant="contained" disabled={!title.trim() || loading} onClick={handleCreateOrUpdate}>
+                {editingNovelId ? 'Update' : 'Create'}
+              </Button>
+              {editingNovelId && (
+                <Button variant="outlined" onClick={resetForm} disabled={loading}>
+                  Cancel
+                </Button>
+              )}
+            </Stack>
           </CardContent>
         </Card>
 
@@ -315,9 +348,14 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
                         {novel.genre || 'No genre'} · {novel.language}
                       </Typography>
                     </Box>
-                    <IconButton aria-label="delete" onClick={() => void handleDelete(novel.id)} disabled={loading}>
-                      <DeleteOutlineIcon />
-                    </IconButton>
+                    <Stack direction="row" spacing={0.5}>
+                      <IconButton aria-label="edit" onClick={() => startEdit(novel)} disabled={loading}>
+                        <EditOutlinedIcon />
+                      </IconButton>
+                      <IconButton aria-label="delete" onClick={() => void handleDelete(novel.id)} disabled={loading}>
+                        <DeleteOutlineIcon />
+                      </IconButton>
+                    </Stack>
                   </Stack>
                 ))}
               </Stack>

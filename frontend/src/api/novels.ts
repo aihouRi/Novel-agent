@@ -58,6 +58,20 @@ export async function createNovel(token: string, payload: CreateNovelPayload): P
   return res.json()
 }
 
+export async function updateNovel(token: string, id: number, payload: CreateNovelPayload): Promise<{ novel: Novel }> {
+  const res = await fetch(`/novels/${id}`, {
+    method: 'PUT',
+    headers: {
+      ...JSON_HEADERS,
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
+  })
+
+  if (!res.ok) throw new Error(await extractError(res))
+  return res.json()
+}
+
 export async function deleteNovel(token: string, id: number): Promise<void> {
   const res = await fetch(`/novels/${id}`, {
     method: 'DELETE',
