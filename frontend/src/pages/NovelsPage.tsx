@@ -77,7 +77,6 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
   const [chapterNumber, setChapterNumber] = useState(1)
   const [chapterTitle, setChapterTitle] = useState('')
   const [chapterBody, setChapterBody] = useState('')
-  const [chapterWordCount, setChapterWordCount] = useState(0)
   const [chapterInstruction, setChapterInstruction] = useState('')
   const [chapterOutline, setChapterOutline] = useState('')
   const [chapterSummary, setChapterSummary] = useState('')
@@ -106,6 +105,7 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null)
 
   const selectedNovel = useMemo(() => novels.find((n) => n.id === selectedNovelId) ?? null, [novels, selectedNovelId])
+  const chapterWordCount = useMemo(() => chapterBody.replace(/\s/g, '').length, [chapterBody])
 
   useEffect(() => {
     void refreshNovels()
@@ -196,7 +196,6 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
     setChapterNumber(1)
     setChapterTitle('')
     setChapterBody('')
-    setChapterWordCount(0)
     setChapterInstruction('')
     setChapterOutline('')
     setChapterSummary('')
@@ -207,7 +206,6 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
     setChapterNumber(chapter.chapter_number)
     setChapterTitle(chapter.title)
     setChapterBody(chapter.body)
-    setChapterWordCount(chapter.word_count)
     setChapterInstruction(chapter.generation_instruction)
     setChapterOutline(chapter.outline)
     setChapterSummary(chapter.summary)
@@ -868,7 +866,7 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
                               label="Word Count"
                               type="number"
                               value={chapterWordCount}
-                              onChange={(e) => setChapterWordCount(Number(e.target.value) || 0)}
+                              InputProps={{ readOnly: true }}
                             />
                             <TextField
                               label="Generation Instruction"
