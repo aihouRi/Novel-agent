@@ -4,7 +4,7 @@ import CloseIcon from '@mui/icons-material/Close'
 import ArrowBackIosNewRoundedIcon from '@mui/icons-material/ArrowBackIosNewRounded'
 import HistoryRoundedIcon from '@mui/icons-material/HistoryRounded'
 import TaskAltRoundedIcon from '@mui/icons-material/TaskAltRounded'
-import { createChapter, type Chapter, updateChapter } from '../api/chapters'
+import { createChapter, generateChapter, type Chapter, updateChapter } from '../api/chapters'
 import type { Volume } from '../api/volumes'
 
 type Props = {
@@ -52,6 +52,7 @@ export default function ChapterEditorPage({
   const [chapterOutline, setChapterOutline] = useState(initialChapter?.outline ?? '')
   const [chapterInstruction, setChapterInstruction] = useState(initialChapter?.generation_instruction ?? '')
   const [saving, setSaving] = useState(false)
+  const [generating, setGenerating] = useState(false)
   const [sidePanel, setSidePanel] = useState<SidePanel>(null)
   const [localSuccess, setLocalSuccess] = useState('')
   const [localError, setLocalError] = useState('')
@@ -290,6 +291,49 @@ export default function ChapterEditorPage({
     }
   }
 
+  async function handleGenerate() {
+    if (chapterNumber <= 0) {
+      const msg = '章节编号必须大于 0。'
+      onNotifyError(msg)
+      setLocalError(msg)
+      return
+    }
+    if (volumeID <= 0) {
+      const msg = '请先选择分卷。'
+      onNotifyError(msg)
+      setLocalError(msg)
+      return
+    }
+    if (!chapterInstruction.trim()) {
+      const msg = '请先填写生成指令。'
+      onNotifyError(msg)
+      setLocalError(msg)
+      return
+    }
+
+    setGenerating(true)
+    try {
+      const data = await generateChapter(token, novelId, {
+        volume_id: volumeID,
+        chapter_number: chapterNumber,
+        title: chapterTitle.trim(),
+        generation_instruction: chapterInstruction.trim(),
+      })
+      setChapterOutline(data.outline)
+      setChapterBody(ensureIndentedBody(data.body))
+      setChapterSummary(data.summary)
+      setSidePanel('outline')
+      onNotifySuccess('AI 生成完成。')
+      setLocalSuccess('AI 生成完成，请检查后再保存。')
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Failed to generate chapter'
+      onNotifyError(msg)
+      setLocalError(msg)
+    } finally {
+      setGenerating(false)
+    }
+  }
+
   return (
     <Box
       sx={{
@@ -356,6 +400,17 @@ export default function ChapterEditorPage({
                 }}
               >
                 返回列表
+              </Button>
+              <Button
+                variant="outlined"
+                disabled={generating || saving || volumeID <= 0 || chapterNumber <= 0}
+                onClick={() => void handleGenerate()}
+                sx={{
+                  borderRadius: 999,
+                  px: 2.2,
+                }}
+              >
+                {generating ? '生成中...' : 'AI 生成'}
               </Button>
               <Button
                 variant="outlined"
@@ -585,6 +640,17 @@ export default function ChapterEditorPage({
               }}
             >
               返回列表
+            </Button>
+            <Button
+              variant="outlined"
+              disabled={generating || saving || volumeID <= 0 || chapterNumber <= 0}
+              onClick={() => void handleGenerate()}
+              sx={{
+                borderRadius: 999,
+                px: 2.25,
+              }}
+            >
+              {generating ? '生成中...' : 'AI 生成'}
             </Button>
             <Button
               variant="outlined"
