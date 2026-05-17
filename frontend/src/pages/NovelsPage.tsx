@@ -128,6 +128,17 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
     if (error) setErrorOpen(true)
   }, [error])
 
+  function notifySuccess(text: string) {
+    setError('')
+    setMessage(text)
+    setSuccessOpen(true)
+  }
+
+  function notifyError(text: string) {
+    setMessage('')
+    setError(text)
+  }
+
   useEffect(() => {
     if (mainTab !== 'myNovels' || myNovelTab !== 'novelDetail') {
       setShowNovelEditor(false)
@@ -218,13 +229,12 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
         outline: chapterOutline,
         summary: chapterSummary,
       })
-      setMessage('Chapter created.')
-      setSuccessOpen(true)
+      notifySuccess('Chapter created.')
       setShowChapterEditor(false)
       resetChapterForm()
       await refreshChapters(selectedNovelId)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to create chapter')
+      notifyError(e instanceof Error ? e.message : 'Failed to create chapter')
     } finally {
       setChapterLoading(false)
     }
@@ -245,13 +255,12 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
         outline: chapterOutline,
         summary: chapterSummary,
       })
-      setMessage('Chapter updated.')
-      setSuccessOpen(true)
+      notifySuccess('Chapter updated.')
       setShowChapterEditor(false)
       resetChapterForm()
       await refreshChapters(selectedNovelId)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to update chapter')
+      notifyError(e instanceof Error ? e.message : 'Failed to update chapter')
     } finally {
       setChapterLoading(false)
     }
@@ -311,11 +320,10 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
       setMyNovelsExpanded(true)
       setMyNovelTab('novelDetail')
       setShowNovelEditor(false)
-      setMessage('Novel created.')
-      setSuccessOpen(true)
+      notifySuccess('Novel created.')
       fillForm(data.novel)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to create novel')
+      notifyError(e instanceof Error ? e.message : 'Failed to create novel')
     } finally {
       setLoading(false)
     }
@@ -329,11 +337,10 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
     try {
       const data = await updateNovel(token, selectedNovelId, currentPayload())
       setNovels((prev) => prev.map((n) => (n.id === selectedNovelId ? data.novel : n)))
-      setMessage('Novel updated.')
-      setSuccessOpen(true)
+      notifySuccess('Novel updated.')
       setShowNovelEditor(false)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to update novel')
+      notifyError(e instanceof Error ? e.message : 'Failed to update novel')
     } finally {
       setLoading(false)
     }
@@ -360,13 +367,12 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
       const next = novels.filter((n) => n.id !== id)
       setNovels(next)
       setSelectedNovelId(next.length > 0 ? next[0].id : null)
-      setMessage('Novel deleted.')
-      setSuccessOpen(true)
+      notifySuccess('Novel deleted.')
       setShowNovelEditor(false)
       if (next.length > 0) fillForm(next[0])
       else resetForm()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to delete novel')
+      notifyError(e instanceof Error ? e.message : 'Failed to delete novel')
     } finally {
       setLoading(false)
     }
@@ -390,10 +396,9 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
     try {
       await deleteCharacter(token, selectedNovelId, id)
       setCharacters((prev) => prev.filter((c) => c.id !== id))
-      setMessage('Character deleted.')
-      setSuccessOpen(true)
+      notifySuccess('Character deleted.')
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to delete character')
+      notifyError(e instanceof Error ? e.message : 'Failed to delete character')
     } finally {
       setCharacterLoading(false)
     }
@@ -416,11 +421,10 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
     setMessage('')
     try {
       await deleteChapter(token, selectedNovelId, id)
-      setMessage('Chapter deleted.')
-      setSuccessOpen(true)
+      notifySuccess('Chapter deleted.')
       await refreshChapters(selectedNovelId)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to delete chapter')
+      notifyError(e instanceof Error ? e.message : 'Failed to delete chapter')
     } finally {
       setChapterLoading(false)
     }
@@ -436,9 +440,7 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
 
   function clickSettings() {
     closeMenu()
-    setMessage('User settings will be available in a later phase.')
-    setSuccessOpen(true)
-    setError('')
+    notifySuccess('User settings will be available in a later phase.')
   }
 
   function clickLogout() {
@@ -746,6 +748,8 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
                         token={token}
                         novelId={selectedNovel.id}
                         initialCharacter={editingCharacter}
+                        onNotifySuccess={notifySuccess}
+                        onNotifyError={notifyError}
                         onDone={() => {
                           setShowCharacterManager(false)
                           setEditingCharacter(null)

@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
-  Alert,
   Button,
   Card,
   CardContent,
@@ -14,6 +13,8 @@ type Props = {
   token: string
   novelId: number
   initialCharacter?: Character | null
+  onNotifySuccess?: (msg: string) => void
+  onNotifyError?: (msg: string) => void
   onDone?: () => void
 }
 
@@ -31,12 +32,10 @@ const EMPTY_FORM = {
   memo: '',
 }
 
-export default function CharacterManager({ token, novelId, initialCharacter, onDone }: Props) {
+export default function CharacterManager({ token, novelId, initialCharacter, onNotifySuccess, onNotifyError, onDone }: Props) {
   const [form, setForm] = useState(EMPTY_FORM)
   const [editingId, setEditingId] = useState<number | null>(null)
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-  const [message, setMessage] = useState('')
 
   const canSubmit = useMemo(() => form.name.trim().length > 0 && !loading, [form.name, loading])
 
@@ -65,20 +64,18 @@ export default function CharacterManager({ token, novelId, initialCharacter, onD
   async function submit() {
     if (!form.name.trim()) return
     setLoading(true)
-    setError('')
-    setMessage('')
     try {
       if (editingId) {
         await updateCharacter(token, novelId, editingId, form)
-        setMessage('Character updated.')
+        onNotifySuccess?.('Character updated.')
       } else {
         await createCharacter(token, novelId, form)
-        setMessage('Character created.')
+        onNotifySuccess?.('Character created.')
       }
       resetForm()
       onDone?.()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to save character')
+      onNotifyError?.(e instanceof Error ? e.message : 'Failed to save character')
     } finally {
       setLoading(false)
     }
@@ -154,8 +151,6 @@ export default function CharacterManager({ token, novelId, initialCharacter, onD
           </Stack>
         </Stack>
 
-        {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-        {message && <Alert severity="success" sx={{ mb: 2 }}>{message}</Alert>}
       </CardContent>
     </Card>
   )
