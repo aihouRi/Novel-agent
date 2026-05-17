@@ -30,6 +30,7 @@ const EMPTY_FORM = {
   first_appearance_chapter: 0,
   last_appearance_chapter: 0,
   memo: '',
+  importance_level: 0,
 }
 
 export default function CharacterManager({ token, novelId, initialCharacter, onNotifySuccess, onNotifyError, onDone }: Props) {
@@ -58,6 +59,7 @@ export default function CharacterManager({ token, novelId, initialCharacter, onN
       first_appearance_chapter: initialCharacter.first_appearance_chapter,
       last_appearance_chapter: initialCharacter.last_appearance_chapter,
       memo: initialCharacter.memo,
+      importance_level: initialCharacter.importance_level,
     })
   }, [initialCharacter])
 
@@ -141,6 +143,16 @@ export default function CharacterManager({ token, novelId, initialCharacter, onN
             />
           </Stack>
           <TextField label="Memo" multiline minRows={2} value={form.memo} onChange={(e) => setForm({ ...form, memo: e.target.value })} />
+          <TextField
+            label="Importance Level (0-9, 7+ protected)"
+            type="number"
+            value={form.importance_level}
+            onChange={(e) => {
+              const next = Number(e.target.value)
+              setForm({ ...form, importance_level: Number.isNaN(next) ? 0 : next })
+            }}
+            inputProps={{ min: 0, max: 9 }}
+          />
           <Stack direction="row" spacing={1.5}>
             <Button variant="contained" disabled={!canSubmit} onClick={() => void submit()}>
               {editingId ? 'Update Character' : 'Create Character'}

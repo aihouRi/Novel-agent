@@ -711,7 +711,9 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
                             <Box key={c.id} sx={{ border: '1px solid #e2e8f0', borderRadius: 2, p: 1.2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                               <Box>
                                 <Typography sx={{ fontWeight: 600 }}>{c.name}</Typography>
-                                <Typography variant="body2" color="text.secondary">{c.role || 'No role'}</Typography>
+                                <Typography variant="body2" color="text.secondary">
+                                  {c.role || 'No role'} · Importance {c.importance_level}
+                                </Typography>
                               </Box>
                               <Stack direction="row" spacing={0.5}>
                                 <IconButton

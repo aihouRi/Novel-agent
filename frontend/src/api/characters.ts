@@ -12,6 +12,7 @@ export type Character = {
   first_appearance_chapter: number
   last_appearance_chapter: number
   memo: string
+  importance_level: number
   created_at: string
   updated_at: string
 }
@@ -28,6 +29,7 @@ export type UpsertCharacterPayload = {
   first_appearance_chapter: number
   last_appearance_chapter: number
   memo: string
+  importance_level: number
 }
 
 const JSON_HEADERS = {
@@ -93,7 +95,11 @@ export async function deleteCharacter(token: string, novelId: number, id: number
 async function extractError(res: Response): Promise<string> {
   try {
     const data = (await res.json()) as { error?: string }
-    return data.error ?? `Request failed: ${res.status}`
+    const raw = data.error ?? `Request failed: ${res.status}`
+    if (raw.includes('importance_level >= 7')) {
+      return '该人物为主要角色，禁止删除。请先降低权重后再删除。'
+    }
+    return raw
   } catch {
     return `Request failed: ${res.status}`
   }

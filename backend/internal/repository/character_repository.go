@@ -19,13 +19,13 @@ func (r *CharacterRepository) Create(ctx context.Context, userID int64, c *domai
 	res, err := r.db.ExecContext(ctx, `
 		INSERT INTO characters (
 			novel_id, name, aliases, role, personality, realm_or_ability, goal,
-			relationships, speech_style, first_appearance_chapter, last_appearance_chapter, memo
+			relationships, speech_style, first_appearance_chapter, last_appearance_chapter, memo, importance_level
 		)
-		SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+		SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
 		FROM novels
 		WHERE id = ? AND user_id = ?
 	`, c.NovelID, c.Name, c.Aliases, c.Role, c.Personality, c.RealmOrAbility, c.Goal,
-		c.Relationships, c.SpeechStyle, c.FirstAppearanceChapter, c.LastAppearanceChapter, c.Memo,
+		c.Relationships, c.SpeechStyle, c.FirstAppearanceChapter, c.LastAppearanceChapter, c.Memo, c.ImportanceLevel,
 		c.NovelID, userID)
 	if err != nil {
 		return nil, err
@@ -51,7 +51,7 @@ func (r *CharacterRepository) ListByNovel(ctx context.Context, userID, novelID i
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT c.id, c.novel_id, c.name, c.aliases, c.role, c.personality, c.realm_or_ability,
 			c.goal, c.relationships, c.speech_style, c.first_appearance_chapter,
-			c.last_appearance_chapter, c.memo, c.created_at, c.updated_at
+			c.last_appearance_chapter, c.memo, c.importance_level, c.created_at, c.updated_at
 		FROM characters c
 		JOIN novels n ON n.id = c.novel_id
 		WHERE c.novel_id = ? AND n.user_id = ?
@@ -68,7 +68,7 @@ func (r *CharacterRepository) ListByNovel(ctx context.Context, userID, novelID i
 		if err := rows.Scan(
 			&c.ID, &c.NovelID, &c.Name, &c.Aliases, &c.Role, &c.Personality, &c.RealmOrAbility,
 			&c.Goal, &c.Relationships, &c.SpeechStyle, &c.FirstAppearanceChapter,
-			&c.LastAppearanceChapter, &c.Memo, &c.CreatedAt, &c.UpdatedAt,
+			&c.LastAppearanceChapter, &c.Memo, &c.ImportanceLevel, &c.CreatedAt, &c.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -83,14 +83,14 @@ func (r *CharacterRepository) GetByID(ctx context.Context, userID, novelID, id i
 	err := r.db.QueryRowContext(ctx, `
 		SELECT c.id, c.novel_id, c.name, c.aliases, c.role, c.personality, c.realm_or_ability,
 			c.goal, c.relationships, c.speech_style, c.first_appearance_chapter,
-			c.last_appearance_chapter, c.memo, c.created_at, c.updated_at
+			c.last_appearance_chapter, c.memo, c.importance_level, c.created_at, c.updated_at
 		FROM characters c
 		JOIN novels n ON n.id = c.novel_id
 		WHERE c.id = ? AND c.novel_id = ? AND n.user_id = ?
 	`, id, novelID, userID).Scan(
 		&c.ID, &c.NovelID, &c.Name, &c.Aliases, &c.Role, &c.Personality, &c.RealmOrAbility,
 		&c.Goal, &c.Relationships, &c.SpeechStyle, &c.FirstAppearanceChapter,
-		&c.LastAppearanceChapter, &c.Memo, &c.CreatedAt, &c.UpdatedAt,
+		&c.LastAppearanceChapter, &c.Memo, &c.ImportanceLevel, &c.CreatedAt, &c.UpdatedAt,
 	)
 	if err != nil {
 		return nil, err
@@ -105,11 +105,11 @@ func (r *CharacterRepository) Update(ctx context.Context, userID, novelID, id in
 		JOIN novels n ON n.id = c.novel_id
 		SET c.name = ?, c.aliases = ?, c.role = ?, c.personality = ?, c.realm_or_ability = ?,
 			c.goal = ?, c.relationships = ?, c.speech_style = ?,
-			c.first_appearance_chapter = ?, c.last_appearance_chapter = ?, c.memo = ?
+			c.first_appearance_chapter = ?, c.last_appearance_chapter = ?, c.memo = ?, c.importance_level = ?
 		WHERE c.id = ? AND c.novel_id = ? AND n.user_id = ?
 	`, c.Name, c.Aliases, c.Role, c.Personality, c.RealmOrAbility,
 		c.Goal, c.Relationships, c.SpeechStyle,
-		c.FirstAppearanceChapter, c.LastAppearanceChapter, c.Memo,
+		c.FirstAppearanceChapter, c.LastAppearanceChapter, c.Memo, c.ImportanceLevel,
 		id, novelID, userID)
 	if err != nil {
 		return nil, err
