@@ -10,6 +10,7 @@ import {
   Card,
   CardActionArea,
   CardContent,
+  Checkbox,
   Collapse,
   Container,
   Dialog,
@@ -18,6 +19,8 @@ import {
   DialogContentText,
   DialogTitle,
   FormControl,
+  FormControlLabel,
+  FormGroup,
   IconButton,
   InputLabel,
   ListItemIcon,
@@ -40,7 +43,7 @@ import LibraryBooksOutlinedIcon from '@mui/icons-material/LibraryBooksOutlined'
 import type { AuthUser } from '../api/auth'
 import { createNovel, deleteNovel, listNovels, type Novel, updateNovel } from '../api/novels'
 import { deleteCharacter, listCharacters, type Character } from '../api/characters'
-import { deleteChapter, exportNovelMarkdown, listChapters, type Chapter, updateChapter } from '../api/chapters'
+import { deleteChapter, exportNovel, listChapters, type Chapter, type ExportScope, updateChapter } from '../api/chapters'
 import { createVolume, listVolumes, type Volume, updateVolume } from '../api/volumes'
 import ChapterEditorPage from './ChapterEditorPage'
 import CharacterManager from '../components/CharacterManager'
@@ -79,6 +82,14 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
   const [chapterSort, setChapterSort] = useState<'number_asc' | 'number_desc' | 'updated_desc'>('number_desc')
   const [movingChapterId, setMovingChapterId] = useState<number | null>(null)
   const [exportingMarkdown, setExportingMarkdown] = useState(false)
+  const [exportDialogOpen, setExportDialogOpen] = useState(false)
+  const [exportScope, setExportScope] = useState<ExportScope>('all')
+  const [exportVolumeID, setExportVolumeID] = useState<number>(0)
+  const [exportFromChapter, setExportFromChapter] = useState<number>(1)
+  const [exportToChapter, setExportToChapter] = useState<number>(1)
+  const [includeBody, setIncludeBody] = useState(true)
+  const [includeSummary, setIncludeSummary] = useState(true)
+  const [includeOutline, setIncludeOutline] = useState(true)
   const [newVolumeTitle, setNewVolumeTitle] = useState('')
   const [editingVolume, setEditingVolume] = useState<Volume | null>(null)
   const [editingVolumeTitle, setEditingVolumeTitle] = useState('')
@@ -175,6 +186,12 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
       void refreshVolumes(selectedNovelId)
     }
   }, [mainTab, myNovelTab, selectedNovelId])
+
+  useEffect(() => {
+    if (volumes.length > 0 && exportVolumeID <= 0) {
+      setExportVolumeID(volumes[0].id)
+    }
+  }, [exportVolumeID, volumes])
 
   useEffect(() => {
     if (error) setErrorOpen(true)
@@ -359,9 +376,30 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
 
   async function handleExportMarkdown() {
     if (!selectedNovelId) return
+    if (!includeBody && !includeSummary && !includeOutline) {
+      notifyError('请至少选择一种导出内容。')
+      return
+    }
+    if (exportScope === 'volume' && exportVolumeID <= 0) {
+      notifyError('请选择分卷。')
+      return
+    }
+    if (exportScope === 'chapter_range' && (exportFromChapter <= 0 || exportToChapter <= 0 || exportFromChapter > exportToChapter)) {
+      notifyError('请输入有效的章节区间。')
+      return
+    }
     setExportingMarkdown(true)
     try {
-      const { blob, filename } = await exportNovelMarkdown(token, selectedNovelId)
+      const { blob, filename } = await exportNovel(token, selectedNovelId, {
+        format: 'markdown',
+        scope: exportScope,
+        volume_id: exportScope === 'volume' ? exportVolumeID : undefined,
+        from_chapter: exportScope === 'chapter_range' ? exportFromChapter : undefined,
+        to_chapter: exportScope === 'chapter_range' ? exportToChapter : undefined,
+        include_body: includeBody,
+        include_summary: includeSummary,
+        include_outline: includeOutline,
+      })
       const url = window.URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
@@ -371,6 +409,7 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
       document.body.removeChild(a)
       window.URL.revokeObjectURL(url)
       notifySuccess('Markdown 导出成功。')
+      setExportDialogOpen(false)
     } catch (e) {
       notifyError(e instanceof Error ? e.message : 'Failed to export markdown')
     } finally {
@@ -941,10 +980,10 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
                     <Button
                       variant="outlined"
                       sx={{ mb: 1.5 }}
-                      onClick={() => void handleExportMarkdown()}
-                      disabled={exportingMarkdown}
+                      onClick={() => setExportDialogOpen(true)}
+                      disabled={exportingMarkdown || volumes.length === 0}
                     >
-                      导出 Markdown
+                      导出
                     </Button>
                     <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} sx={{ mb: 2 }}>
                       <TextField
@@ -1131,6 +1170,84 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
             <Button onClick={closeEditVolume}>取消</Button>
             <Button onClick={() => void handleUpdateVolume()} variant="contained" disabled={!editingVolumeTitle.trim()}>
               保存
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        <Dialog open={exportDialogOpen} onClose={() => setExportDialogOpen(false)} fullWidth maxWidth="sm">
+          <DialogTitle>导出设置</DialogTitle>
+          <DialogContent>
+            <Stack spacing={2} sx={{ mt: 1 }}>
+              <FormControl fullWidth>
+                <InputLabel id="export-format-select">导出格式</InputLabel>
+                <Select labelId="export-format-select" label="导出格式" value="markdown" disabled>
+                  <MenuItem value="markdown">Markdown</MenuItem>
+                </Select>
+              </FormControl>
+
+              <FormControl fullWidth>
+                <InputLabel id="export-scope-select">导出范围</InputLabel>
+                <Select
+                  labelId="export-scope-select"
+                  label="导出范围"
+                  value={exportScope}
+                  onChange={(e) => setExportScope(e.target.value as ExportScope)}
+                >
+                  <MenuItem value="all">全部章节</MenuItem>
+                  <MenuItem value="volume">按分卷</MenuItem>
+                  <MenuItem value="chapter_range">按章节区间</MenuItem>
+                </Select>
+              </FormControl>
+
+              {exportScope === 'volume' && (
+                <FormControl fullWidth>
+                  <InputLabel id="export-volume-select">选择分卷</InputLabel>
+                  <Select
+                    labelId="export-volume-select"
+                    label="选择分卷"
+                    value={exportVolumeID}
+                    onChange={(e) => setExportVolumeID(Number(e.target.value))}
+                  >
+                    <MenuItem value={0} disabled>请选择分卷</MenuItem>
+                    {volumes.map((v) => (
+                      <MenuItem key={v.id} value={v.id}>
+                        第{v.volume_number}卷：{v.title}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              )}
+
+              {exportScope === 'chapter_range' && (
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
+                  <TextField
+                    label="起始章节"
+                    type="number"
+                    value={exportFromChapter}
+                    onChange={(e) => setExportFromChapter(Number(e.target.value) || 0)}
+                    fullWidth
+                  />
+                  <TextField
+                    label="结束章节"
+                    type="number"
+                    value={exportToChapter}
+                    onChange={(e) => setExportToChapter(Number(e.target.value) || 0)}
+                    fullWidth
+                  />
+                </Stack>
+              )}
+
+              <FormGroup>
+                <FormControlLabel control={<Checkbox checked={includeBody} onChange={(e) => setIncludeBody(e.target.checked)} />} label="正文" />
+                <FormControlLabel control={<Checkbox checked={includeSummary} onChange={(e) => setIncludeSummary(e.target.checked)} />} label="章节总结" />
+                <FormControlLabel control={<Checkbox checked={includeOutline} onChange={(e) => setIncludeOutline(e.target.checked)} />} label="章节大纲" />
+              </FormGroup>
+            </Stack>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setExportDialogOpen(false)}>取消</Button>
+            <Button onClick={() => void handleExportMarkdown()} variant="contained" disabled={exportingMarkdown}>
+              导出
             </Button>
           </DialogActions>
         </Dialog>

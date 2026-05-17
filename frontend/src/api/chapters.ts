@@ -84,22 +84,42 @@ export async function deleteChapter(token: string, novelId: number, id: number):
   if (!res.ok) throw new Error(await extractError(res))
 }
 
-export async function exportNovelMarkdown(
+export type ExportScope = 'all' | 'volume' | 'chapter_range'
+
+export type ExportNovelPayload = {
+  format: 'markdown'
+  scope: ExportScope
+  volume_id?: number
+  from_chapter?: number
+  to_chapter?: number
+  include_body: boolean
+  include_summary: boolean
+  include_outline: boolean
+}
+
+export async function exportNovel(
   token: string,
   novelId: number,
+  payload: ExportNovelPayload,
 ): Promise<{ blob: Blob; filename: string }> {
-  const res = await fetch(`/novels/${novelId}/export/markdown`, {
-    method: 'GET',
+  const res = await fetch(`/novels/${novelId}/export`, {
+    method: 'POST',
     headers: {
+      ...JSON_HEADERS,
       Authorization: `Bearer ${token}`,
     },
+    body: JSON.stringify(payload),
   })
   if (!res.ok) throw new Error(await extractError(res))
 
   const blob = await res.blob()
   const disposition = res.headers.get('content-disposition') || ''
-  const match = disposition.match(/filename=\"?([^\";]+)\"?/)
-  const filename = match?.[1] || `novel-${novelId}.md`
+  const matchUtf8 = disposition.match(/filename\*=UTF-8''([^;]+)/i)
+  const matchBasic = disposition.match(/filename=\"?([^\";]+)\"?/i)
+  const filename =
+    (matchUtf8?.[1] ? decodeURIComponent(matchUtf8[1]) : undefined) ??
+    matchBasic?.[1] ??
+    `novel-${novelId}.md`
   return { blob, filename }
 }
 
