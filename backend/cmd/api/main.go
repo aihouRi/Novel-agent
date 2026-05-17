@@ -114,6 +114,7 @@ func newServer(db *sql.DB, cfg config.AppConfig) *echo.Echo {
 	exporter := service.NewMarkdownExporter()
 	exportHandler := handler.NewExportHandler(novelUC, volumeUC, chapterUC, exporter)
 	novels.GET("/:novelId/export/markdown", exportHandler.ExportNovelMarkdown)
+	novels.POST("/:novelId/export", exportHandler.ExportNovel)
 
 	return e
 }

@@ -14,7 +14,13 @@ func NewMarkdownExporter() *MarkdownExporter {
 	return &MarkdownExporter{}
 }
 
-func (e *MarkdownExporter) BuildNovelMarkdown(novel *domain.Novel, volumes []domain.Volume, chapters []domain.Chapter) string {
+type ExportOptions struct {
+	IncludeBody    bool
+	IncludeSummary bool
+	IncludeOutline bool
+}
+
+func (e *MarkdownExporter) BuildNovelMarkdown(novel *domain.Novel, volumes []domain.Volume, chapters []domain.Chapter, opts ExportOptions) string {
 	var b strings.Builder
 
 	title := strings.TrimSpace(novel.Title)
@@ -51,8 +57,21 @@ func (e *MarkdownExporter) BuildNovelMarkdown(novel *domain.Novel, volumes []dom
 			b.WriteString("### ")
 			b.WriteString(fmt.Sprintf("第%d章 %s", c.ChapterNumber, chTitle))
 			b.WriteString("\n\n")
-			b.WriteString(strings.TrimSpace(c.Body))
-			b.WriteString("\n\n")
+
+			if opts.IncludeBody {
+				b.WriteString(strings.TrimSpace(c.Body))
+				b.WriteString("\n\n")
+			}
+			if opts.IncludeSummary {
+				b.WriteString("**章节总结**\n\n")
+				b.WriteString(strings.TrimSpace(c.Summary))
+				b.WriteString("\n\n")
+			}
+			if opts.IncludeOutline {
+				b.WriteString("**章节大纲**\n\n")
+				b.WriteString(strings.TrimSpace(c.Outline))
+				b.WriteString("\n\n")
+			}
 		}
 	}
 
