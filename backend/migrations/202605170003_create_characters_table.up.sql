@@ -1,0 +1,20 @@
+CREATE TABLE IF NOT EXISTS characters (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    novel_id BIGINT UNSIGNED NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    aliases TEXT,
+    role VARCHAR(255) NOT NULL DEFAULT '',
+    personality TEXT,
+    realm_or_ability TEXT,
+    goal TEXT,
+    relationships TEXT,
+    speech_style TEXT,
+    first_appearance_chapter INT NOT NULL DEFAULT 0,
+    last_appearance_chapter INT NOT NULL DEFAULT 0,
+    memo TEXT,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    KEY idx_characters_novel_id (novel_id),
+    CONSTRAINT fk_characters_novel_id FOREIGN KEY (novel_id) REFERENCES novels (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

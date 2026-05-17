@@ -78,5 +78,16 @@ func newServer(db *sql.DB, cfg config.AppConfig) *echo.Echo {
 	novels.PUT("/:id", novelHandler.Update)
 	novels.DELETE("/:id", novelHandler.Delete)
 
+	characterRepo := repository.NewCharacterRepository(db)
+	characterUC := usecase.NewCharacterUsecase(characterRepo)
+	characterHandler := handler.NewCharacterHandler(characterUC)
+
+	novelCharacters := e.Group("/novels/:novelId/characters", appmiddleware.JWTAuth(cfg.JWTSecret))
+	novelCharacters.POST("", characterHandler.Create)
+	novelCharacters.GET("", characterHandler.List)
+	novelCharacters.GET("/:id", characterHandler.Get)
+	novelCharacters.PUT("/:id", characterHandler.Update)
+	novelCharacters.DELETE("/:id", characterHandler.Delete)
+
 	return e
 }
