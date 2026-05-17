@@ -10,6 +10,7 @@ import (
 	"novel-agent/backend/internal/handler"
 	appmiddleware "novel-agent/backend/internal/middleware"
 	"novel-agent/backend/internal/repository"
+	"novel-agent/backend/internal/service"
 	"novel-agent/backend/internal/usecase"
 
 	"github.com/labstack/echo/v4"
@@ -109,6 +110,10 @@ func newServer(db *sql.DB, cfg config.AppConfig) *echo.Echo {
 	novelVolumes.GET("", volumeHandler.List)
 	novelVolumes.PUT("/:id", volumeHandler.Update)
 	novelVolumes.DELETE("/:id", volumeHandler.Delete)
+
+	exporter := service.NewMarkdownExporter()
+	exportHandler := handler.NewExportHandler(novelUC, volumeUC, chapterUC, exporter)
+	novels.GET("/:novelId/export/markdown", exportHandler.ExportNovelMarkdown)
 
 	return e
 }

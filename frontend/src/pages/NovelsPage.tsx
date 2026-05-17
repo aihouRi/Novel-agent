@@ -40,7 +40,7 @@ import LibraryBooksOutlinedIcon from '@mui/icons-material/LibraryBooksOutlined'
 import type { AuthUser } from '../api/auth'
 import { createNovel, deleteNovel, listNovels, type Novel, updateNovel } from '../api/novels'
 import { deleteCharacter, listCharacters, type Character } from '../api/characters'
-import { deleteChapter, listChapters, type Chapter, updateChapter } from '../api/chapters'
+import { deleteChapter, exportNovelMarkdown, listChapters, type Chapter, updateChapter } from '../api/chapters'
 import { createVolume, listVolumes, type Volume, updateVolume } from '../api/volumes'
 import ChapterEditorPage from './ChapterEditorPage'
 import CharacterManager from '../components/CharacterManager'
@@ -78,6 +78,7 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
   const [chapterSearch, setChapterSearch] = useState('')
   const [chapterSort, setChapterSort] = useState<'number_asc' | 'number_desc' | 'updated_desc'>('number_desc')
   const [movingChapterId, setMovingChapterId] = useState<number | null>(null)
+  const [exportingMarkdown, setExportingMarkdown] = useState(false)
   const [newVolumeTitle, setNewVolumeTitle] = useState('')
   const [editingVolume, setEditingVolume] = useState<Volume | null>(null)
   const [editingVolumeTitle, setEditingVolumeTitle] = useState('')
@@ -353,6 +354,27 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
       notifyError(e instanceof Error ? e.message : 'Failed to move chapter volume')
     } finally {
       setMovingChapterId(null)
+    }
+  }
+
+  async function handleExportMarkdown() {
+    if (!selectedNovelId) return
+    setExportingMarkdown(true)
+    try {
+      const { blob, filename } = await exportNovelMarkdown(token, selectedNovelId)
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      window.URL.revokeObjectURL(url)
+      notifySuccess('Markdown 导出成功。')
+    } catch (e) {
+      notifyError(e instanceof Error ? e.message : 'Failed to export markdown')
+    } finally {
+      setExportingMarkdown(false)
     }
   }
 
@@ -916,6 +938,14 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
                       小说总字数：{novelTotalWordCount.toLocaleString()} 字
                     </Typography>
+                    <Button
+                      variant="outlined"
+                      sx={{ mb: 1.5 }}
+                      onClick={() => void handleExportMarkdown()}
+                      disabled={exportingMarkdown}
+                    >
+                      导出 Markdown
+                    </Button>
                     <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} sx={{ mb: 2 }}>
                       <TextField
                         label="新分卷名"
