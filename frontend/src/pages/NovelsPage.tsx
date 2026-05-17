@@ -184,6 +184,7 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
     if (mainTab === 'myNovels' && myNovelTab === 'novelChapters' && selectedNovelId) {
       void refreshChapters(selectedNovelId)
       void refreshVolumes(selectedNovelId)
+      void refreshCharacters(selectedNovelId)
     }
   }, [mainTab, myNovelTab, selectedNovelId])
 
@@ -607,6 +608,7 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
         novelId={selectedNovel.id}
         novelTitle={selectedNovel.title}
         volumes={volumes}
+        characters={characters}
         initialChapter={chapterEditorTarget}
         defaultChapterNumber={nextChapterNumber}
         onBack={() => {
@@ -965,6 +967,7 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
                           setChapterEditorTarget(null)
                           void refreshChapters(next)
                           void refreshVolumes(next)
+                          void refreshCharacters(next)
                         }}
                       >
                         {novels.map((n) => (

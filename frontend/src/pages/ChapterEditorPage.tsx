@@ -1,10 +1,11 @@
 import { ClipboardEvent, KeyboardEvent, useEffect, useMemo, useState } from 'react'
-import { Alert, Box, Button, Card, CardContent, Container, FormControl, IconButton, InputLabel, MenuItem, Select, Snackbar, Stack, TextField, Typography } from '@mui/material'
+import { Alert, Box, Button, Card, CardContent, Checkbox, Container, FormControl, IconButton, InputLabel, ListItemText, MenuItem, Select, Snackbar, Stack, TextField, Typography } from '@mui/material'
 import CloseIcon from '@mui/icons-material/Close'
 import ArrowBackIosNewRoundedIcon from '@mui/icons-material/ArrowBackIosNewRounded'
 import HistoryRoundedIcon from '@mui/icons-material/HistoryRounded'
 import TaskAltRoundedIcon from '@mui/icons-material/TaskAltRounded'
 import { createChapter, generateChapter, type Chapter, updateChapter } from '../api/chapters'
+import type { Character } from '../api/characters'
 import type { Volume } from '../api/volumes'
 
 type Props = {
@@ -12,6 +13,7 @@ type Props = {
   novelId: number
   novelTitle: string
   volumes: Volume[]
+  characters: Character[]
   initialChapter?: Chapter | null
   defaultChapterNumber?: number
   onBack: () => void
@@ -27,6 +29,7 @@ export default function ChapterEditorPage({
   initialChapter,
   defaultChapterNumber = 1,
   volumes,
+  characters,
   onBack,
   onNotifySuccess,
   onNotifyError,
@@ -51,6 +54,7 @@ export default function ChapterEditorPage({
   const [chapterSummary, setChapterSummary] = useState(initialChapter?.summary ?? '')
   const [chapterOutline, setChapterOutline] = useState(initialChapter?.outline ?? '')
   const [chapterInstruction, setChapterInstruction] = useState(initialChapter?.generation_instruction ?? '')
+  const [selectedCharacterIDs, setSelectedCharacterIDs] = useState<number[]>([])
   const [saving, setSaving] = useState(false)
   const [generating, setGenerating] = useState(false)
   const [sidePanel, setSidePanel] = useState<SidePanel>(null)
@@ -89,6 +93,7 @@ export default function ChapterEditorPage({
         chapterSummary: string
         chapterOutline: string
         chapterInstruction: string
+        selectedCharacterIDs?: number[]
       }
       if (isEdit) {
         setVolumeID(draft.volumeID ?? volumeID)
@@ -102,6 +107,7 @@ export default function ChapterEditorPage({
       setChapterSummary(draft.chapterSummary ?? '')
       setChapterOutline(draft.chapterOutline ?? '')
       setChapterInstruction(draft.chapterInstruction ?? '')
+      setSelectedCharacterIDs(Array.isArray(draft.selectedCharacterIDs) ? draft.selectedCharacterIDs : [])
     } catch {
       localStorage.removeItem(draftKey)
     }
@@ -236,11 +242,12 @@ export default function ChapterEditorPage({
         chapterSummary,
         chapterOutline,
         chapterInstruction,
+        selectedCharacterIDs,
       }
       localStorage.setItem(draftKey, JSON.stringify(draft))
     }, 500)
     return () => window.clearTimeout(id)
-  }, [draftKey, volumeID, chapterNumber, chapterTitle, chapterBody, chapterSummary, chapterOutline, chapterInstruction])
+  }, [draftKey, volumeID, chapterNumber, chapterTitle, chapterBody, chapterSummary, chapterOutline, chapterInstruction, selectedCharacterIDs])
 
   async function handleSave() {
     if (chapterNumber <= 0) {
@@ -318,6 +325,7 @@ export default function ChapterEditorPage({
         chapter_number: chapterNumber,
         title: chapterTitle.trim(),
         generation_instruction: chapterInstruction.trim(),
+        character_ids: selectedCharacterIDs,
       })
       setChapterOutline(data.outline)
       setChapterBody(ensureIndentedBody(data.body))
@@ -536,7 +544,32 @@ export default function ChapterEditorPage({
                         <TextField label="章节大纲" multiline minRows={24} value={chapterOutline} onChange={(e) => setChapterOutline(e.target.value)} fullWidth />
                       )}
                       {sidePanel === 'instruction' && (
-                        <TextField label="生成指令" multiline minRows={24} value={chapterInstruction} onChange={(e) => setChapterInstruction(e.target.value)} fullWidth />
+                        <Stack spacing={1.5}>
+                          <FormControl fullWidth>
+                            <InputLabel id="chapter-character-select">本章登场人物（可选）</InputLabel>
+                            <Select
+                              labelId="chapter-character-select"
+                              label="本章登场人物（可选）"
+                              multiple
+                              value={selectedCharacterIDs}
+                              onChange={(e) => setSelectedCharacterIDs((e.target.value as number[]).map(Number))}
+                              renderValue={(selected) => {
+                                const names = characters
+                                  .filter((c) => selected.includes(c.id))
+                                  .map((c) => c.name)
+                                return names.join('、') || '未选择（默认使用主要人物）'
+                              }}
+                            >
+                              {characters.map((c) => (
+                                <MenuItem key={c.id} value={c.id}>
+                                  <Checkbox checked={selectedCharacterIDs.includes(c.id)} />
+                                  <ListItemText primary={c.name} secondary={c.role || undefined} />
+                                </MenuItem>
+                              ))}
+                            </Select>
+                          </FormControl>
+                          <TextField label="生成指令" multiline minRows={20} value={chapterInstruction} onChange={(e) => setChapterInstruction(e.target.value)} fullWidth />
+                        </Stack>
                       )}
                     </CardContent>
                   </Card>
