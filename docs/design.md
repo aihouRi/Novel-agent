@@ -392,6 +392,11 @@ MVP 阶段建议让 OpenAI 返回结构化 JSON，至少包含：outline、body�
 \- AI 生成失败：502 Bad Gateway 或 500 Internal Server Error  
 :id
 
+前端提示规则（MVP 统一约定）：  
+\- 成功提示和错误提示统一使用页面级 toast（例如左下角弹出并自动消失），不使用常驻页面提示作为主反馈方式。  
+\- 不直接向用户暴露数据库或后端原始错误文本（例如 Duplicate entry、SQL 约束名），应转换为可读业务文案。  
+\- 同一页面内同类型操作（create/update/delete）使用同一提示风格，避免交互不一致。  
+
 说明：  
 \- Characters 通过 novel\_id 间接关联 user\_id  
 \- 后端需要校验当前用户是否拥有对应 novel\_id
@@ -500,6 +505,7 @@ frontend 使用 React \+ TypeScript \+ MUI。MVP 阶段按页面和功能拆分�
 \- hooks：自定义 hooks  
 \- types：TypeScript 类型定义  
 \- utils：工具函数
+\- feedback：统一提示与错误文案映射（建议）
 
 9.7 命名约定  
 \- repository 名称：novel-agent  
@@ -557,4 +563,3 @@ MVP 阶段暂不引入以下结构：
 11.5 V6: MCP / Tool Use  
 \- 将保存、检索、人物更新等能力封装为工具  
 \- 让 Agent 根据任务自动选择工具
-
