@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"strings"
+	"unicode"
 
 	"novel-agent/backend/internal/domain"
 	"novel-agent/backend/internal/repository"
@@ -31,9 +32,7 @@ func (u *ChapterUsecase) Create(ctx context.Context, userID, novelID int64, in *
 	if in.ChapterNumber <= 0 {
 		return nil, errors.New("chapter_number must be greater than 0")
 	}
-	if in.WordCount < 0 {
-		return nil, errors.New("word_count cannot be negative")
-	}
+	in.WordCount = countNonSpaceChars(in.Body)
 
 	chapter, err := u.chapters.Create(ctx, userID, in)
 	if err != nil {
@@ -70,9 +69,7 @@ func (u *ChapterUsecase) Update(ctx context.Context, userID, novelID, id int64, 
 	if in.ChapterNumber <= 0 {
 		return nil, errors.New("chapter_number must be greater than 0")
 	}
-	if in.WordCount < 0 {
-		return nil, errors.New("word_count cannot be negative")
-	}
+	in.WordCount = countNonSpaceChars(in.Body)
 
 	chapter, err := u.chapters.Update(ctx, userID, novelID, id, in)
 	if err != nil {
@@ -93,4 +90,14 @@ func (u *ChapterUsecase) Delete(ctx context.Context, userID, novelID, id int64) 
 		return err
 	}
 	return nil
+}
+
+func countNonSpaceChars(s string) int {
+	count := 0
+	for _, r := range s {
+		if !unicode.IsSpace(r) {
+			count++
+		}
+	}
+	return count
 }

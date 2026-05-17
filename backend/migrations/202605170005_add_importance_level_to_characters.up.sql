@@ -1,0 +1,2 @@
+ALTER TABLE characters
+ADD COLUMN importance_level TINYINT UNSIGNED NOT NULL DEFAULT 0 AFTER memo;

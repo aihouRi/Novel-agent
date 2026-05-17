@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
-  Alert,
   Button,
   Card,
   CardContent,
@@ -14,6 +13,8 @@ type Props = {
   token: string
   novelId: number
   initialCharacter?: Character | null
+  onNotifySuccess?: (msg: string) => void
+  onNotifyError?: (msg: string) => void
   onDone?: () => void
 }
 
@@ -29,14 +30,13 @@ const EMPTY_FORM = {
   first_appearance_chapter: 0,
   last_appearance_chapter: 0,
   memo: '',
+  importance_level: 0,
 }
 
-export default function CharacterManager({ token, novelId, initialCharacter, onDone }: Props) {
+export default function CharacterManager({ token, novelId, initialCharacter, onNotifySuccess, onNotifyError, onDone }: Props) {
   const [form, setForm] = useState(EMPTY_FORM)
   const [editingId, setEditingId] = useState<number | null>(null)
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-  const [message, setMessage] = useState('')
 
   const canSubmit = useMemo(() => form.name.trim().length > 0 && !loading, [form.name, loading])
 
@@ -59,26 +59,25 @@ export default function CharacterManager({ token, novelId, initialCharacter, onD
       first_appearance_chapter: initialCharacter.first_appearance_chapter,
       last_appearance_chapter: initialCharacter.last_appearance_chapter,
       memo: initialCharacter.memo,
+      importance_level: initialCharacter.importance_level,
     })
   }, [initialCharacter])
 
   async function submit() {
     if (!form.name.trim()) return
     setLoading(true)
-    setError('')
-    setMessage('')
     try {
       if (editingId) {
         await updateCharacter(token, novelId, editingId, form)
-        setMessage('Character updated.')
+        onNotifySuccess?.('Character updated.')
       } else {
         await createCharacter(token, novelId, form)
-        setMessage('Character created.')
+        onNotifySuccess?.('Character created.')
       }
       resetForm()
       onDone?.()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to save character')
+      onNotifyError?.(e instanceof Error ? e.message : 'Failed to save character')
     } finally {
       setLoading(false)
     }
@@ -144,6 +143,16 @@ export default function CharacterManager({ token, novelId, initialCharacter, onD
             />
           </Stack>
           <TextField label="Memo" multiline minRows={2} value={form.memo} onChange={(e) => setForm({ ...form, memo: e.target.value })} />
+          <TextField
+            label="Importance Level (0-9, 7+ protected)"
+            type="number"
+            value={form.importance_level}
+            onChange={(e) => {
+              const next = Number(e.target.value)
+              setForm({ ...form, importance_level: Number.isNaN(next) ? 0 : next })
+            }}
+            inputProps={{ min: 0, max: 9 }}
+          />
           <Stack direction="row" spacing={1.5}>
             <Button variant="contained" disabled={!canSubmit} onClick={() => void submit()}>
               {editingId ? 'Update Character' : 'Create Character'}
@@ -154,8 +163,6 @@ export default function CharacterManager({ token, novelId, initialCharacter, onD
           </Stack>
         </Stack>
 
-        {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-        {message && <Alert severity="success" sx={{ mb: 2 }}>{message}</Alert>}
       </CardContent>
     </Card>
   )

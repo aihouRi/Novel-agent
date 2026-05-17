@@ -16,6 +16,7 @@ type Character struct {
 	FirstAppearanceChapter int       `json:"first_appearance_chapter"`
 	LastAppearanceChapter  int       `json:"last_appearance_chapter"`
 	Memo                   string    `json:"memo"`
+	ImportanceLevel        int       `json:"importance_level"`
 	CreatedAt              time.Time `json:"created_at"`
 	UpdatedAt              time.Time `json:"updated_at"`
 }

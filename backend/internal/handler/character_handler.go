@@ -32,6 +32,7 @@ type characterUpsertRequest struct {
 	FirstAppearanceChapter int    `json:"first_appearance_chapter"`
 	LastAppearanceChapter  int    `json:"last_appearance_chapter"`
 	Memo                   string `json:"memo"`
+	ImportanceLevel        int    `json:"importance_level"`
 }
 
 func (h *CharacterHandler) Create(c echo.Context) error {
@@ -159,6 +160,9 @@ func (h *CharacterHandler) Delete(c echo.Context) error {
 		if errors.Is(err, usecase.ErrCharacterNotFound) {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": "character not found"})
 		}
+		if errors.Is(err, usecase.ErrCharacterProtected) {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "main character cannot be deleted when importance_level >= 7"})
+		}
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to delete character"})
 	}
 
@@ -178,6 +182,7 @@ func mapCharacterReq(req characterUpsertRequest) *domain.Character {
 		FirstAppearanceChapter: req.FirstAppearanceChapter,
 		LastAppearanceChapter:  req.LastAppearanceChapter,
 		Memo:                   req.Memo,
+		ImportanceLevel:        req.ImportanceLevel,
 	}
 }
 
