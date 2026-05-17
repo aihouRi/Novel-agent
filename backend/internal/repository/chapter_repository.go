@@ -24,7 +24,7 @@ func (r *ChapterRepository) Create(ctx context.Context, userID int64, c *domain.
 		FROM novels
 		JOIN volumes v ON v.id = ? AND v.novel_id = novels.id
 		WHERE novels.id = ? AND novels.user_id = ?
-	`, c.NovelID, c.VolumeID, c.ChapterNumber, c.Title, c.Body, c.WordCount, c.GenerationInstruction, c.Outline, c.Summary, c.VolumeID, c.NovelID, userID)
+	`, c.NovelID, c.ChapterNumber, c.Title, c.Body, c.WordCount, c.GenerationInstruction, c.Outline, c.Summary, c.VolumeID, c.NovelID, userID)
 	if err != nil {
 		return nil, err
 	}
