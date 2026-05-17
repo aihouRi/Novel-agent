@@ -20,6 +20,7 @@ func NewChapterHandler(chapters *usecase.ChapterUsecase) *ChapterHandler {
 }
 
 type chapterUpsertRequest struct {
+	VolumeID              int64  `json:"volume_id"`
 	ChapterNumber         int    `json:"chapter_number"`
 	Title                 string `json:"title"`
 	Body                  string `json:"body"`
@@ -162,6 +163,7 @@ func (h *ChapterHandler) Delete(c echo.Context) error {
 
 func mapChapterReq(req chapterUpsertRequest) *domain.Chapter {
 	return &domain.Chapter{
+		VolumeID:              req.VolumeID,
 		ChapterNumber:         req.ChapterNumber,
 		Title:                 req.Title,
 		Body:                  req.Body,

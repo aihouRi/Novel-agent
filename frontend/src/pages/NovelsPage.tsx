@@ -41,6 +41,7 @@ import type { AuthUser } from '../api/auth'
 import { createNovel, deleteNovel, listNovels, type Novel, updateNovel } from '../api/novels'
 import { deleteCharacter, listCharacters, type Character } from '../api/characters'
 import { deleteChapter, listChapters, type Chapter } from '../api/chapters'
+import { createVolume, listVolumes, type Volume } from '../api/volumes'
 import ChapterEditorPage from './ChapterEditorPage'
 import CharacterManager from '../components/CharacterManager'
 
@@ -68,12 +69,14 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
   const [showCharacterManager, setShowCharacterManager] = useState(false)
   const [editingCharacter, setEditingCharacter] = useState<Character | null>(null)
   const [chapters, setChapters] = useState<Chapter[]>([])
+  const [volumes, setVolumes] = useState<Volume[]>([])
   const [chapterLoading, setChapterLoading] = useState(false)
   const [chapterEditorTarget, setChapterEditorTarget] = useState<Chapter | null>(null)
   const [chapterEditorOpen, setChapterEditorOpen] = useState(false)
   const [confirmDeleteChapterId, setConfirmDeleteChapterId] = useState<number | null>(null)
   const [chapterSearch, setChapterSearch] = useState('')
   const [chapterSort, setChapterSort] = useState<'number_asc' | 'number_desc' | 'updated_desc'>('number_desc')
+  const [newVolumeTitle, setNewVolumeTitle] = useState('')
 
   const [characters, setCharacters] = useState<Character[]>([])
   const [characterLoading, setCharacterLoading] = useState(false)
@@ -124,6 +127,18 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
     }
     return filtered.sort((a, b) => Date.parse(b.updated_at) - Date.parse(a.updated_at))
   }, [chapters, chapterSearch, chapterSort])
+  const groupedChapters = useMemo(() => {
+    const byVolume = new Map<number, Chapter[]>()
+    for (const c of visibleChapters) {
+      const list = byVolume.get(c.volume_id) ?? []
+      list.push(c)
+      byVolume.set(c.volume_id, list)
+    }
+    return volumes.map((v) => ({
+      volume: v,
+      chapters: byVolume.get(v.id) ?? [],
+    }))
+  }, [visibleChapters, volumes])
 
   useEffect(() => {
     void refreshNovels()
@@ -139,6 +154,7 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
     }
     if (mainTab === 'myNovels' && myNovelTab === 'novelChapters' && selectedNovelId) {
       void refreshChapters(selectedNovelId)
+      void refreshVolumes(selectedNovelId)
     }
   }, [mainTab, myNovelTab, selectedNovelId])
 
@@ -210,9 +226,40 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
     }
   }
 
+  async function refreshVolumes(novelId: number) {
+    try {
+      const data = await listVolumes(token, novelId)
+      setVolumes(data.volumes)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load volumes')
+    }
+  }
+
   async function handleChapterSaved() {
     if (!selectedNovelId) return
     await refreshChapters(selectedNovelId)
+    await refreshVolumes(selectedNovelId)
+  }
+
+  async function handleCreateVolume() {
+    if (!selectedNovelId) return
+    const title = newVolumeTitle.trim()
+    if (!title) {
+      notifyError('卷名不能为空。')
+      return
+    }
+    const nextNumber = volumes.length === 0 ? 1 : Math.max(...volumes.map((v) => v.volume_number)) + 1
+    try {
+      await createVolume(token, selectedNovelId, {
+        volume_number: nextNumber,
+        title,
+      })
+      setNewVolumeTitle('')
+      await refreshVolumes(selectedNovelId)
+      notifySuccess('Volume created.')
+    } catch (e) {
+      notifyError(e instanceof Error ? e.message : 'Failed to create volume')
+    }
   }
 
   function fillForm(novel: Novel) {
@@ -403,6 +450,7 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
         token={token}
         novelId={selectedNovel.id}
         novelTitle={selectedNovel.title}
+        volumes={volumes}
         initialChapter={chapterEditorTarget}
         defaultChapterNumber={nextChapterNumber}
         onBack={() => {
@@ -504,6 +552,7 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
                         setChapterEditorOpen(false)
                         setChapterEditorTarget(null)
                         if (selectedNovelId) void refreshChapters(selectedNovelId)
+                        if (selectedNovelId) void refreshVolumes(selectedNovelId)
                       }}
                       sx={{
                         justifyContent: 'flex-start', textTransform: 'none', borderRadius: 2,
@@ -757,6 +806,7 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
                           setChapterEditorOpen(false)
                           setChapterEditorTarget(null)
                           void refreshChapters(next)
+                          void refreshVolumes(next)
                         }}
                       >
                         {novels.map((n) => (
@@ -766,6 +816,17 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
                     </FormControl>
 
                     <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 600 }}>当前章节</Typography>
+                    <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} sx={{ mb: 2 }}>
+                      <TextField
+                        label="新分卷名"
+                        value={newVolumeTitle}
+                        onChange={(e) => setNewVolumeTitle(e.target.value)}
+                        fullWidth
+                      />
+                      <Button variant="outlined" onClick={() => void handleCreateVolume()} disabled={!newVolumeTitle.trim()}>
+                        新建分卷
+                      </Button>
+                    </Stack>
                     <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} sx={{ mb: 2 }}>
                       <TextField
                         label="搜索章节（编号/标题）"
@@ -792,34 +853,50 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
                     ) : visibleChapters.length === 0 ? (
                       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>No chapters yet.</Typography>
                     ) : (
-                      <Stack spacing={1.2} sx={{ mb: 2 }}>
-                        {visibleChapters.map((c) => (
-                          <Box key={c.id} sx={{ border: '1px solid #e2e8f0', borderRadius: 2, p: 1.2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <Box>
-                              <Typography sx={{ fontWeight: 600 }}>第 {c.chapter_number} 章 · {c.title || 'Untitled'}</Typography>
-                              <Typography variant="body2" color="text.secondary">
-                                {c.word_count} 字 · {c.summary.trim() ? '有总结' : '无总结'} · 更新于 {new Date(c.updated_at).toLocaleString()}
+                      <Stack spacing={2} sx={{ mb: 2 }}>
+                        {groupedChapters.map(({ volume, chapters: volumeChapters }) => (
+                          <Card key={volume.id} variant="outlined" sx={{ borderRadius: 2 }}>
+                            <CardContent>
+                              <Typography sx={{ fontWeight: 700, mb: 1 }}>
+                                第{volume.volume_number}卷：{volume.title}
                               </Typography>
-                            </Box>
-                            <Stack direction="row" spacing={0.5}>
-                              <IconButton
-                                onClick={() => {
-                                  setChapterEditorTarget(c)
-                                  setChapterEditorOpen(true)
-                                }}
-                              >
-                                <EditOutlinedIcon />
-                              </IconButton>
-                              <IconButton onClick={() => requestDeleteChapter(c.id)}>
-                                <DeleteOutlineIcon />
-                              </IconButton>
-                            </Stack>
-                          </Box>
+                              {volumeChapters.length === 0 ? (
+                                <Typography variant="body2" color="text.secondary">该分卷暂无章节</Typography>
+                              ) : (
+                                <Stack spacing={1}>
+                                  {volumeChapters.map((c) => (
+                                    <Box key={c.id} sx={{ border: '1px solid #e2e8f0', borderRadius: 2, p: 1.2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                      <Box>
+                                        <Typography sx={{ fontWeight: 600 }}>第 {c.chapter_number} 章 · {c.title || 'Untitled'}</Typography>
+                                        <Typography variant="body2" color="text.secondary">
+                                          {c.word_count} 字 · {c.summary.trim() ? '有总结' : '无总结'} · 更新于 {new Date(c.updated_at).toLocaleString()}
+                                        </Typography>
+                                      </Box>
+                                      <Stack direction="row" spacing={0.5}>
+                                        <IconButton
+                                          onClick={() => {
+                                            setChapterEditorTarget(c)
+                                            setChapterEditorOpen(true)
+                                          }}
+                                        >
+                                          <EditOutlinedIcon />
+                                        </IconButton>
+                                        <IconButton onClick={() => requestDeleteChapter(c.id)}>
+                                          <DeleteOutlineIcon />
+                                        </IconButton>
+                                      </Stack>
+                                    </Box>
+                                  ))}
+                                </Stack>
+                              )}
+                            </CardContent>
+                          </Card>
                         ))}
                       </Stack>
                     )}
                     <Button
                       variant="contained"
+                      disabled={volumes.length === 0}
                       onClick={() => {
                         setChapterEditorTarget(null)
                         setChapterEditorOpen(true)
@@ -827,6 +904,11 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
                     >
                       新增章节
                     </Button>
+                    {volumes.length === 0 && (
+                      <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                        请先创建分卷（必须填写卷名），再创建章节。
+                      </Typography>
+                    )}
                   </CardContent>
                 </Card>
               ) : (

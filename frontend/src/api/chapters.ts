@@ -1,6 +1,7 @@
 export type Chapter = {
   id: number
   novel_id: number
+  volume_id: number
   chapter_number: number
   title: string
   body: string
@@ -13,6 +14,7 @@ export type Chapter = {
 }
 
 export type UpsertChapterPayload = {
+  volume_id: number
   chapter_number: number
   title: string
   body: string

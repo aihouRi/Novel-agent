@@ -100,5 +100,15 @@ func newServer(db *sql.DB, cfg config.AppConfig) *echo.Echo {
 	novelChapters.PUT("/:id", chapterHandler.Update)
 	novelChapters.DELETE("/:id", chapterHandler.Delete)
 
+	volumeRepo := repository.NewVolumeRepository(db)
+	volumeUC := usecase.NewVolumeUsecase(volumeRepo)
+	volumeHandler := handler.NewVolumeHandler(volumeUC)
+
+	novelVolumes := e.Group("/novels/:novelId/volumes", appmiddleware.JWTAuth(cfg.JWTSecret))
+	novelVolumes.POST("", volumeHandler.Create)
+	novelVolumes.GET("", volumeHandler.List)
+	novelVolumes.PUT("/:id", volumeHandler.Update)
+	novelVolumes.DELETE("/:id", volumeHandler.Delete)
+
 	return e
 }

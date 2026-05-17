@@ -1,15 +1,17 @@
 import { ClipboardEvent, KeyboardEvent, useEffect, useMemo, useState } from 'react'
-import { Box, Button, Card, CardContent, Container, IconButton, Stack, TextField, Typography } from '@mui/material'
+import { Box, Button, Card, CardContent, Container, FormControl, IconButton, InputLabel, MenuItem, Select, Stack, TextField, Typography } from '@mui/material'
 import CloseIcon from '@mui/icons-material/Close'
 import ArrowBackIosNewRoundedIcon from '@mui/icons-material/ArrowBackIosNewRounded'
 import HistoryRoundedIcon from '@mui/icons-material/HistoryRounded'
 import TaskAltRoundedIcon from '@mui/icons-material/TaskAltRounded'
 import { createChapter, type Chapter, updateChapter } from '../api/chapters'
+import type { Volume } from '../api/volumes'
 
 type Props = {
   token: string
   novelId: number
   novelTitle: string
+  volumes: Volume[]
   initialChapter?: Chapter | null
   defaultChapterNumber?: number
   onBack: () => void
@@ -24,6 +26,7 @@ export default function ChapterEditorPage({
   novelTitle,
   initialChapter,
   defaultChapterNumber = 1,
+  volumes,
   onBack,
   onNotifySuccess,
   onNotifyError,
@@ -34,6 +37,7 @@ export default function ChapterEditorPage({
   const INDENT = '　　'
 
   const [chapterNumber, setChapterNumber] = useState(initialChapter?.chapter_number ?? defaultChapterNumber)
+  const [volumeID, setVolumeID] = useState<number>(initialChapter?.volume_id ?? (volumes[0]?.id ?? 0))
   const [chapterTitle, setChapterTitle] = useState(initialChapter?.title ?? '')
   const [chapterBody, setChapterBody] = useState(ensureIndentedBody(initialChapter?.body ?? INDENT))
   const [chapterSummary, setChapterSummary] = useState(initialChapter?.summary ?? '')
@@ -50,10 +54,17 @@ export default function ChapterEditorPage({
   )
 
   useEffect(() => {
+    if (volumeID > 0) return
+    if (volumes.length === 0) return
+    setVolumeID(volumes[0].id)
+  }, [volumeID, volumes])
+
+  useEffect(() => {
     const saved = localStorage.getItem(draftKey)
     if (!saved) return
     try {
       const draft = JSON.parse(saved) as {
+        volumeID: number
         chapterNumber: number
         chapterTitle: string
         chapterBody: string
@@ -61,6 +72,7 @@ export default function ChapterEditorPage({
         chapterOutline: string
         chapterInstruction: string
       }
+      setVolumeID(draft.volumeID ?? volumeID)
       setChapterNumber(draft.chapterNumber ?? chapterNumber)
       setChapterTitle(draft.chapterTitle ?? '')
       setChapterBody(ensureIndentedBody(draft.chapterBody ?? ''))
@@ -194,6 +206,7 @@ export default function ChapterEditorPage({
   useEffect(() => {
     const id = window.setTimeout(() => {
       const draft = {
+        volumeID,
         chapterNumber,
         chapterTitle,
         chapterBody,
@@ -204,17 +217,22 @@ export default function ChapterEditorPage({
       localStorage.setItem(draftKey, JSON.stringify(draft))
     }, 500)
     return () => window.clearTimeout(id)
-  }, [draftKey, chapterNumber, chapterTitle, chapterBody, chapterSummary, chapterOutline, chapterInstruction])
+  }, [draftKey, volumeID, chapterNumber, chapterTitle, chapterBody, chapterSummary, chapterOutline, chapterInstruction])
 
   async function handleSave() {
     if (chapterNumber <= 0) {
       onNotifyError('章节编号必须大于 0。')
       return
     }
+    if (volumeID <= 0) {
+      onNotifyError('请先选择分卷。')
+      return
+    }
 
     setSaving(true)
     try {
       const payload = {
+        volume_id: volumeID,
         chapter_number: chapterNumber,
         title: chapterTitle.trim(),
         body: ensureIndentedBody(chapterBody),
@@ -344,9 +362,24 @@ export default function ChapterEditorPage({
                   >
                     <CardContent>
                       <Stack spacing={2}>
-                        <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} alignItems={{ xs: 'stretch', md: 'center' }}>
-                          <TextField
-                            label="章节编号"
+                      <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} alignItems={{ xs: 'stretch', md: 'center' }}>
+                        <FormControl sx={{ width: { xs: '100%', sm: 220 } }}>
+                          <InputLabel id="chapter-volume-select">分卷</InputLabel>
+                          <Select
+                            labelId="chapter-volume-select"
+                            label="分卷"
+                            value={volumeID}
+                            onChange={(e) => setVolumeID(Number(e.target.value))}
+                          >
+                            {volumes.map((v) => (
+                              <MenuItem key={v.id} value={v.id}>
+                                第{v.volume_number}卷：{v.title}
+                              </MenuItem>
+                            ))}
+                          </Select>
+                        </FormControl>
+                        <TextField
+                          label="章节编号"
                             type="number"
                             value={chapterNumber}
                             onChange={(e) => setChapterNumber(Number(e.target.value) || 0)}
