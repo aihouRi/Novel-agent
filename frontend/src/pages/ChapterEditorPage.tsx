@@ -1,5 +1,5 @@
 import { ClipboardEvent, KeyboardEvent, useEffect, useMemo, useState } from 'react'
-import { Alert, Box, Button, Card, CardContent, Checkbox, Container, FormControl, IconButton, InputLabel, ListItemText, MenuItem, Select, Snackbar, Stack, TextField, Typography } from '@mui/material'
+import { Alert, Autocomplete, Box, Button, Card, CardContent, Container, FormControl, IconButton, InputLabel, MenuItem, Select, Snackbar, Stack, TextField, Typography } from '@mui/material'
 import CloseIcon from '@mui/icons-material/Close'
 import ArrowBackIosNewRoundedIcon from '@mui/icons-material/ArrowBackIosNewRounded'
 import HistoryRoundedIcon from '@mui/icons-material/HistoryRounded'
@@ -21,6 +21,8 @@ type Props = {
   onNotifyError: (msg: string) => void
   onSaved: () => Promise<void> | void
 }
+
+type CharacterOption = Character & { group: string }
 
 export default function ChapterEditorPage({
   token,
@@ -60,12 +62,30 @@ export default function ChapterEditorPage({
   const [sidePanel, setSidePanel] = useState<SidePanel>(null)
   const [localSuccess, setLocalSuccess] = useState('')
   const [localError, setLocalError] = useState('')
+  const [recentCharacterIDs, setRecentCharacterIDs] = useState<number[]>([])
 
   const chapterWordCount = useMemo(() => chapterBody.replace(/\s/g, '').length, [chapterBody])
   const isEdit = Boolean(initialChapter)
   const draftKey = useMemo(
     () => `novel_agent_chapter_draft_${novelId}_${initialChapter?.id ?? 'new'}`,
     [novelId, initialChapter?.id],
+  )
+  const recentCharacterKey = useMemo(() => `novel_agent_recent_characters_${novelId}`, [novelId])
+  const groupedCharacterOptions = useMemo<CharacterOption[]>(
+    () =>
+      [...characters]
+        .sort((a, b) => a.name.localeCompare(b.name, 'zh-Hans-CN'))
+        .map((c) => {
+          let group = '全部人物'
+          if (recentCharacterIDs.includes(c.id)) group = '最近使用'
+          else if (c.importance_level >= 5) group = '主要人物'
+          return { ...c, group }
+        }),
+    [characters, recentCharacterIDs],
+  )
+  const selectedCharacters = useMemo(
+    () => groupedCharacterOptions.filter((c) => selectedCharacterIDs.includes(c.id)),
+    [groupedCharacterOptions, selectedCharacterIDs],
   )
 
   useEffect(() => {
@@ -80,6 +100,19 @@ export default function ChapterEditorPage({
     const matched = volumes.some((v) => v.id === volumeID)
     if (!matched) setVolumeID(isEdit ? volumes[0].id : latestVolumeID)
   }, [isEdit, latestVolumeID, volumeID, volumes])
+
+  useEffect(() => {
+    const raw = localStorage.getItem(recentCharacterKey)
+    if (!raw) return
+    try {
+      const parsed = JSON.parse(raw) as number[]
+      if (Array.isArray(parsed)) {
+        setRecentCharacterIDs(parsed.filter((id) => Number.isFinite(id)))
+      }
+    } catch {
+      localStorage.removeItem(recentCharacterKey)
+    }
+  }, [recentCharacterKey])
 
   useEffect(() => {
     const saved = localStorage.getItem(draftKey)
@@ -327,6 +360,11 @@ export default function ChapterEditorPage({
         generation_instruction: chapterInstruction.trim(),
         character_ids: selectedCharacterIDs,
       })
+      if (selectedCharacterIDs.length > 0) {
+        const merged = Array.from(new Set([...selectedCharacterIDs, ...recentCharacterIDs])).slice(0, 30)
+        setRecentCharacterIDs(merged)
+        localStorage.setItem(recentCharacterKey, JSON.stringify(merged))
+      }
       setChapterOutline(data.outline)
       setChapterBody(ensureIndentedBody(data.body))
       setChapterSummary(data.summary)
@@ -545,29 +583,37 @@ export default function ChapterEditorPage({
                       )}
                       {sidePanel === 'instruction' && (
                         <Stack spacing={1.5}>
-                          <FormControl fullWidth>
-                            <InputLabel id="chapter-character-select">本章登场人物（可选）</InputLabel>
-                            <Select
-                              labelId="chapter-character-select"
-                              label="本章登场人物（可选）"
-                              multiple
-                              value={selectedCharacterIDs}
-                              onChange={(e) => setSelectedCharacterIDs((e.target.value as number[]).map(Number))}
-                              renderValue={(selected) => {
-                                const names = characters
-                                  .filter((c) => selected.includes(c.id))
-                                  .map((c) => c.name)
-                                return names.join('、') || '未选择（默认使用主要人物）'
-                              }}
-                            >
-                              {characters.map((c) => (
-                                <MenuItem key={c.id} value={c.id}>
-                                  <Checkbox checked={selectedCharacterIDs.includes(c.id)} />
-                                  <ListItemText primary={c.name} secondary={c.role || undefined} />
-                                </MenuItem>
-                              ))}
-                            </Select>
-                          </FormControl>
+                          <Autocomplete
+                            multiple
+                            options={groupedCharacterOptions}
+                            groupBy={(option) => option.group}
+                            value={selectedCharacters}
+                            onChange={(_, next) => setSelectedCharacterIDs(next.map((c) => c.id))}
+                            getOptionLabel={(option) => option.name}
+                            isOptionEqualToValue={(option, value) => option.id === value.id}
+                            filterOptions={(options, state) => {
+                              const keyword = state.inputValue.trim().toLowerCase()
+                              if (!keyword) return options
+                              return options.filter((o) =>
+                                o.name.toLowerCase().includes(keyword) ||
+                                o.aliases.toLowerCase().includes(keyword) ||
+                                o.role.toLowerCase().includes(keyword),
+                              )
+                            }}
+                            renderInput={(params) => (
+                              <TextField {...params} label="本章登场人物（可选）" placeholder="搜索姓名/别名/身份" />
+                            )}
+                            renderOption={(props, option) => (
+                              <li {...props} key={option.id}>
+                                <Box>
+                                  <Typography sx={{ fontWeight: 600 }}>{option.name}</Typography>
+                                  <Typography variant="body2" color="text.secondary">
+                                    {option.role || '无身份'}{option.aliases ? ` · 别名：${option.aliases}` : ''}
+                                  </Typography>
+                                </Box>
+                              </li>
+                            )}
+                          />
                           <TextField label="生成指令" multiline minRows={20} value={chapterInstruction} onChange={(e) => setChapterInstruction(e.target.value)} fullWidth />
                         </Stack>
                       )}
