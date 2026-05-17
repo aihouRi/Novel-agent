@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Box, Button, Card, CardContent, Container, IconButton, Stack, TextField, Typography } from '@mui/material'
 import CloseIcon from '@mui/icons-material/Close'
+import ArrowBackIosNewRoundedIcon from '@mui/icons-material/ArrowBackIosNewRounded'
+import HistoryRoundedIcon from '@mui/icons-material/HistoryRounded'
+import TaskAltRoundedIcon from '@mui/icons-material/TaskAltRounded'
 import { createChapter, type Chapter, updateChapter } from '../api/chapters'
 
 type Props = {
@@ -60,7 +63,6 @@ export default function ChapterEditorPage({
       setChapterSummary(draft.chapterSummary ?? '')
       setChapterOutline(draft.chapterOutline ?? '')
       setChapterInstruction(draft.chapterInstruction ?? '')
-      onNotifySuccess('已恢复本地草稿。')
     } catch {
       localStorage.removeItem(draftKey)
     }
@@ -128,22 +130,81 @@ export default function ChapterEditorPage({
       }}
     >
       <Container maxWidth="xl">
-        <Card variant="outlined" sx={{ borderRadius: 3, mb: 2, borderColor: 'rgba(15,23,42,0.1)', bgcolor: 'rgba(255,255,255,0.92)' }}>
-          <CardContent>
-            <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} justifyContent="space-between" alignItems={{ xs: 'stretch', md: 'center' }}>
-              <Box sx={{ textAlign: 'center', flex: 1 }}>
-                <Typography variant="h5" sx={{ fontWeight: 700 }}>{isEdit ? '编辑章节' : '新建章节'}</Typography>
-                <Typography variant="body2" color="text.secondary">{novelTitle}</Typography>
+        <Box
+          sx={{
+            mb: 2,
+            px: { xs: 1, md: 0 },
+            py: 1.2,
+            borderBottom: '1px solid #e5e7eb',
+            bgcolor: 'rgba(255,255,255,0.85)',
+            backdropFilter: 'blur(2px)',
+            borderRadius: 2,
+          }}
+        >
+          <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={2}>
+            <Stack direction="row" alignItems="center" spacing={1.5} sx={{ minWidth: 0 }}>
+              <IconButton
+                onClick={onBack}
+                sx={{
+                  width: 42,
+                  height: 42,
+                  bgcolor: '#f3f4f6',
+                  border: '1px solid #e5e7eb',
+                  '&:hover': { bgcolor: '#e5e7eb' },
+                }}
+              >
+                <ArrowBackIosNewRoundedIcon fontSize="small" />
+              </IconButton>
+              <Box sx={{ minWidth: 0 }}>
+                <Typography sx={{ fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {novelTitle}
+                </Typography>
+                <Stack direction="row" spacing={1.2} sx={{ color: '#9ca3af', mt: 0.25 }}>
+                  <Stack direction="row" spacing={0.4} alignItems="center">
+                    <TaskAltRoundedIcon sx={{ fontSize: 16 }} />
+                    <Typography variant="body2">已保存到云端</Typography>
+                  </Stack>
+                  <Stack direction="row" spacing={0.4} alignItems="center">
+                    <HistoryRoundedIcon sx={{ fontSize: 16 }} />
+                    <Typography variant="body2">正文 {chapterWordCount} 字</Typography>
+                  </Stack>
+                </Stack>
               </Box>
-              <Stack direction="row" spacing={1.5}>
-                <Button variant="outlined" onClick={onBack}>返回章节列表</Button>
-                <Button variant="contained" disabled={saving || chapterNumber <= 0} onClick={() => void handleSave()}>
-                  {isEdit ? '保存章节' : '创建章节'}
-                </Button>
-              </Stack>
             </Stack>
-          </CardContent>
-        </Card>
+
+            <Stack direction="row" spacing={1.2} alignItems="center" sx={{ flexShrink: 0 }}>
+              <Button
+                variant="contained"
+                onClick={onBack}
+                sx={{
+                  borderRadius: 999,
+                  px: 2.2,
+                  color: '#111827',
+                  bgcolor: '#f1f5f9',
+                  boxShadow: 'none',
+                  '&:hover': { bgcolor: '#e2e8f0', boxShadow: 'none' },
+                }}
+              >
+                返回列表
+              </Button>
+              <Button
+                variant="outlined"
+                disabled={saving || chapterNumber <= 0}
+                onClick={() => void handleSave()}
+                sx={{
+                  borderRadius: 999,
+                  px: 2.2,
+                  color: '#ea580c',
+                  borderColor: '#ea580c',
+                  bgcolor: '#ffffff',
+                  '&:hover': { bgcolor: '#ea580c', color: '#ffffff', borderColor: '#ea580c' },
+                }}
+              >
+                {isEdit ? '保存章节' : '创建章节'}
+              </Button>
+            </Stack>
+          </Stack>
+        </Box>
 
         <Box sx={{ maxWidth: 1320, mx: 'auto' }}>
           <Stack direction={{ xs: 'column', lg: 'row' }} spacing={2} alignItems="flex-start">
@@ -241,7 +302,7 @@ export default function ChapterEditorPage({
             <Stack
               spacing={1}
               sx={{
-                width: 96,
+                width: 110,
                 flexShrink: 0,
                 position: { lg: 'sticky' },
                 top: { lg: 110 },
@@ -250,18 +311,54 @@ export default function ChapterEditorPage({
               <Button
                 variant={sidePanel === 'summary' ? 'contained' : 'outlined'}
                 onClick={() => setSidePanel((p) => (p === 'summary' ? null : 'summary'))}
+                sx={{
+                  borderRadius: 3,
+                  py: 1,
+                  fontWeight: 700,
+                  color: sidePanel === 'summary' ? '#ffffff' : '#374151',
+                  bgcolor: sidePanel === 'summary' ? '#0f766e' : '#f8fafc',
+                  borderColor: sidePanel === 'summary' ? '#0f766e' : '#d1d5db',
+                  '&:hover': {
+                    bgcolor: sidePanel === 'summary' ? '#0d9488' : '#eef2f7',
+                    borderColor: sidePanel === 'summary' ? '#0d9488' : '#9ca3af',
+                  },
+                }}
               >
                 总结
               </Button>
               <Button
                 variant={sidePanel === 'outline' ? 'contained' : 'outlined'}
                 onClick={() => setSidePanel((p) => (p === 'outline' ? null : 'outline'))}
+                sx={{
+                  borderRadius: 3,
+                  py: 1,
+                  fontWeight: 700,
+                  color: sidePanel === 'outline' ? '#ffffff' : '#374151',
+                  bgcolor: sidePanel === 'outline' ? '#0f766e' : '#f8fafc',
+                  borderColor: sidePanel === 'outline' ? '#0f766e' : '#d1d5db',
+                  '&:hover': {
+                    bgcolor: sidePanel === 'outline' ? '#0d9488' : '#eef2f7',
+                    borderColor: sidePanel === 'outline' ? '#0d9488' : '#9ca3af',
+                  },
+                }}
               >
                 大纲
               </Button>
               <Button
                 variant={sidePanel === 'instruction' ? 'contained' : 'outlined'}
                 onClick={() => setSidePanel((p) => (p === 'instruction' ? null : 'instruction'))}
+                sx={{
+                  borderRadius: 3,
+                  py: 1,
+                  fontWeight: 700,
+                  color: sidePanel === 'instruction' ? '#ffffff' : '#374151',
+                  bgcolor: sidePanel === 'instruction' ? '#0f766e' : '#f8fafc',
+                  borderColor: sidePanel === 'instruction' ? '#0f766e' : '#d1d5db',
+                  '&:hover': {
+                    bgcolor: sidePanel === 'instruction' ? '#0d9488' : '#eef2f7',
+                    borderColor: sidePanel === 'instruction' ? '#0d9488' : '#9ca3af',
+                  },
+                }}
               >
                 指令
               </Button>
@@ -285,8 +382,33 @@ export default function ChapterEditorPage({
           }}
         >
           <Stack direction="row" spacing={1.5}>
-            <Button variant="outlined" onClick={onBack}>返回章节列表</Button>
-            <Button variant="contained" disabled={saving || chapterNumber <= 0} onClick={() => void handleSave()}>
+            <Button
+              variant="contained"
+              onClick={onBack}
+              sx={{
+                borderRadius: 999,
+                px: 2.25,
+                color: '#111827',
+                bgcolor: '#f1f5f9',
+                boxShadow: 'none',
+                '&:hover': { bgcolor: '#e2e8f0', boxShadow: 'none' },
+              }}
+            >
+              返回列表
+            </Button>
+            <Button
+              variant="outlined"
+              disabled={saving || chapterNumber <= 0}
+              onClick={() => void handleSave()}
+              sx={{
+                borderRadius: 999,
+                px: 2.25,
+                color: '#ea580c',
+                borderColor: '#ea580c',
+                bgcolor: '#ffffff',
+                '&:hover': { bgcolor: '#ea580c', color: '#ffffff', borderColor: '#ea580c' },
+              }}
+            >
               {isEdit ? '保存章节' : '创建章节'}
             </Button>
           </Stack>
