@@ -87,6 +87,7 @@ export default function ChapterEditorPage({
     () => groupedCharacterOptions.filter((c) => selectedCharacterIDs.includes(c.id)),
     [groupedCharacterOptions, selectedCharacterIDs],
   )
+  const validCharacterIDSet = useMemo(() => new Set(characters.map((c) => c.id)), [characters])
 
   useEffect(() => {
     if (volumes.length === 0) {
@@ -140,12 +141,16 @@ export default function ChapterEditorPage({
       setChapterSummary(draft.chapterSummary ?? '')
       setChapterOutline(draft.chapterOutline ?? '')
       setChapterInstruction(draft.chapterInstruction ?? '')
-      setSelectedCharacterIDs(Array.isArray(draft.selectedCharacterIDs) ? draft.selectedCharacterIDs : [])
+      setSelectedCharacterIDs(
+        Array.isArray(draft.selectedCharacterIDs)
+          ? draft.selectedCharacterIDs.filter((id) => validCharacterIDSet.has(id))
+          : [],
+      )
     } catch {
       localStorage.removeItem(draftKey)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draftKey, isEdit, latestVolumeID])
+  }, [draftKey, isEdit, latestVolumeID, validCharacterIDSet])
 
   function ensureIndentedBody(text: string): string {
     if (!text) return INDENT
@@ -353,15 +358,16 @@ export default function ChapterEditorPage({
 
     setGenerating(true)
     try {
+      const safeCharacterIDs = selectedCharacterIDs.filter((id) => validCharacterIDSet.has(id))
       const data = await generateChapter(token, novelId, {
         volume_id: volumeID,
         chapter_number: chapterNumber,
         title: chapterTitle.trim(),
         generation_instruction: chapterInstruction.trim(),
-        character_ids: selectedCharacterIDs,
+        character_ids: safeCharacterIDs,
       })
-      if (selectedCharacterIDs.length > 0) {
-        const merged = Array.from(new Set([...selectedCharacterIDs, ...recentCharacterIDs])).slice(0, 30)
+      if (safeCharacterIDs.length > 0) {
+        const merged = Array.from(new Set([...safeCharacterIDs, ...recentCharacterIDs])).slice(0, 30)
         setRecentCharacterIDs(merged)
         localStorage.setItem(recentCharacterKey, JSON.stringify(merged))
       }
