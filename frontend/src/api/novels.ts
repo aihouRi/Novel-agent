@@ -1,3 +1,4 @@
+import { extractError } from './http'
 export type Novel = {
   id: number
   user_id: number
@@ -83,11 +84,3 @@ export async function deleteNovel(token: string, id: number): Promise<void> {
   if (!res.ok) throw new Error(await extractError(res))
 }
 
-async function extractError(res: Response): Promise<string> {
-  try {
-    const data = (await res.json()) as { error?: string }
-    return data.error ?? `Request failed: ${res.status}`
-  } catch {
-    return `Request failed: ${res.status}`
-  }
-}

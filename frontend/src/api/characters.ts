@@ -1,3 +1,4 @@
+import { extractError } from './http'
 export type Character = {
   id: number
   novel_id: number
@@ -92,15 +93,3 @@ export async function deleteCharacter(token: string, novelId: number, id: number
   if (!res.ok) throw new Error(await extractError(res))
 }
 
-async function extractError(res: Response): Promise<string> {
-  try {
-    const data = (await res.json()) as { error?: string }
-    const raw = data.error ?? `Request failed: ${res.status}`
-    if (raw.includes('importance_level >= 7')) {
-      return '该人物为主要角色，禁止删除。请先降低权重后再删除。'
-    }
-    return raw
-  } catch {
-    return `Request failed: ${res.status}`
-  }
-}
