@@ -160,6 +160,9 @@ INTEGRATION_TEST=1 MYSQL_DSN='novel:novel@tcp(127.0.0.1:3306)/novel_agent_test?p
   - `GET/POST /novels/:novelId/chapters`
   - `GET/PUT/DELETE /novels/:novelId/chapters/:id`
   - `POST /novels/:novelId/chapters/generate`
+- Lore Entries:
+  - `GET/POST /novels/:novelId/lore-entries`
+  - `GET/PUT/DELETE /novels/:novelId/lore-entries/:id`
 - Export:
   - `POST /novels/:novelId/export`
   - `GET /novels/:novelId/export/markdown`（兼容）

@@ -1,6 +1,6 @@
 # Novel Agent MVP 设计书（现状一致版）
 
-更新时间：2026-05-18
+更新时间：2026-05-19
 
 ## 1. 文档目的
 本设计书用于同步 `Novel Agent` 当前 MVP 的**实际实现状态**，既作为后续开发依据，也作为阶段总结。
@@ -163,6 +163,26 @@ novel-agent/
 - 同一小说内 `chapter_number` 唯一
 - 章节支持在列表中直接切换分卷
 
+### 5.6 lore_entries（V1 增量）
+- id
+- novel_id
+- category（artifact/elixir/formation/technique/location/organization/other）
+- name
+- description
+- rules_or_limits
+- tags
+- created_at
+- updated_at
+
+### 5.7 lore_entry_characters（V1 增量）
+- lore_entry_id
+- character_id
+- created_at
+
+说明：
+- 设定卡与人物为多对多关系。
+- 允许不绑定人物（空），也允许绑定单人或多人。
+
 ---
 
 ## 6. 认证与权限
@@ -242,6 +262,25 @@ novel-agent/
 导出文件名：
 - `小说名-YYYYMMDD.md`
 - 响应头使用 `filename*` UTF-8 以避免中文乱码
+
+### 7.8 Lore Entries（V1 增量）
+- `POST /novels/:novelId/lore-entries`
+- `GET /novels/:novelId/lore-entries`
+- `GET /novels/:novelId/lore-entries/:id`
+- `PUT /novels/:novelId/lore-entries/:id`
+- `DELETE /novels/:novelId/lore-entries/:id`
+
+请求字段：
+- `category`
+- `name`
+- `description`
+- `rules_or_limits`
+- `tags`
+- `character_ids`（可选，支持 0..n）
+
+规则：
+- `category/name/description` 必填
+- `character_ids` 若提供，必须全部属于当前用户的当前小说人物
 
 ---
 
