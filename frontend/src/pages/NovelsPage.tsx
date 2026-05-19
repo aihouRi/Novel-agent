@@ -1,8 +1,5 @@
 import { MouseEvent, useEffect, useMemo, useState } from 'react'
 import {
-  Accordion,
-  AccordionDetails,
-  AccordionSummary,
   Alert,
   Avatar,
   Box,
@@ -10,7 +7,6 @@ import {
   Card,
   CardActionArea,
   CardContent,
-  Checkbox,
   Collapse,
   Container,
   Dialog,
@@ -19,8 +15,6 @@ import {
   DialogContentText,
   DialogTitle,
   FormControl,
-  FormControlLabel,
-  FormGroup,
   IconButton,
   InputLabel,
   ListItemIcon,
@@ -47,6 +41,8 @@ import { deleteChapter, exportNovel, listChapters, type Chapter, type ExportScop
 import { createVolume, listVolumes, type Volume, updateVolume } from '../api/volumes'
 import ChapterEditorPage from './ChapterEditorPage'
 import CharacterManager from '../components/CharacterManager'
+import NovelForm from '../components/novels/NovelForm'
+import ExportDialog from '../components/novels/ExportDialog'
 
 type Props = {
   token: string
@@ -1177,83 +1173,27 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
           </DialogActions>
         </Dialog>
 
-        <Dialog open={exportDialogOpen} onClose={() => setExportDialogOpen(false)} fullWidth maxWidth="sm">
-          <DialogTitle>导出设置</DialogTitle>
-          <DialogContent>
-            <Stack spacing={2} sx={{ mt: 1 }}>
-              <FormControl fullWidth>
-                <InputLabel id="export-format-select">导出格式</InputLabel>
-                <Select labelId="export-format-select" label="导出格式" value="markdown" disabled>
-                  <MenuItem value="markdown">Markdown</MenuItem>
-                </Select>
-              </FormControl>
-
-              <FormControl fullWidth>
-                <InputLabel id="export-scope-select">导出范围</InputLabel>
-                <Select
-                  labelId="export-scope-select"
-                  label="导出范围"
-                  value={exportScope}
-                  onChange={(e) => setExportScope(e.target.value as ExportScope)}
-                >
-                  <MenuItem value="all">全部章节</MenuItem>
-                  <MenuItem value="volume">按分卷</MenuItem>
-                  <MenuItem value="chapter_range">按章节区间</MenuItem>
-                </Select>
-              </FormControl>
-
-              {exportScope === 'volume' && (
-                <FormControl fullWidth>
-                  <InputLabel id="export-volume-select">选择分卷</InputLabel>
-                  <Select
-                    labelId="export-volume-select"
-                    label="选择分卷"
-                    value={exportVolumeID}
-                    onChange={(e) => setExportVolumeID(Number(e.target.value))}
-                  >
-                    <MenuItem value={0} disabled>请选择分卷</MenuItem>
-                    {volumes.map((v) => (
-                      <MenuItem key={v.id} value={v.id}>
-                        第{v.volume_number}卷：{v.title}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              )}
-
-              {exportScope === 'chapter_range' && (
-                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
-                  <TextField
-                    label="起始章节"
-                    type="number"
-                    value={exportFromChapter}
-                    onChange={(e) => setExportFromChapter(Number(e.target.value) || 0)}
-                    fullWidth
-                  />
-                  <TextField
-                    label="结束章节"
-                    type="number"
-                    value={exportToChapter}
-                    onChange={(e) => setExportToChapter(Number(e.target.value) || 0)}
-                    fullWidth
-                  />
-                </Stack>
-              )}
-
-              <FormGroup>
-                <FormControlLabel control={<Checkbox checked={includeBody} onChange={(e) => setIncludeBody(e.target.checked)} />} label="正文" />
-                <FormControlLabel control={<Checkbox checked={includeSummary} onChange={(e) => setIncludeSummary(e.target.checked)} />} label="章节总结" />
-                <FormControlLabel control={<Checkbox checked={includeOutline} onChange={(e) => setIncludeOutline(e.target.checked)} />} label="章节大纲" />
-              </FormGroup>
-            </Stack>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setExportDialogOpen(false)}>取消</Button>
-            <Button onClick={() => void handleExportMarkdown()} variant="contained" disabled={exportingMarkdown}>
-              导出
-            </Button>
-          </DialogActions>
-        </Dialog>
+        <ExportDialog
+          open={exportDialogOpen}
+          exporting={exportingMarkdown}
+          scope={exportScope}
+          volumeId={exportVolumeID}
+          fromChapter={exportFromChapter}
+          toChapter={exportToChapter}
+          includeBody={includeBody}
+          includeSummary={includeSummary}
+          includeOutline={includeOutline}
+          volumes={volumes}
+          onClose={() => setExportDialogOpen(false)}
+          onScopeChange={setExportScope}
+          onVolumeIdChange={setExportVolumeID}
+          onFromChapterChange={setExportFromChapter}
+          onToChapterChange={setExportToChapter}
+          onIncludeBodyChange={setIncludeBody}
+          onIncludeSummaryChange={setIncludeSummary}
+          onIncludeOutlineChange={setIncludeOutline}
+          onExport={() => void handleExportMarkdown()}
+        />
 
         <Snackbar
           open={successOpen && Boolean(message)}
@@ -1278,71 +1218,5 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
         </Snackbar>
       </Container>
     </Box>
-  )
-}
-
-type NovelFormProps = {
-  title: string
-  genre: string
-  language: string
-  styleProfile: string
-  worldview: string
-  powerSystem: string
-  mainPlot: string
-  writingRules: string
-  forbiddenRules: string
-  recentChapterCount: number
-  onTitle: (v: string) => void
-  onGenre: (v: string) => void
-  onLanguage: (v: string) => void
-  onStyleProfile: (v: string) => void
-  onWorldview: (v: string) => void
-  onPowerSystem: (v: string) => void
-  onMainPlot: (v: string) => void
-  onWritingRules: (v: string) => void
-  onForbiddenRules: (v: string) => void
-  onRecentChapterCount: (v: number) => void
-}
-
-function NovelForm(props: NovelFormProps) {
-  return (
-    <>
-      <Accordion defaultExpanded disableGutters sx={{ border: '1px solid #e2e8f0', borderRadius: 2, mb: 2 }}>
-        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-          <Typography sx={{ fontWeight: 600 }}>Basic Info</Typography>
-        </AccordionSummary>
-        <AccordionDetails>
-          <Stack spacing={2}>
-            <TextField label="Title" value={props.title} onChange={(e) => props.onTitle(e.target.value)} fullWidth required />
-            <TextField label="Genre" value={props.genre} onChange={(e) => props.onGenre(e.target.value)} fullWidth />
-            <TextField label="Language" value={props.language} onChange={(e) => props.onLanguage(e.target.value)} fullWidth />
-            <TextField
-              label="Recent Chapter Count"
-              type="number"
-              value={props.recentChapterCount}
-              onChange={(e) => props.onRecentChapterCount(Number(e.target.value) || DEFAULT_RECENT_COUNT)}
-              fullWidth
-              inputProps={{ min: 1 }}
-            />
-          </Stack>
-        </AccordionDetails>
-      </Accordion>
-
-      <Accordion disableGutters sx={{ border: '1px solid #e2e8f0', borderRadius: 2 }}>
-        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-          <Typography sx={{ fontWeight: 600 }}>Advanced Settings</Typography>
-        </AccordionSummary>
-        <AccordionDetails>
-          <Stack spacing={2}>
-            <TextField label="Style Profile" value={props.styleProfile} onChange={(e) => props.onStyleProfile(e.target.value)} fullWidth multiline minRows={2} />
-            <TextField label="Worldview" value={props.worldview} onChange={(e) => props.onWorldview(e.target.value)} fullWidth multiline minRows={2} />
-            <TextField label="Power System" value={props.powerSystem} onChange={(e) => props.onPowerSystem(e.target.value)} fullWidth multiline minRows={2} />
-            <TextField label="Main Plot" value={props.mainPlot} onChange={(e) => props.onMainPlot(e.target.value)} fullWidth multiline minRows={3} />
-            <TextField label="Writing Rules" value={props.writingRules} onChange={(e) => props.onWritingRules(e.target.value)} fullWidth multiline minRows={3} />
-            <TextField label="Forbidden Rules" value={props.forbiddenRules} onChange={(e) => props.onForbiddenRules(e.target.value)} fullWidth multiline minRows={3} />
-          </Stack>
-        </AccordionDetails>
-      </Accordion>
-    </>
   )
 }
