@@ -21,7 +21,15 @@ export default function NovelTopCard({ userName, mainTab, myNovelTab, menuAnchor
       <CardContent sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Box>
           <Typography variant="h5" sx={{ fontWeight: 700 }}>
-            {mainTab === 'createNovel' ? '新建小说' : myNovelTab === 'novelDetail' ? '小说详情' : myNovelTab === 'novelCharacters' ? '小说角色' : '小说章节'}
+            {mainTab === 'createNovel'
+              ? '新建小说'
+              : myNovelTab === 'novelDetail'
+                ? '小说详情'
+                : myNovelTab === 'novelCharacters'
+                  ? '小说角色'
+                  : myNovelTab === 'novelLoreEntries'
+                    ? '小说设定'
+                    : '小说章节'}
           </Typography>
           <Typography variant="body2" color="text.secondary">
             {mainTab === 'createNovel'
@@ -30,7 +38,9 @@ export default function NovelTopCard({ userName, mainTab, myNovelTab, menuAnchor
                 ? 'Select and edit your novel'
                 : myNovelTab === 'novelCharacters'
                   ? 'Manage characters under selected novel'
-                  : 'Manage chapters under selected novel'}
+                  : myNovelTab === 'novelLoreEntries'
+                    ? 'Manage lore entries under selected novel'
+                    : 'Manage chapters under selected novel'}
           </Typography>
         </Box>
 

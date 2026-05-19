@@ -23,6 +23,7 @@ import NovelTopCard from '../components/novels/NovelTopCard'
 import NovelDetailSection from '../components/novels/NovelDetailSection'
 import NovelCharactersSection from '../components/novels/NovelCharactersSection'
 import NovelChaptersSection from '../components/novels/NovelChaptersSection'
+import NovelLoreEntriesSection from '../components/novels/NovelLoreEntriesSection'
 import { useNovelsPage } from '../hooks/useNovelsPage'
 
 type Props = {
@@ -70,6 +71,16 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
               state.setEditingCharacter(null)
               if (state.selectedNovelId) void state.refreshCharacters(state.selectedNovelId)
             }}
+            onSelectNovelLoreEntries={() => {
+              state.setMainTab('myNovels')
+              state.setMyNovelTab('novelLoreEntries')
+              state.setShowLoreManager(false)
+              state.setEditingLoreEntry(null)
+              if (state.selectedNovelId) {
+                void state.refreshCharacters(state.selectedNovelId)
+                void state.refreshLoreEntries(state.selectedNovelId)
+              }
+            }}
             onSelectNovelChapters={() => {
               state.setMainTab('myNovels')
               state.setMyNovelTab('novelChapters')
@@ -82,6 +93,8 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
               state.setMainTab('createNovel')
               state.setShowNovelEditor(false)
               state.setShowCharacterManager(false)
+              state.setShowLoreManager(false)
+              state.setEditingLoreEntry(null)
               state.setChapterEditorOpen(false)
               state.setChapterEditorTarget(null)
               state.resetForm()
@@ -176,6 +189,37 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
               />
             )}
 
+            {state.mainTab === 'myNovels' && state.myNovelTab === 'novelLoreEntries' && (
+              <NovelLoreEntriesSection
+                token={token}
+                novels={state.novels}
+                selectedNovelId={state.selectedNovelId}
+                selectedNovel={state.selectedNovel}
+                characters={state.characters}
+                loreEntries={state.loreEntries}
+                loreLoading={state.loreLoading}
+                showLoreManager={state.showLoreManager}
+                editingLoreEntry={state.editingLoreEntry}
+                onNovelChange={(next) => {
+                  state.setSelectedNovelId(next)
+                  state.setShowLoreManager(false)
+                  state.setEditingLoreEntry(null)
+                  void state.refreshCharacters(next)
+                  void state.refreshLoreEntries(next)
+                }}
+                onEditLoreEntry={(entry) => { state.setEditingLoreEntry(entry); state.setShowLoreManager(true) }}
+                onDeleteLoreEntry={state.setConfirmDeleteLoreEntryId}
+                onOpenCreateLoreEntry={() => { state.setEditingLoreEntry(null); state.setShowLoreManager(true) }}
+                onDoneLoreEntryManager={() => {
+                  state.setShowLoreManager(false)
+                  state.setEditingLoreEntry(null)
+                  if (state.selectedNovel) void state.refreshLoreEntries(state.selectedNovel.id)
+                }}
+                onNotifySuccess={state.notifySuccess}
+                onNotifyError={state.notifyError}
+              />
+            )}
+
             {state.mainTab === 'myNovels' && state.myNovelTab === 'novelChapters' && (
               <NovelChaptersSection
                 novels={state.novels}
@@ -224,6 +268,12 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
           <DialogTitle>Delete Character</DialogTitle>
           <DialogContent><DialogContentText>Are you sure you want to delete this character? This action cannot be undone.</DialogContentText></DialogContent>
           <DialogActions><Button onClick={() => state.setConfirmDeleteCharacterId(null)}>Cancel</Button><Button onClick={() => void state.confirmDeleteCharacter()} color="error" variant="contained">Delete</Button></DialogActions>
+        </Dialog>
+
+        <Dialog open={state.confirmDeleteLoreEntryId !== null} onClose={() => state.setConfirmDeleteLoreEntryId(null)}>
+          <DialogTitle>Delete Lore Entry</DialogTitle>
+          <DialogContent><DialogContentText>Are you sure you want to delete this lore entry? This action cannot be undone.</DialogContentText></DialogContent>
+          <DialogActions><Button onClick={() => state.setConfirmDeleteLoreEntryId(null)}>Cancel</Button><Button onClick={() => void state.confirmDeleteLoreEntry()} color="error" variant="contained">Delete</Button></DialogActions>
         </Dialog>
 
         <Dialog open={state.confirmDeleteChapterId !== null} onClose={() => state.setConfirmDeleteChapterId(null)}>

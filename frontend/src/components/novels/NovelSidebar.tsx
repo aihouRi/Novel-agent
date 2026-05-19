@@ -5,7 +5,7 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import LibraryBooksOutlinedIcon from '@mui/icons-material/LibraryBooksOutlined'
 
 export type MainTab = 'myNovels' | 'createNovel'
-export type MyNovelTab = 'novelDetail' | 'novelCharacters' | 'novelChapters'
+export type MyNovelTab = 'novelDetail' | 'novelCharacters' | 'novelLoreEntries' | 'novelChapters'
 
 type Props = {
   userName: string
@@ -15,6 +15,7 @@ type Props = {
   onToggleMyNovels: () => void
   onSelectNovelDetail: () => void
   onSelectNovelCharacters: () => void
+  onSelectNovelLoreEntries: () => void
   onSelectNovelChapters: () => void
   onSelectCreateNovel: () => void
 }
@@ -27,6 +28,7 @@ export default function NovelSidebar({
   onToggleMyNovels,
   onSelectNovelDetail,
   onSelectNovelCharacters,
+  onSelectNovelLoreEntries,
   onSelectNovelChapters,
   onSelectCreateNovel,
 }: Props) {
@@ -86,6 +88,19 @@ export default function NovelSidebar({
                 }}
               >
                 小说角色
+              </Button>
+              <Button
+                fullWidth
+                onClick={onSelectNovelLoreEntries}
+                sx={{
+                  justifyContent: 'flex-start', textTransform: 'none', borderRadius: 2,
+                  pl: 5.5, pr: 1.5, py: 1,
+                  color: mainTab === 'myNovels' && myNovelTab === 'novelLoreEntries' ? '#ea580c' : '#111827',
+                  bgcolor: mainTab === 'myNovels' && myNovelTab === 'novelLoreEntries' ? 'rgba(251, 146, 60, 0.14)' : 'transparent',
+                  fontWeight: mainTab === 'myNovels' && myNovelTab === 'novelLoreEntries' ? 700 : 500,
+                }}
+              >
+                小说设定
               </Button>
               <Button
                 fullWidth

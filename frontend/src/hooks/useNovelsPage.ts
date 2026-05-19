@@ -1,6 +1,7 @@
 import { MouseEvent, useEffect, useMemo, useState } from 'react'
 import { createNovel, deleteNovel, listNovels, type Novel, updateNovel } from '../api/novels'
 import { deleteCharacter, listCharacters, type Character } from '../api/characters'
+import { deleteLoreEntry, listLoreEntries, type LoreEntry } from '../api/loreEntries'
 import type { Chapter } from '../api/chapters'
 import type { MainTab, MyNovelTab } from '../components/novels/NovelSidebar'
 import { useNovelsChapters } from './useNovelsChapters'
@@ -20,10 +21,15 @@ export function useNovelsPage(token: string, onLogout: () => void) {
   const [showNovelEditor, setShowNovelEditor] = useState(false)
   const [showCharacterManager, setShowCharacterManager] = useState(false)
   const [editingCharacter, setEditingCharacter] = useState<Character | null>(null)
+  const [showLoreManager, setShowLoreManager] = useState(false)
+  const [editingLoreEntry, setEditingLoreEntry] = useState<LoreEntry | null>(null)
 
   const [characters, setCharacters] = useState<Character[]>([])
   const [characterLoading, setCharacterLoading] = useState(false)
   const [confirmDeleteCharacterId, setConfirmDeleteCharacterId] = useState<number | null>(null)
+  const [loreEntries, setLoreEntries] = useState<LoreEntry[]>([])
+  const [loreLoading, setLoreLoading] = useState(false)
+  const [confirmDeleteLoreEntryId, setConfirmDeleteLoreEntryId] = useState<number | null>(null)
 
   const [title, setTitle] = useState('')
   const [genre, setGenre] = useState('')
@@ -98,6 +104,10 @@ export function useNovelsPage(token: string, onLogout: () => void) {
       void chaptersState.refreshVolumes(selectedNovelId)
       void refreshCharacters(selectedNovelId)
     }
+    if (mainTab === 'myNovels' && myNovelTab === 'novelLoreEntries' && selectedNovelId) {
+      void refreshCharacters(selectedNovelId)
+      void refreshLoreEntries(selectedNovelId)
+    }
   }, [mainTab, myNovelTab, selectedNovelId])
 
   useEffect(() => {
@@ -107,6 +117,7 @@ export function useNovelsPage(token: string, onLogout: () => void) {
   useEffect(() => {
     if (mainTab !== 'myNovels' || myNovelTab !== 'novelDetail') setShowNovelEditor(false)
     if (mainTab !== 'myNovels' || myNovelTab !== 'novelCharacters') setShowCharacterManager(false)
+    if (mainTab !== 'myNovels' || myNovelTab !== 'novelLoreEntries') setShowLoreManager(false)
   }, [mainTab, myNovelTab])
 
   async function refreshNovelWordCounts(novelList: Novel[]) {
@@ -134,6 +145,18 @@ export function useNovelsPage(token: string, onLogout: () => void) {
       setError(e instanceof Error ? e.message : 'Failed to load characters')
     } finally {
       setCharacterLoading(false)
+    }
+  }
+
+  async function refreshLoreEntries(novelId: number) {
+    setLoreLoading(true)
+    try {
+      const data = await listLoreEntries(token, novelId)
+      setLoreEntries(data.lore_entries)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load lore entries')
+    } finally {
+      setLoreLoading(false)
     }
   }
 
@@ -258,6 +281,24 @@ export function useNovelsPage(token: string, onLogout: () => void) {
     }
   }
 
+  async function confirmDeleteLoreEntry() {
+    if (!confirmDeleteLoreEntryId || !selectedNovelId) return
+    const id = confirmDeleteLoreEntryId
+    setConfirmDeleteLoreEntryId(null)
+    setLoreLoading(true)
+    setError('')
+    setMessage('')
+    try {
+      await deleteLoreEntry(token, selectedNovelId, id)
+      setLoreEntries((prev) => prev.filter((entry) => entry.id !== id))
+      notifySuccess('设定已删除。')
+    } catch (e) {
+      notifyError(e instanceof Error ? e.message : 'Failed to delete lore entry')
+    } finally {
+      setLoreLoading(false)
+    }
+  }
+
   function formatNovelMeta(novel: Novel): string {
     const parts: string[] = [novel.genre || 'No genre']
     if (novel.language && novel.language !== DEFAULT_LANGUAGE) parts.push(novel.language)
@@ -293,9 +334,14 @@ export function useNovelsPage(token: string, onLogout: () => void) {
     showNovelEditor,
     showCharacterManager,
     editingCharacter,
+    showLoreManager,
+    editingLoreEntry,
     characters,
     characterLoading,
     confirmDeleteCharacterId,
+    loreEntries,
+    loreLoading,
+    confirmDeleteLoreEntryId,
     title,
     genre,
     language,
@@ -321,7 +367,10 @@ export function useNovelsPage(token: string, onLogout: () => void) {
     setShowNovelEditor,
     setShowCharacterManager,
     setEditingCharacter,
+    setShowLoreManager,
+    setEditingLoreEntry,
     setConfirmDeleteCharacterId,
+    setConfirmDeleteLoreEntryId,
     setTitle,
     setGenre,
     setLanguage,
@@ -338,11 +387,13 @@ export function useNovelsPage(token: string, onLogout: () => void) {
     notifySuccess,
     notifyError,
     refreshCharacters,
+    refreshLoreEntries,
     resetForm,
     handleCreate,
     handleUpdate,
     confirmDelete,
     confirmDeleteCharacter,
+    confirmDeleteLoreEntry,
     openMenu,
     closeMenu,
     clickSettings,
