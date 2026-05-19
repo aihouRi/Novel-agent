@@ -56,6 +56,7 @@ export function useChapterEditor({
   const [sidePanel, setSidePanel] = useState<SidePanel>(null)
   const [localSuccess, setLocalSuccess] = useState('')
   const [localError, setLocalError] = useState('')
+  const [canRetryGenerate, setCanRetryGenerate] = useState(false)
   const [recentCharacterIDs, setRecentCharacterIDs] = useState<number[]>([])
 
   const chapterWordCount = useMemo(() => chapterBody.replace(/\s/g, '').length, [chapterBody])
@@ -262,6 +263,7 @@ export function useChapterEditor({
     }
 
     setSaving(true)
+    setCanRetryGenerate(false)
     try {
       const payload = {
         volume_id: volumeID,
@@ -291,6 +293,7 @@ export function useChapterEditor({
       const msg = e instanceof Error ? e.message : 'Failed to save chapter'
       onNotifyError(msg)
       setLocalError(msg)
+      setCanRetryGenerate(false)
     } finally {
       setSaving(false)
     }
@@ -316,6 +319,9 @@ export function useChapterEditor({
       return
     }
 
+    setLocalError('')
+    setLocalSuccess('')
+    setCanRetryGenerate(false)
     setGenerating(true)
     try {
       const safeCharacterIDs = selectedCharacterIDs.filter((id) => validCharacterIDSet.has(id))
@@ -337,10 +343,12 @@ export function useChapterEditor({
       setSidePanel('outline')
       onNotifySuccess('AI 生成完成。')
       setLocalSuccess('AI 生成完成，请检查后再保存。')
+      setCanRetryGenerate(false)
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Failed to generate chapter'
       onNotifyError(msg)
       setLocalError(msg)
+      setCanRetryGenerate(true)
     } finally {
       setGenerating(false)
     }
@@ -360,6 +368,7 @@ export function useChapterEditor({
     sidePanel,
     localSuccess,
     localError,
+    canRetryGenerate,
     chapterWordCount,
     isEdit,
     groupedCharacterOptions,
@@ -381,6 +390,7 @@ export function useChapterEditor({
     handleBodyCut,
     handleSave,
     handleGenerate,
+    retryGenerate: handleGenerate,
     ensureIndentedBody,
   }
 }
