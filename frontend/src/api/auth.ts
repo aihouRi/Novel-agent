@@ -1,3 +1,5 @@
+import { extractError } from './http'
+
 export type AuthUser = {
   id: number
   name: string
@@ -58,11 +60,3 @@ export async function me(token: string): Promise<{ user: AuthUser }> {
   return res.json()
 }
 
-async function extractError(res: Response): Promise<string> {
-  try {
-    const data = (await res.json()) as { error?: string }
-    return data.error ?? `Request failed: ${res.status}`
-  } catch {
-    return `Request failed: ${res.status}`
-  }
-}

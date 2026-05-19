@@ -1,3 +1,4 @@
+import { extractError } from './http'
 export type Volume = {
   id: number
   novel_id: number
@@ -50,11 +51,3 @@ export async function updateVolume(
   return res.json()
 }
 
-async function extractError(res: Response): Promise<string> {
-  try {
-    const data = (await res.json()) as { error?: string }
-    return data.error ?? `Request failed: ${res.status}`
-  } catch {
-    return `Request failed: ${res.status}`
-  }
-}

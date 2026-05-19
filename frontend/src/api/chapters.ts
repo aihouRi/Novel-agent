@@ -1,3 +1,4 @@
+import { extractError } from './http'
 export type Chapter = {
   id: number
   novel_id: number
@@ -154,18 +155,3 @@ export async function exportNovel(
   return { blob, filename }
 }
 
-async function extractError(res: Response): Promise<string> {
-  try {
-    const data = (await res.json()) as { error?: string }
-    const raw = data.error ?? `Request failed: ${res.status}`
-    if (
-      raw.includes('uk_chapters_novel_chapter_number') ||
-      (raw.includes('Duplicate entry') && raw.includes('chapter'))
-    ) {
-      return '章节号已存在，请使用其他章节号。'
-    }
-    return raw
-  } catch {
-    return `Request failed: ${res.status}`
-  }
-}

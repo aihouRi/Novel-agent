@@ -1,4 +1,4 @@
-import { Alert, Autocomplete, Box, Button, Card, CardContent, Container, FormControl, IconButton, InputLabel, MenuItem, Select, Snackbar, Stack, TextField, Typography } from '@mui/material'
+import { Alert, Autocomplete, Box, Button, Card, CardContent, CircularProgress, Container, FormControl, IconButton, InputLabel, MenuItem, Select, Snackbar, Stack, TextField, Typography } from '@mui/material'
 import CloseIcon from '@mui/icons-material/Close'
 import ArrowBackIosNewRoundedIcon from '@mui/icons-material/ArrowBackIosNewRounded'
 import HistoryRoundedIcon from '@mui/icons-material/HistoryRounded'
@@ -115,6 +115,16 @@ export default function ChapterEditorPage({
         </Box>
 
         <Box sx={{ maxWidth: 1320, mx: 'auto' }}>
+          {editor.generating && (
+            <Alert
+              severity="info"
+              icon={<CircularProgress size={18} />}
+              sx={{ mb: 1.5, borderRadius: 2 }}
+            >
+              正在生成章节内容，请稍候...
+            </Alert>
+          )}
+
           <Stack direction={{ xs: 'column', lg: 'row' }} spacing={2} alignItems="flex-start">
             <Box sx={{ flex: 1, width: '100%' }}>
               <Stack direction={{ xs: 'column', lg: 'row' }} spacing={2} alignItems="stretch">
@@ -252,6 +262,13 @@ export default function ChapterEditorPage({
                             )}
                           />
                           <TextField label="生成指令" multiline minRows={20} value={editor.chapterInstruction} onChange={(e) => editor.setChapterInstruction(e.target.value)} fullWidth />
+                          <Button
+                            variant="outlined"
+                            onClick={() => void editor.retryGenerate()}
+                            disabled={editor.generating || !editor.chapterInstruction.trim() || editor.volumeID <= 0 || editor.chapterNumber <= 0}
+                          >
+                            重试生成
+                          </Button>
                         </Stack>
                       )}
                     </CardContent>
@@ -361,7 +378,21 @@ export default function ChapterEditorPage({
           </Alert>
         </Snackbar>
         <Snackbar open={Boolean(editor.localError)} autoHideDuration={3200} onClose={() => editor.setLocalError('')}>
-          <Alert severity="error" onClose={() => editor.setLocalError('')} sx={{ width: '100%' }}>
+          <Alert
+            severity="error"
+            onClose={() => editor.setLocalError('')}
+            sx={{ width: '100%' }}
+            action={editor.canRetryGenerate ? (
+              <Button
+                color="inherit"
+                size="small"
+                onClick={() => void editor.retryGenerate()}
+                disabled={editor.generating || !editor.chapterInstruction.trim() || editor.volumeID <= 0 || editor.chapterNumber <= 0}
+              >
+                重试
+              </Button>
+            ) : undefined}
+          >
             {editor.localError}
           </Alert>
         </Snackbar>

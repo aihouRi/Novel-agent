@@ -83,6 +83,38 @@ npm run dev
 当前迁移文件在 `backend/migrations/`，按文件顺序执行。  
 本项目目前使用手动执行 SQL 迁移（通过 `docker compose exec mysql ...`）。
 
+## 数据备份与恢复（推荐）
+
+建议在做高风险操作（批量测试、结构调整、导入导出）前先备份数据库。
+
+### 备份
+
+```bash
+./scripts/db-backup.sh
+```
+
+可选参数：
+- 第 1 个参数：数据库名（默认 `novel_agent`）
+- 第 2 个参数：输出目录（默认 `./backups`）
+
+示例：
+
+```bash
+./scripts/db-backup.sh novel_agent ./backups
+```
+
+### 恢复
+
+```bash
+./scripts/db-restore.sh <backup.sql>
+```
+
+可选第 2 参数为数据库名（默认 `novel_agent`）。
+
+注意：
+- 恢复会先 `DROP DATABASE` 再重建，属于覆盖操作。
+- 脚本要求你手动输入 `YES` 二次确认。
+
 ## 测试与安全规范
 
 ### 默认安全测试（不触库）
