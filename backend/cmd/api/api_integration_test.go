@@ -84,6 +84,8 @@ func TestAPIIntegration_AuthAndNovelsFlow(t *testing.T) {
 	if createNovelStatus != http.StatusCreated {
 		t.Fatalf("create novel status: want %d got %d body=%s", http.StatusCreated, createNovelStatus, createNovelBody)
 	}
+	novelID := extractNestedID(t, createNovelBody, "novel")
+	novelPath := fmt.Sprintf("/novels/%d", novelID)
 
 	listStatus, listBody := doJSON(t, e, http.MethodGet, "/novels", nil, loginToken)
 	if listStatus != http.StatusOK {
@@ -91,6 +93,87 @@ func TestAPIIntegration_AuthAndNovelsFlow(t *testing.T) {
 	}
 	if !strings.Contains(listBody, "it_novel_1") {
 		t.Fatalf("list novels does not contain created novel, body=%s", listBody)
+	}
+
+	createVolumeStatus, createVolumeBody := doJSON(t, e, http.MethodPost, fmt.Sprintf("%s/volumes", novelPath), map[string]any{
+		"volume_number": 1,
+		"title":         "it_volume_1",
+	}, loginToken)
+	if createVolumeStatus != http.StatusCreated {
+		t.Fatalf("create volume status: want %d got %d body=%s", http.StatusCreated, createVolumeStatus, createVolumeBody)
+	}
+	volumeID := extractNestedID(t, createVolumeBody, "volume")
+
+	createCharacterStatus, createCharacterBody := doJSON(t, e, http.MethodPost, fmt.Sprintf("%s/characters", novelPath), map[string]any{
+		"name":             "it_character_1",
+		"role":             "lead",
+		"importance_level": 6,
+	}, loginToken)
+	if createCharacterStatus != http.StatusCreated {
+		t.Fatalf("create character status: want %d got %d body=%s", http.StatusCreated, createCharacterStatus, createCharacterBody)
+	}
+	characterID := extractNestedID(t, createCharacterBody, "character")
+
+	listCharactersStatus, listCharactersBody := doJSON(t, e, http.MethodGet, fmt.Sprintf("%s/characters", novelPath), nil, loginToken)
+	if listCharactersStatus != http.StatusOK {
+		t.Fatalf("list characters status: want %d got %d body=%s", http.StatusOK, listCharactersStatus, listCharactersBody)
+	}
+	if !strings.Contains(listCharactersBody, "it_character_1") {
+		t.Fatalf("list characters does not contain created character, body=%s", listCharactersBody)
+	}
+
+	updateCharacterStatus, updateCharacterBody := doJSON(t, e, http.MethodPut, fmt.Sprintf("%s/characters/%d", novelPath, characterID), map[string]any{
+		"name":             "it_character_1_updated",
+		"role":             "lead",
+		"importance_level": 6,
+	}, loginToken)
+	if updateCharacterStatus != http.StatusOK {
+		t.Fatalf("update character status: want %d got %d body=%s", http.StatusOK, updateCharacterStatus, updateCharacterBody)
+	}
+
+	deleteCharacterStatus, deleteCharacterBody := doJSON(t, e, http.MethodDelete, fmt.Sprintf("%s/characters/%d", novelPath, characterID), nil, loginToken)
+	if deleteCharacterStatus != http.StatusNoContent {
+		t.Fatalf("delete character status: want %d got %d body=%s", http.StatusNoContent, deleteCharacterStatus, deleteCharacterBody)
+	}
+
+	createChapterStatus, createChapterBody := doJSON(t, e, http.MethodPost, fmt.Sprintf("%s/chapters", novelPath), map[string]any{
+		"volume_id":               volumeID,
+		"chapter_number":          1,
+		"title":                   "it_chapter_1",
+		"body":                    "测试正文",
+		"generation_instruction":  "it instruction",
+		"outline":                 "it outline",
+		"summary":                 "it summary",
+	}, loginToken)
+	if createChapterStatus != http.StatusCreated {
+		t.Fatalf("create chapter status: want %d got %d body=%s", http.StatusCreated, createChapterStatus, createChapterBody)
+	}
+	chapterID := extractNestedID(t, createChapterBody, "chapter")
+
+	listChaptersStatus, listChaptersBody := doJSON(t, e, http.MethodGet, fmt.Sprintf("%s/chapters", novelPath), nil, loginToken)
+	if listChaptersStatus != http.StatusOK {
+		t.Fatalf("list chapters status: want %d got %d body=%s", http.StatusOK, listChaptersStatus, listChaptersBody)
+	}
+	if !strings.Contains(listChaptersBody, "it_chapter_1") {
+		t.Fatalf("list chapters does not contain created chapter, body=%s", listChaptersBody)
+	}
+
+	updateChapterStatus, updateChapterBody := doJSON(t, e, http.MethodPut, fmt.Sprintf("%s/chapters/%d", novelPath, chapterID), map[string]any{
+		"volume_id":               volumeID,
+		"chapter_number":          1,
+		"title":                   "it_chapter_1_updated",
+		"body":                    "测试正文更新",
+		"generation_instruction":  "it instruction 2",
+		"outline":                 "it outline 2",
+		"summary":                 "it summary 2",
+	}, loginToken)
+	if updateChapterStatus != http.StatusOK {
+		t.Fatalf("update chapter status: want %d got %d body=%s", http.StatusOK, updateChapterStatus, updateChapterBody)
+	}
+
+	deleteChapterStatus, deleteChapterBody := doJSON(t, e, http.MethodDelete, fmt.Sprintf("%s/chapters/%d", novelPath, chapterID), nil, loginToken)
+	if deleteChapterStatus != http.StatusNoContent {
+		t.Fatalf("delete chapter status: want %d got %d body=%s", http.StatusNoContent, deleteChapterStatus, deleteChapterBody)
 	}
 }
 
@@ -174,4 +257,18 @@ func decodeJSONMap(t *testing.T, body string) map[string]any {
 		t.Fatalf("decode json body: %v body=%s", err, body)
 	}
 	return out
+}
+
+func extractNestedID(t *testing.T, body, key string) int64 {
+	t.Helper()
+	top := decodeJSONMap(t, body)
+	rawObj, ok := top[key].(map[string]any)
+	if !ok {
+		t.Fatalf("missing object key %q in body=%s", key, body)
+	}
+	rawID, ok := rawObj["id"].(float64)
+	if !ok {
+		t.Fatalf("missing id in object %q body=%s", key, body)
+	}
+	return int64(rawID)
 }
