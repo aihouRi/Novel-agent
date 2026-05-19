@@ -177,6 +177,109 @@ func TestAPIIntegration_AuthAndNovelsFlow(t *testing.T) {
 	}
 }
 
+func TestAPIIntegration_FailurePaths(t *testing.T) {
+	dsn := requireIntegrationTestDSN(t)
+
+	db, err := repository.NewMySQL(dsn)
+	if err != nil {
+		t.Fatalf("open mysql: %v", err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := repository.Ping(ctx, db); err != nil {
+		t.Fatalf("ping mysql: %v", err)
+	}
+
+	requireSchemaReady(t, db)
+	cleanupTestRows(t, db)
+	t.Cleanup(func() { cleanupTestRows(t, db) })
+
+	e := newServer(db, config.AppConfig{JWTSecret: "integration-test-secret"})
+
+	unauthStatus, _ := doJSON(t, e, http.MethodGet, "/novels", nil, "")
+	if unauthStatus != http.StatusUnauthorized {
+		t.Fatalf("unauthorized /novels status: want %d got %d", http.StatusUnauthorized, unauthStatus)
+	}
+
+	email := "it_api_user_fail_1@example.com"
+	registerStatus, registerBody := doJSON(t, e, http.MethodPost, "/auth/register", map[string]any{
+		"name":     "it-user-fail",
+		"email":    email,
+		"password": "pass123",
+	}, "")
+	if registerStatus != http.StatusCreated {
+		t.Fatalf("register status: want %d got %d body=%s", http.StatusCreated, registerStatus, registerBody)
+	}
+	token := mustTokenFromBody(t, registerBody)
+
+	createNovelStatus, createNovelBody := doJSON(t, e, http.MethodPost, "/novels", map[string]any{
+		"title":                "it_novel_fail_1",
+		"genre":                "xianxia",
+		"language":             "zh-CN",
+		"recent_chapter_count": 3,
+	}, token)
+	if createNovelStatus != http.StatusCreated {
+		t.Fatalf("create novel status: want %d got %d body=%s", http.StatusCreated, createNovelStatus, createNovelBody)
+	}
+	novelID := extractNestedID(t, createNovelBody, "novel")
+	novelPath := fmt.Sprintf("/novels/%d", novelID)
+
+	createVolumeStatus, createVolumeBody := doJSON(t, e, http.MethodPost, fmt.Sprintf("%s/volumes", novelPath), map[string]any{
+		"volume_number": 1,
+		"title":         "it_volume_fail_1",
+	}, token)
+	if createVolumeStatus != http.StatusCreated {
+		t.Fatalf("create volume status: want %d got %d body=%s", http.StatusCreated, createVolumeStatus, createVolumeBody)
+	}
+	volumeID := extractNestedID(t, createVolumeBody, "volume")
+
+	createProtectedCharacterStatus, createProtectedCharacterBody := doJSON(t, e, http.MethodPost, fmt.Sprintf("%s/characters", novelPath), map[string]any{
+		"name":             "it_character_protected_1",
+		"role":             "lead",
+		"importance_level": 7,
+	}, token)
+	if createProtectedCharacterStatus != http.StatusCreated {
+		t.Fatalf("create protected character status: want %d got %d body=%s", http.StatusCreated, createProtectedCharacterStatus, createProtectedCharacterBody)
+	}
+	protectedCharacterID := extractNestedID(t, createProtectedCharacterBody, "character")
+
+	deleteProtectedStatus, deleteProtectedBody := doJSON(t, e, http.MethodDelete, fmt.Sprintf("%s/characters/%d", novelPath, protectedCharacterID), nil, token)
+	if deleteProtectedStatus != http.StatusBadRequest {
+		t.Fatalf("delete protected character status: want %d got %d body=%s", http.StatusBadRequest, deleteProtectedStatus, deleteProtectedBody)
+	}
+	if !strings.Contains(deleteProtectedBody, "main character cannot be deleted") {
+		t.Fatalf("unexpected protected character error body=%s", deleteProtectedBody)
+	}
+
+	createChapterStatus, createChapterBody := doJSON(t, e, http.MethodPost, fmt.Sprintf("%s/chapters", novelPath), map[string]any{
+		"volume_id":              volumeID,
+		"chapter_number":         1,
+		"title":                  "it_chapter_fail_1",
+		"body":                   "测试正文",
+		"generation_instruction": "it instruction",
+		"outline":                "it outline",
+		"summary":                "it summary",
+	}, token)
+	if createChapterStatus != http.StatusCreated {
+		t.Fatalf("create chapter status: want %d got %d body=%s", http.StatusCreated, createChapterStatus, createChapterBody)
+	}
+
+	createDupChapterStatus, createDupChapterBody := doJSON(t, e, http.MethodPost, fmt.Sprintf("%s/chapters", novelPath), map[string]any{
+		"volume_id":              volumeID,
+		"chapter_number":         1,
+		"title":                  "it_chapter_fail_dup",
+		"body":                   "测试正文2",
+		"generation_instruction": "it instruction 2",
+		"outline":                "it outline 2",
+		"summary":                "it summary 2",
+	}, token)
+	if createDupChapterStatus != http.StatusBadRequest {
+		t.Fatalf("duplicate chapter status: want %d got %d body=%s", http.StatusBadRequest, createDupChapterStatus, createDupChapterBody)
+	}
+}
+
 func requireIntegrationTestDSN(t *testing.T) string {
 	t.Helper()
 	if os.Getenv("INTEGRATION_TEST") != "1" {
@@ -257,6 +360,16 @@ func decodeJSONMap(t *testing.T, body string) map[string]any {
 		t.Fatalf("decode json body: %v body=%s", err, body)
 	}
 	return out
+}
+
+func mustTokenFromBody(t *testing.T, body string) string {
+	t.Helper()
+	obj := decodeJSONMap(t, body)
+	token, _ := obj["token"].(string)
+	if token == "" {
+		t.Fatalf("missing token in body=%s", body)
+	}
+	return token
 }
 
 func extractNestedID(t *testing.T, body, key string) int64 {
