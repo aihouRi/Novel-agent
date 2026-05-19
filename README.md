@@ -83,6 +83,32 @@ npm run dev
 当前迁移文件在 `backend/migrations/`，按文件顺序执行。  
 本项目目前使用手动执行 SQL 迁移（通过 `docker compose exec mysql ...`）。
 
+## 测试与安全规范
+
+### 默认安全测试（不触库）
+
+```bash
+cd backend
+go test ./...
+```
+
+当前仓库内默认测试为安全测试，不会做整库清理。
+
+### 集成测试（必须显式开启）
+
+数据库集成测试必须满足以下条件才允许执行：
+- 显式开启：`INTEGRATION_TEST=1`
+- `MYSQL_DSN` 必须指向测试库，且库名包含 `_test`
+
+示例（仅示例，按后续具体测试文件调整）：
+
+```bash
+cd backend
+INTEGRATION_TEST=1 MYSQL_DSN='novel:novel@tcp(127.0.0.1:3306)/novel_agent_test?parseTime=true&charset=utf8mb4,utf8' go test ./internal/repository -run Integration -v
+```
+
+不要在开发主库或生产库上运行集成测试。
+
 ## 核心接口（摘要）
 
 - Auth:
