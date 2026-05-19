@@ -7,6 +7,7 @@ import TaskAltRoundedIcon from '@mui/icons-material/TaskAltRounded'
 import { createChapter, generateChapter, type Chapter, updateChapter } from '../api/chapters'
 import type { Character } from '../api/characters'
 import type { Volume } from '../api/volumes'
+import EditorActionButtons from '../components/chapter-editor/EditorActionButtons'
 
 type Props = {
   token: string
@@ -438,48 +439,16 @@ export default function ChapterEditorPage({
               </Box>
             </Stack>
 
-            <Stack direction="row" spacing={1.2} alignItems="center" sx={{ flexShrink: 0 }}>
-              <Button
-                variant="contained"
-                onClick={onBack}
-                sx={{
-                  borderRadius: 999,
-                  px: 2.2,
-                  color: '#111827',
-                  bgcolor: '#f1f5f9',
-                  boxShadow: 'none',
-                  '&:hover': { bgcolor: '#e2e8f0', boxShadow: 'none' },
-                }}
-              >
-                返回列表
-              </Button>
-              <Button
-                variant="outlined"
-                disabled={generating || saving || volumeID <= 0 || chapterNumber <= 0}
-                onClick={() => void handleGenerate()}
-                sx={{
-                  borderRadius: 999,
-                  px: 2.2,
-                }}
-              >
-                {generating ? '生成中...' : 'AI 生成'}
-              </Button>
-              <Button
-                variant="outlined"
-                disabled={saving || chapterNumber <= 0 || volumeID <= 0}
-                onClick={() => void handleSave()}
-                sx={{
-                  borderRadius: 999,
-                  px: 2.2,
-                  color: '#ea580c',
-                  borderColor: '#ea580c',
-                  bgcolor: '#ffffff',
-                  '&:hover': { bgcolor: '#ea580c', color: '#ffffff', borderColor: '#ea580c' },
-                }}
-              >
-                {isEdit ? '保存章节' : '创建章节'}
-              </Button>
-            </Stack>
+            <EditorActionButtons
+              onBack={onBack}
+              onGenerate={() => void handleGenerate()}
+              onSave={() => void handleSave()}
+              generating={generating}
+              saving={saving}
+              chapterNumber={chapterNumber}
+              volumeID={volumeID}
+              isEdit={isEdit}
+            />
           </Stack>
         </Box>
 
@@ -711,48 +680,17 @@ export default function ChapterEditorPage({
             boxShadow: '0 8px 24px rgba(15,23,42,0.12)',
           }}
         >
-          <Stack direction="row" spacing={1.5}>
-            <Button
-              variant="contained"
-              onClick={onBack}
-              sx={{
-                borderRadius: 999,
-                px: 2.25,
-                color: '#111827',
-                bgcolor: '#f1f5f9',
-                boxShadow: 'none',
-                '&:hover': { bgcolor: '#e2e8f0', boxShadow: 'none' },
-              }}
-            >
-              返回列表
-            </Button>
-            <Button
-              variant="outlined"
-              disabled={generating || saving || volumeID <= 0 || chapterNumber <= 0}
-              onClick={() => void handleGenerate()}
-              sx={{
-                borderRadius: 999,
-                px: 2.25,
-              }}
-            >
-              {generating ? '生成中...' : 'AI 生成'}
-            </Button>
-            <Button
-              variant="outlined"
-              disabled={saving || chapterNumber <= 0 || volumeID <= 0}
-              onClick={() => void handleSave()}
-              sx={{
-                borderRadius: 999,
-                px: 2.25,
-                color: '#ea580c',
-                borderColor: '#ea580c',
-                bgcolor: '#ffffff',
-                '&:hover': { bgcolor: '#ea580c', color: '#ffffff', borderColor: '#ea580c' },
-              }}
-            >
-              {isEdit ? '保存章节' : '创建章节'}
-            </Button>
-          </Stack>
+          <EditorActionButtons
+            onBack={onBack}
+            onGenerate={() => void handleGenerate()}
+            onSave={() => void handleSave()}
+            generating={generating}
+            saving={saving}
+            chapterNumber={chapterNumber}
+            volumeID={volumeID}
+            isEdit={isEdit}
+            compact
+          />
         </Box>
 
         <Snackbar open={Boolean(localSuccess)} autoHideDuration={2400} onClose={() => setLocalSuccess('')}>
