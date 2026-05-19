@@ -1,0 +1,394 @@
+import { ClipboardEvent, KeyboardEvent, useEffect, useMemo, useState } from 'react'
+import { createChapter, generateChapter, type Chapter, updateChapter } from '../api/chapters'
+import type { Character } from '../api/characters'
+import type { Volume } from '../api/volumes'
+
+type SidePanel = 'summary' | 'outline' | 'instruction' | null
+
+type Params = {
+  token: string
+  novelId: number
+  initialChapter?: Chapter | null
+  defaultChapterNumber?: number
+  volumes: Volume[]
+  characters: Character[]
+  onNotifySuccess: (msg: string) => void
+  onNotifyError: (msg: string) => void
+  onSaved: () => Promise<void> | void
+  onBack: () => void
+}
+
+type CharacterOption = Character & { group: string }
+
+const INDENT = '　　'
+
+export function useChapterEditor({
+  token,
+  novelId,
+  initialChapter,
+  defaultChapterNumber = 1,
+  volumes,
+  characters,
+  onNotifySuccess,
+  onNotifyError,
+  onSaved,
+  onBack,
+}: Params) {
+  const latestVolumeID = useMemo(() => {
+    if (volumes.length === 0) return 0
+    return volumes.reduce((latest, current) => {
+      if (current.volume_number > latest.volume_number) return current
+      if (current.volume_number === latest.volume_number && current.id > latest.id) return current
+      return latest
+    }).id
+  }, [volumes])
+
+  const [chapterNumber, setChapterNumber] = useState(initialChapter?.chapter_number ?? defaultChapterNumber)
+  const [volumeID, setVolumeID] = useState<number>(initialChapter?.volume_id ?? latestVolumeID)
+  const [chapterTitle, setChapterTitle] = useState(initialChapter?.title ?? '')
+  const [chapterBody, setChapterBody] = useState(ensureIndentedBody(initialChapter?.body ?? INDENT))
+  const [chapterSummary, setChapterSummary] = useState(initialChapter?.summary ?? '')
+  const [chapterOutline, setChapterOutline] = useState(initialChapter?.outline ?? '')
+  const [chapterInstruction, setChapterInstruction] = useState(initialChapter?.generation_instruction ?? '')
+  const [selectedCharacterIDs, setSelectedCharacterIDs] = useState<number[]>([])
+  const [saving, setSaving] = useState(false)
+  const [generating, setGenerating] = useState(false)
+  const [sidePanel, setSidePanel] = useState<SidePanel>(null)
+  const [localSuccess, setLocalSuccess] = useState('')
+  const [localError, setLocalError] = useState('')
+  const [recentCharacterIDs, setRecentCharacterIDs] = useState<number[]>([])
+
+  const chapterWordCount = useMemo(() => chapterBody.replace(/\s/g, '').length, [chapterBody])
+  const isEdit = Boolean(initialChapter)
+  const draftKey = useMemo(() => `novel_agent_chapter_draft_${novelId}_${initialChapter?.id ?? 'new'}`,[novelId, initialChapter?.id])
+  const recentCharacterKey = useMemo(() => `novel_agent_recent_characters_${novelId}`, [novelId])
+  const groupedCharacterOptions = useMemo<CharacterOption[]>(
+    () =>
+      [...characters]
+        .sort((a, b) => a.name.localeCompare(b.name, 'zh-Hans-CN'))
+        .map((c) => {
+          let group = '全部人物'
+          if (recentCharacterIDs.includes(c.id)) group = '最近使用'
+          else if (c.importance_level >= 5) group = '主要人物'
+          return { ...c, group }
+        }),
+    [characters, recentCharacterIDs],
+  )
+  const selectedCharacters = useMemo(
+    () => groupedCharacterOptions.filter((c) => selectedCharacterIDs.includes(c.id)),
+    [groupedCharacterOptions, selectedCharacterIDs],
+  )
+  const validCharacterIDSet = useMemo(() => new Set(characters.map((c) => c.id)), [characters])
+
+  useEffect(() => {
+    if (volumes.length === 0) {
+      if (volumeID !== 0) setVolumeID(0)
+      return
+    }
+    if (!isEdit && volumeID <= 0) {
+      setVolumeID(latestVolumeID)
+      return
+    }
+    const matched = volumes.some((v) => v.id === volumeID)
+    if (!matched) setVolumeID(isEdit ? volumes[0].id : latestVolumeID)
+  }, [isEdit, latestVolumeID, volumeID, volumes])
+
+  useEffect(() => {
+    const raw = localStorage.getItem(recentCharacterKey)
+    if (!raw) return
+    try {
+      const parsed = JSON.parse(raw) as number[]
+      if (Array.isArray(parsed)) setRecentCharacterIDs(parsed.filter((id) => Number.isFinite(id)))
+    } catch {
+      localStorage.removeItem(recentCharacterKey)
+    }
+  }, [recentCharacterKey])
+
+  useEffect(() => {
+    const saved = localStorage.getItem(draftKey)
+    if (!saved) return
+    try {
+      const draft = JSON.parse(saved) as {
+        volumeID: number
+        chapterNumber: number
+        chapterTitle: string
+        chapterBody: string
+        chapterSummary: string
+        chapterOutline: string
+        chapterInstruction: string
+        selectedCharacterIDs?: number[]
+      }
+      if (isEdit) setVolumeID(draft.volumeID ?? volumeID)
+      else setVolumeID(latestVolumeID)
+      setChapterNumber(draft.chapterNumber ?? chapterNumber)
+      setChapterTitle(draft.chapterTitle ?? '')
+      setChapterBody(ensureIndentedBody(draft.chapterBody ?? ''))
+      setChapterSummary(draft.chapterSummary ?? '')
+      setChapterOutline(draft.chapterOutline ?? '')
+      setChapterInstruction(draft.chapterInstruction ?? '')
+      setSelectedCharacterIDs(Array.isArray(draft.selectedCharacterIDs) ? draft.selectedCharacterIDs.filter((id) => validCharacterIDSet.has(id)) : [])
+    } catch {
+      localStorage.removeItem(draftKey)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draftKey, isEdit, latestVolumeID, validCharacterIDSet])
+
+  useEffect(() => {
+    const id = window.setTimeout(() => {
+      const draft = { volumeID, chapterNumber, chapterTitle, chapterBody, chapterSummary, chapterOutline, chapterInstruction, selectedCharacterIDs }
+      localStorage.setItem(draftKey, JSON.stringify(draft))
+    }, 500)
+    return () => window.clearTimeout(id)
+  }, [draftKey, volumeID, chapterNumber, chapterTitle, chapterBody, chapterSummary, chapterOutline, chapterInstruction, selectedCharacterIDs])
+
+  function handleBodyKeyDown(e: KeyboardEvent<HTMLDivElement>) {
+    const target = e.target as HTMLTextAreaElement
+    if (!target) return
+    const start = target.selectionStart
+    const end = target.selectionEnd
+    if (start !== end) return
+
+    const lineStart = chapterBody.lastIndexOf('\n', start - 1) + 1
+    const indentEnd = lineStart + INDENT.length
+
+    if (e.key === 'Backspace' && start <= indentEnd && lineStart > 0) {
+      e.preventDefault()
+      const merged = `${chapterBody.slice(0, lineStart - 1)}${chapterBody.slice(indentEnd)}`
+      setChapterBody(merged)
+      window.requestAnimationFrame(() => {
+        const nextPos = lineStart - 1
+        target.selectionStart = nextPos
+        target.selectionEnd = nextPos
+      })
+      return
+    }
+
+    if (e.key === 'Backspace' && start <= indentEnd) {
+      e.preventDefault()
+      return
+    }
+
+    if (e.key === 'Delete' && start < indentEnd) {
+      e.preventDefault()
+      return
+    }
+
+    if (e.key !== 'Enter') return
+    e.preventDefault()
+    const next = `${chapterBody.slice(0, start)}\n${INDENT}${chapterBody.slice(end)}`
+    setChapterBody(next)
+    window.requestAnimationFrame(() => {
+      target.selectionStart = start + 1 + INDENT.length
+      target.selectionEnd = start + 1 + INDENT.length
+    })
+  }
+
+  function handleBodyPaste(e: ClipboardEvent<HTMLDivElement>) {
+    const target = e.target as HTMLTextAreaElement
+    if (!target) return
+    e.preventDefault()
+
+    const raw = e.clipboardData.getData('text')
+    const normalizedPaste = raw.replace(/\r\n/g, '\n')
+
+    let start = target.selectionStart
+    let end = target.selectionEnd
+
+    const lineStart = chapterBody.lastIndexOf('\n', start - 1) + 1
+    const indentEnd = lineStart + INDENT.length
+
+    if (start < indentEnd) start = indentEnd
+    if (end < indentEnd) end = indentEnd
+
+    const next = `${chapterBody.slice(0, start)}${normalizedPaste}${chapterBody.slice(end)}`
+    setChapterBody(next)
+
+    window.requestAnimationFrame(() => {
+      const pos = start + normalizedPaste.length
+      target.selectionStart = pos
+      target.selectionEnd = pos
+    })
+  }
+
+  function stripIndentForClipboard(text: string): string {
+    return text
+      .split('\n')
+      .map((line) => (line.startsWith(INDENT) ? line.slice(INDENT.length) : line))
+      .join('\n')
+  }
+
+  function handleBodyCopy(e: ClipboardEvent<HTMLDivElement>) {
+    const target = e.target as HTMLTextAreaElement
+    if (!target) return
+    const selected = target.value.slice(target.selectionStart, target.selectionEnd)
+    if (!selected) return
+    e.preventDefault()
+    e.clipboardData.setData('text/plain', stripIndentForClipboard(selected))
+  }
+
+  function handleBodyCut(e: ClipboardEvent<HTMLDivElement>) {
+    const target = e.target as HTMLTextAreaElement
+    if (!target) return
+    const start = target.selectionStart
+    const end = target.selectionEnd
+    if (start === end) return
+
+    e.preventDefault()
+    const selected = target.value.slice(start, end)
+    e.clipboardData.setData('text/plain', stripIndentForClipboard(selected))
+
+    const next = ensureIndentedBody(`${chapterBody.slice(0, start)}${chapterBody.slice(end)}`)
+    setChapterBody(next)
+
+    window.requestAnimationFrame(() => {
+      const pos = Math.min(start, next.length)
+      target.selectionStart = pos
+      target.selectionEnd = pos
+    })
+  }
+
+  async function handleSave() {
+    if (chapterNumber <= 0) {
+      const msg = '章节编号必须大于 0。'
+      onNotifyError(msg)
+      setLocalError(msg)
+      return
+    }
+    if (volumeID <= 0) {
+      const msg = '请先选择分卷。'
+      onNotifyError(msg)
+      setLocalError(msg)
+      return
+    }
+
+    setSaving(true)
+    try {
+      const payload = {
+        volume_id: volumeID,
+        chapter_number: chapterNumber,
+        title: chapterTitle.trim(),
+        body: ensureIndentedBody(chapterBody),
+        word_count: chapterWordCount,
+        generation_instruction: chapterInstruction,
+        outline: chapterOutline,
+        summary: chapterSummary,
+      }
+
+      if (isEdit && initialChapter) {
+        await updateChapter(token, novelId, initialChapter.id, payload)
+        onNotifySuccess('Chapter updated.')
+        setLocalSuccess('章节已保存。')
+      } else {
+        await createChapter(token, novelId, payload)
+        onNotifySuccess('Chapter created.')
+        setLocalSuccess('章节已创建。')
+      }
+
+      localStorage.removeItem(draftKey)
+      await onSaved()
+      onBack()
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Failed to save chapter'
+      onNotifyError(msg)
+      setLocalError(msg)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleGenerate() {
+    if (chapterNumber <= 0) {
+      const msg = '章节编号必须大于 0。'
+      onNotifyError(msg)
+      setLocalError(msg)
+      return
+    }
+    if (volumeID <= 0) {
+      const msg = '请先选择分卷。'
+      onNotifyError(msg)
+      setLocalError(msg)
+      return
+    }
+    if (!chapterInstruction.trim()) {
+      const msg = '请先填写生成指令。'
+      onNotifyError(msg)
+      setLocalError(msg)
+      return
+    }
+
+    setGenerating(true)
+    try {
+      const safeCharacterIDs = selectedCharacterIDs.filter((id) => validCharacterIDSet.has(id))
+      const data = await generateChapter(token, novelId, {
+        volume_id: volumeID,
+        chapter_number: chapterNumber,
+        title: chapterTitle.trim(),
+        generation_instruction: chapterInstruction.trim(),
+        character_ids: safeCharacterIDs,
+      })
+      if (safeCharacterIDs.length > 0) {
+        const merged = Array.from(new Set([...safeCharacterIDs, ...recentCharacterIDs])).slice(0, 30)
+        setRecentCharacterIDs(merged)
+        localStorage.setItem(recentCharacterKey, JSON.stringify(merged))
+      }
+      setChapterOutline(data.outline)
+      setChapterBody(ensureIndentedBody(data.body))
+      setChapterSummary(data.summary)
+      setSidePanel('outline')
+      onNotifySuccess('AI 生成完成。')
+      setLocalSuccess('AI 生成完成，请检查后再保存。')
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Failed to generate chapter'
+      onNotifyError(msg)
+      setLocalError(msg)
+    } finally {
+      setGenerating(false)
+    }
+  }
+
+  return {
+    chapterNumber,
+    volumeID,
+    chapterTitle,
+    chapterBody,
+    chapterSummary,
+    chapterOutline,
+    chapterInstruction,
+    selectedCharacterIDs,
+    saving,
+    generating,
+    sidePanel,
+    localSuccess,
+    localError,
+    chapterWordCount,
+    isEdit,
+    groupedCharacterOptions,
+    selectedCharacters,
+    setChapterNumber,
+    setVolumeID,
+    setChapterTitle,
+    setChapterBody,
+    setChapterSummary,
+    setChapterOutline,
+    setChapterInstruction,
+    setSelectedCharacterIDs,
+    setSidePanel,
+    setLocalSuccess,
+    setLocalError,
+    handleBodyKeyDown,
+    handleBodyPaste,
+    handleBodyCopy,
+    handleBodyCut,
+    handleSave,
+    handleGenerate,
+    ensureIndentedBody,
+  }
+}
+
+function ensureIndentedBody(text: string): string {
+  if (!text) return INDENT
+  const lines = text.split('\n')
+  return lines
+    .map((line) => (line.startsWith(INDENT) ? line : `${INDENT}${line}`))
+    .join('\n')
+}

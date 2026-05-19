@@ -1,13 +1,13 @@
-import { ClipboardEvent, KeyboardEvent, useEffect, useMemo, useState } from 'react'
 import { Alert, Autocomplete, Box, Button, Card, CardContent, Container, FormControl, IconButton, InputLabel, MenuItem, Select, Snackbar, Stack, TextField, Typography } from '@mui/material'
 import CloseIcon from '@mui/icons-material/Close'
 import ArrowBackIosNewRoundedIcon from '@mui/icons-material/ArrowBackIosNewRounded'
 import HistoryRoundedIcon from '@mui/icons-material/HistoryRounded'
 import TaskAltRoundedIcon from '@mui/icons-material/TaskAltRounded'
-import { createChapter, generateChapter, type Chapter, updateChapter } from '../api/chapters'
+import type { Chapter } from '../api/chapters'
 import type { Character } from '../api/characters'
 import type { Volume } from '../api/volumes'
 import EditorActionButtons from '../components/chapter-editor/EditorActionButtons'
+import { useChapterEditor } from '../hooks/useChapterEditor'
 
 type Props = {
   token: string
@@ -23,8 +23,6 @@ type Props = {
   onSaved: () => Promise<void> | void
 }
 
-type CharacterOption = Character & { group: string }
-
 export default function ChapterEditorPage({
   token,
   novelId,
@@ -38,354 +36,18 @@ export default function ChapterEditorPage({
   onNotifyError,
   onSaved,
 }: Props) {
-  type SidePanel = 'summary' | 'outline' | 'instruction' | null
-
-  const INDENT = '　　'
-  const latestVolumeID = useMemo(() => {
-    if (volumes.length === 0) return 0
-    return volumes.reduce((latest, current) => {
-      if (current.volume_number > latest.volume_number) return current
-      if (current.volume_number === latest.volume_number && current.id > latest.id) return current
-      return latest
-    }).id
-  }, [volumes])
-
-  const [chapterNumber, setChapterNumber] = useState(initialChapter?.chapter_number ?? defaultChapterNumber)
-  const [volumeID, setVolumeID] = useState<number>(initialChapter?.volume_id ?? latestVolumeID)
-  const [chapterTitle, setChapterTitle] = useState(initialChapter?.title ?? '')
-  const [chapterBody, setChapterBody] = useState(ensureIndentedBody(initialChapter?.body ?? INDENT))
-  const [chapterSummary, setChapterSummary] = useState(initialChapter?.summary ?? '')
-  const [chapterOutline, setChapterOutline] = useState(initialChapter?.outline ?? '')
-  const [chapterInstruction, setChapterInstruction] = useState(initialChapter?.generation_instruction ?? '')
-  const [selectedCharacterIDs, setSelectedCharacterIDs] = useState<number[]>([])
-  const [saving, setSaving] = useState(false)
-  const [generating, setGenerating] = useState(false)
-  const [sidePanel, setSidePanel] = useState<SidePanel>(null)
-  const [localSuccess, setLocalSuccess] = useState('')
-  const [localError, setLocalError] = useState('')
-  const [recentCharacterIDs, setRecentCharacterIDs] = useState<number[]>([])
-
-  const chapterWordCount = useMemo(() => chapterBody.replace(/\s/g, '').length, [chapterBody])
-  const isEdit = Boolean(initialChapter)
-  const draftKey = useMemo(
-    () => `novel_agent_chapter_draft_${novelId}_${initialChapter?.id ?? 'new'}`,
-    [novelId, initialChapter?.id],
-  )
-  const recentCharacterKey = useMemo(() => `novel_agent_recent_characters_${novelId}`, [novelId])
-  const groupedCharacterOptions = useMemo<CharacterOption[]>(
-    () =>
-      [...characters]
-        .sort((a, b) => a.name.localeCompare(b.name, 'zh-Hans-CN'))
-        .map((c) => {
-          let group = '全部人物'
-          if (recentCharacterIDs.includes(c.id)) group = '最近使用'
-          else if (c.importance_level >= 5) group = '主要人物'
-          return { ...c, group }
-        }),
-    [characters, recentCharacterIDs],
-  )
-  const selectedCharacters = useMemo(
-    () => groupedCharacterOptions.filter((c) => selectedCharacterIDs.includes(c.id)),
-    [groupedCharacterOptions, selectedCharacterIDs],
-  )
-  const validCharacterIDSet = useMemo(() => new Set(characters.map((c) => c.id)), [characters])
-
-  useEffect(() => {
-    if (volumes.length === 0) {
-      if (volumeID !== 0) setVolumeID(0)
-      return
-    }
-    if (!isEdit && volumeID <= 0) {
-      setVolumeID(latestVolumeID)
-      return
-    }
-    const matched = volumes.some((v) => v.id === volumeID)
-    if (!matched) setVolumeID(isEdit ? volumes[0].id : latestVolumeID)
-  }, [isEdit, latestVolumeID, volumeID, volumes])
-
-  useEffect(() => {
-    const raw = localStorage.getItem(recentCharacterKey)
-    if (!raw) return
-    try {
-      const parsed = JSON.parse(raw) as number[]
-      if (Array.isArray(parsed)) {
-        setRecentCharacterIDs(parsed.filter((id) => Number.isFinite(id)))
-      }
-    } catch {
-      localStorage.removeItem(recentCharacterKey)
-    }
-  }, [recentCharacterKey])
-
-  useEffect(() => {
-    const saved = localStorage.getItem(draftKey)
-    if (!saved) return
-    try {
-      const draft = JSON.parse(saved) as {
-        volumeID: number
-        chapterNumber: number
-        chapterTitle: string
-        chapterBody: string
-        chapterSummary: string
-        chapterOutline: string
-        chapterInstruction: string
-        selectedCharacterIDs?: number[]
-      }
-      if (isEdit) {
-        setVolumeID(draft.volumeID ?? volumeID)
-      } else {
-        // For new chapters, always prefer the latest volume instead of stale draft volume.
-        setVolumeID(latestVolumeID)
-      }
-      setChapterNumber(draft.chapterNumber ?? chapterNumber)
-      setChapterTitle(draft.chapterTitle ?? '')
-      setChapterBody(ensureIndentedBody(draft.chapterBody ?? ''))
-      setChapterSummary(draft.chapterSummary ?? '')
-      setChapterOutline(draft.chapterOutline ?? '')
-      setChapterInstruction(draft.chapterInstruction ?? '')
-      setSelectedCharacterIDs(
-        Array.isArray(draft.selectedCharacterIDs)
-          ? draft.selectedCharacterIDs.filter((id) => validCharacterIDSet.has(id))
-          : [],
-      )
-    } catch {
-      localStorage.removeItem(draftKey)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draftKey, isEdit, latestVolumeID, validCharacterIDSet])
-
-  function ensureIndentedBody(text: string): string {
-    if (!text) return INDENT
-    const lines = text.split('\n')
-    return lines
-      .map((line) => (line.startsWith(INDENT) ? line : `${INDENT}${line}`))
-      .join('\n')
-  }
-
-  function handleBodyKeyDown(e: KeyboardEvent<HTMLDivElement>) {
-    const target = e.target as HTMLTextAreaElement
-    if (!target) return
-    const start = target.selectionStart
-    const end = target.selectionEnd
-    if (start !== end) return
-
-    const lineStart = chapterBody.lastIndexOf('\n', start - 1) + 1
-    const indentEnd = lineStart + INDENT.length
-
-    // In non-first lines, Backspace inside the indent area behaves as
-    // logical "back to previous line" (merge lines).
-    if (e.key === 'Backspace' && start <= indentEnd && lineStart > 0) {
-      e.preventDefault()
-      const merged = `${chapterBody.slice(0, lineStart - 1)}${chapterBody.slice(indentEnd)}`
-      setChapterBody(merged)
-      window.requestAnimationFrame(() => {
-        const nextPos = lineStart - 1
-        target.selectionStart = nextPos
-        target.selectionEnd = nextPos
-      })
-      return
-    }
-
-    if (e.key === 'Backspace' && start <= indentEnd) {
-      e.preventDefault()
-      return
-    }
-
-    if (e.key === 'Delete' && start < indentEnd) {
-      e.preventDefault()
-      return
-    }
-
-    if (e.key !== 'Enter') return
-    e.preventDefault()
-    const next = `${chapterBody.slice(0, start)}\n${INDENT}${chapterBody.slice(end)}`
-    setChapterBody(next)
-    window.requestAnimationFrame(() => {
-      target.selectionStart = start + 1 + INDENT.length
-      target.selectionEnd = start + 1 + INDENT.length
-    })
-  }
-
-  function handleBodyPaste(e: ClipboardEvent<HTMLDivElement>) {
-    const target = e.target as HTMLTextAreaElement
-    if (!target) return
-    e.preventDefault()
-
-    const raw = e.clipboardData.getData('text')
-    const normalizedPaste = raw.replace(/\r\n/g, '\n')
-
-    let start = target.selectionStart
-    let end = target.selectionEnd
-
-    const lineStart = chapterBody.lastIndexOf('\n', start - 1) + 1
-    const indentEnd = lineStart + INDENT.length
-
-    // Do not allow paste before the required indent of current line.
-    if (start < indentEnd) start = indentEnd
-    if (end < indentEnd) end = indentEnd
-
-    const next = `${chapterBody.slice(0, start)}${normalizedPaste}${chapterBody.slice(end)}`
-    setChapterBody(next)
-
-    window.requestAnimationFrame(() => {
-      const pos = start + normalizedPaste.length
-      target.selectionStart = pos
-      target.selectionEnd = pos
-    })
-  }
-
-  function stripIndentForClipboard(text: string): string {
-    return text
-      .split('\n')
-      .map((line) => (line.startsWith(INDENT) ? line.slice(INDENT.length) : line))
-      .join('\n')
-  }
-
-  function handleBodyCopy(e: ClipboardEvent<HTMLDivElement>) {
-    const target = e.target as HTMLTextAreaElement
-    if (!target) return
-    const selected = target.value.slice(target.selectionStart, target.selectionEnd)
-    if (!selected) return
-    e.preventDefault()
-    e.clipboardData.setData('text/plain', stripIndentForClipboard(selected))
-  }
-
-  function handleBodyCut(e: ClipboardEvent<HTMLDivElement>) {
-    const target = e.target as HTMLTextAreaElement
-    if (!target) return
-    const start = target.selectionStart
-    const end = target.selectionEnd
-    if (start === end) return
-
-    e.preventDefault()
-    const selected = target.value.slice(start, end)
-    e.clipboardData.setData('text/plain', stripIndentForClipboard(selected))
-
-    // Apply deletion while preserving indentation invariants.
-    const next = ensureIndentedBody(`${chapterBody.slice(0, start)}${chapterBody.slice(end)}`)
-    setChapterBody(next)
-
-    window.requestAnimationFrame(() => {
-      const pos = Math.min(start, next.length)
-      target.selectionStart = pos
-      target.selectionEnd = pos
-    })
-  }
-
-  useEffect(() => {
-    const id = window.setTimeout(() => {
-      const draft = {
-        volumeID,
-        chapterNumber,
-        chapterTitle,
-        chapterBody,
-        chapterSummary,
-        chapterOutline,
-        chapterInstruction,
-        selectedCharacterIDs,
-      }
-      localStorage.setItem(draftKey, JSON.stringify(draft))
-    }, 500)
-    return () => window.clearTimeout(id)
-  }, [draftKey, volumeID, chapterNumber, chapterTitle, chapterBody, chapterSummary, chapterOutline, chapterInstruction, selectedCharacterIDs])
-
-  async function handleSave() {
-    if (chapterNumber <= 0) {
-      const msg = '章节编号必须大于 0。'
-      onNotifyError(msg)
-      setLocalError(msg)
-      return
-    }
-    if (volumeID <= 0) {
-      const msg = '请先选择分卷。'
-      onNotifyError(msg)
-      setLocalError(msg)
-      return
-    }
-
-    setSaving(true)
-    try {
-      const payload = {
-        volume_id: volumeID,
-        chapter_number: chapterNumber,
-        title: chapterTitle.trim(),
-        body: ensureIndentedBody(chapterBody),
-        word_count: chapterWordCount,
-        generation_instruction: chapterInstruction,
-        outline: chapterOutline,
-        summary: chapterSummary,
-      }
-
-      if (isEdit && initialChapter) {
-        await updateChapter(token, novelId, initialChapter.id, payload)
-        onNotifySuccess('Chapter updated.')
-        setLocalSuccess('章节已保存。')
-      } else {
-        await createChapter(token, novelId, payload)
-        onNotifySuccess('Chapter created.')
-        setLocalSuccess('章节已创建。')
-      }
-
-      localStorage.removeItem(draftKey)
-      await onSaved()
-      onBack()
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Failed to save chapter'
-      onNotifyError(msg)
-      setLocalError(msg)
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  async function handleGenerate() {
-    if (chapterNumber <= 0) {
-      const msg = '章节编号必须大于 0。'
-      onNotifyError(msg)
-      setLocalError(msg)
-      return
-    }
-    if (volumeID <= 0) {
-      const msg = '请先选择分卷。'
-      onNotifyError(msg)
-      setLocalError(msg)
-      return
-    }
-    if (!chapterInstruction.trim()) {
-      const msg = '请先填写生成指令。'
-      onNotifyError(msg)
-      setLocalError(msg)
-      return
-    }
-
-    setGenerating(true)
-    try {
-      const safeCharacterIDs = selectedCharacterIDs.filter((id) => validCharacterIDSet.has(id))
-      const data = await generateChapter(token, novelId, {
-        volume_id: volumeID,
-        chapter_number: chapterNumber,
-        title: chapterTitle.trim(),
-        generation_instruction: chapterInstruction.trim(),
-        character_ids: safeCharacterIDs,
-      })
-      if (safeCharacterIDs.length > 0) {
-        const merged = Array.from(new Set([...safeCharacterIDs, ...recentCharacterIDs])).slice(0, 30)
-        setRecentCharacterIDs(merged)
-        localStorage.setItem(recentCharacterKey, JSON.stringify(merged))
-      }
-      setChapterOutline(data.outline)
-      setChapterBody(ensureIndentedBody(data.body))
-      setChapterSummary(data.summary)
-      setSidePanel('outline')
-      onNotifySuccess('AI 生成完成。')
-      setLocalSuccess('AI 生成完成，请检查后再保存。')
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Failed to generate chapter'
-      onNotifyError(msg)
-      setLocalError(msg)
-    } finally {
-      setGenerating(false)
-    }
-  }
+  const editor = useChapterEditor({
+    token,
+    novelId,
+    initialChapter,
+    defaultChapterNumber,
+    volumes,
+    characters,
+    onNotifySuccess,
+    onNotifyError,
+    onSaved,
+    onBack,
+  })
 
   return (
     <Box
@@ -433,7 +95,7 @@ export default function ChapterEditorPage({
                   </Stack>
                   <Stack direction="row" spacing={0.4} alignItems="center">
                     <HistoryRoundedIcon sx={{ fontSize: 16 }} />
-                    <Typography variant="body2">正文 {chapterWordCount} 字</Typography>
+                    <Typography variant="body2">正文 {editor.chapterWordCount} 字</Typography>
                   </Stack>
                 </Stack>
               </Box>
@@ -441,13 +103,13 @@ export default function ChapterEditorPage({
 
             <EditorActionButtons
               onBack={onBack}
-              onGenerate={() => void handleGenerate()}
-              onSave={() => void handleSave()}
-              generating={generating}
-              saving={saving}
-              chapterNumber={chapterNumber}
-              volumeID={volumeID}
-              isEdit={isEdit}
+              onGenerate={() => void editor.handleGenerate()}
+              onSave={() => void editor.handleSave()}
+              generating={editor.generating}
+              saving={editor.saving}
+              chapterNumber={editor.chapterNumber}
+              volumeID={editor.volumeID}
+              isEdit={editor.isEdit}
             />
           </Stack>
         </Box>
@@ -456,7 +118,7 @@ export default function ChapterEditorPage({
           <Stack direction={{ xs: 'column', lg: 'row' }} spacing={2} alignItems="flex-start">
             <Box sx={{ flex: 1, width: '100%' }}>
               <Stack direction={{ xs: 'column', lg: 'row' }} spacing={2} alignItems="stretch">
-                <Box sx={{ flex: sidePanel ? 5 : 1, display: 'flex', justifyContent: 'center' }}>
+                <Box sx={{ flex: editor.sidePanel ? 5 : 1, display: 'flex', justifyContent: 'center' }}>
                   <Card
                     variant="outlined"
                     sx={{
@@ -468,39 +130,39 @@ export default function ChapterEditorPage({
                   >
                     <CardContent>
                       <Stack spacing={2}>
-                      <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} alignItems={{ xs: 'stretch', md: 'center' }}>
-                        <FormControl sx={{ width: { xs: '100%', sm: 220 } }}>
-                          <InputLabel id="chapter-volume-select">分卷</InputLabel>
-                          <Select
-                            labelId="chapter-volume-select"
-                            label="分卷"
-                            value={volumeID}
-                            onChange={(e) => setVolumeID(Number(e.target.value))}
-                          >
-                            {volumes.map((v) => (
-                              <MenuItem key={v.id} value={v.id}>
-                                第{v.volume_number}卷：{v.title}
-                              </MenuItem>
-                            ))}
-                          </Select>
-                        </FormControl>
-                        <TextField
-                          label="章节编号"
+                        <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} alignItems={{ xs: 'stretch', md: 'center' }}>
+                          <FormControl sx={{ width: { xs: '100%', sm: 220 } }}>
+                            <InputLabel id="chapter-volume-select">分卷</InputLabel>
+                            <Select
+                              labelId="chapter-volume-select"
+                              label="分卷"
+                              value={editor.volumeID}
+                              onChange={(e) => editor.setVolumeID(Number(e.target.value))}
+                            >
+                              {volumes.map((v) => (
+                                <MenuItem key={v.id} value={v.id}>
+                                  第{v.volume_number}卷：{v.title}
+                                </MenuItem>
+                              ))}
+                            </Select>
+                          </FormControl>
+                          <TextField
+                            label="章节编号"
                             type="number"
-                            value={chapterNumber}
-                            onChange={(e) => setChapterNumber(Number(e.target.value) || 0)}
+                            value={editor.chapterNumber}
+                            onChange={(e) => editor.setChapterNumber(Number(e.target.value) || 0)}
                             sx={{ width: { xs: '100%', sm: 180 } }}
                           />
                           <TextField
                             label="章节标题"
-                            value={chapterTitle}
-                            onChange={(e) => setChapterTitle(e.target.value)}
+                            value={editor.chapterTitle}
+                            onChange={(e) => editor.setChapterTitle(e.target.value)}
                             sx={{ flex: 1 }}
                           />
                           <TextField
                             label="字数（自动）"
                             type="number"
-                            value={chapterWordCount}
+                            value={editor.chapterWordCount}
                             InputProps={{ readOnly: true }}
                             sx={{ width: { xs: '100%', sm: 180 } }}
                           />
@@ -508,19 +170,19 @@ export default function ChapterEditorPage({
 
                         <Card variant="outlined" sx={{ borderRadius: 2 }}>
                           <CardContent>
-                          <TextField
-                            label="正文"
-                            multiline
-                            minRows={26}
-                            value={chapterBody}
-                            onChange={(e) => setChapterBody(e.target.value)}
-                            onKeyDown={handleBodyKeyDown}
-                            onPaste={handleBodyPaste}
-                            onCopy={handleBodyCopy}
-                            onCut={handleBodyCut}
-                            onBlur={() => setChapterBody((prev) => ensureIndentedBody(prev))}
-                            fullWidth
-                          />
+                            <TextField
+                              label="正文"
+                              multiline
+                              minRows={26}
+                              value={editor.chapterBody}
+                              onChange={(e) => editor.setChapterBody(e.target.value)}
+                              onKeyDown={editor.handleBodyKeyDown}
+                              onPaste={editor.handleBodyPaste}
+                              onCopy={editor.handleBodyCopy}
+                              onCut={editor.handleBodyCut}
+                              onBlur={() => editor.setChapterBody((prev) => editor.ensureIndentedBody(prev))}
+                              fullWidth
+                            />
                           </CardContent>
                         </Card>
                       </Stack>
@@ -528,7 +190,7 @@ export default function ChapterEditorPage({
                   </Card>
                 </Box>
 
-                {sidePanel && (
+                {editor.sidePanel && (
                   <Card
                     variant="outlined"
                     sx={{
@@ -541,29 +203,29 @@ export default function ChapterEditorPage({
                     <CardContent>
                       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
                         <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-                          {sidePanel === 'summary' && '章节总结'}
-                          {sidePanel === 'outline' && '章节大纲'}
-                          {sidePanel === 'instruction' && '生成指令'}
+                          {editor.sidePanel === 'summary' && '章节总结'}
+                          {editor.sidePanel === 'outline' && '章节大纲'}
+                          {editor.sidePanel === 'instruction' && '生成指令'}
                         </Typography>
-                        <IconButton size="small" onClick={() => setSidePanel(null)}>
+                        <IconButton size="small" onClick={() => editor.setSidePanel(null)}>
                           <CloseIcon fontSize="small" />
                         </IconButton>
                       </Stack>
 
-                      {sidePanel === 'summary' && (
-                        <TextField label="章节总结" multiline minRows={24} value={chapterSummary} onChange={(e) => setChapterSummary(e.target.value)} fullWidth />
+                      {editor.sidePanel === 'summary' && (
+                        <TextField label="章节总结" multiline minRows={24} value={editor.chapterSummary} onChange={(e) => editor.setChapterSummary(e.target.value)} fullWidth />
                       )}
-                      {sidePanel === 'outline' && (
-                        <TextField label="章节大纲" multiline minRows={24} value={chapterOutline} onChange={(e) => setChapterOutline(e.target.value)} fullWidth />
+                      {editor.sidePanel === 'outline' && (
+                        <TextField label="章节大纲" multiline minRows={24} value={editor.chapterOutline} onChange={(e) => editor.setChapterOutline(e.target.value)} fullWidth />
                       )}
-                      {sidePanel === 'instruction' && (
+                      {editor.sidePanel === 'instruction' && (
                         <Stack spacing={1.5}>
                           <Autocomplete
                             multiple
-                            options={groupedCharacterOptions}
+                            options={editor.groupedCharacterOptions}
                             groupBy={(option) => option.group}
-                            value={selectedCharacters}
-                            onChange={(_, next) => setSelectedCharacterIDs(next.map((c) => c.id))}
+                            value={editor.selectedCharacters}
+                            onChange={(_, next) => editor.setSelectedCharacterIDs(next.map((c) => c.id))}
                             getOptionLabel={(option) => option.name}
                             isOptionEqualToValue={(option, value) => option.id === value.id}
                             filterOptions={(options, state) => {
@@ -589,7 +251,7 @@ export default function ChapterEditorPage({
                               </li>
                             )}
                           />
-                          <TextField label="生成指令" multiline minRows={20} value={chapterInstruction} onChange={(e) => setChapterInstruction(e.target.value)} fullWidth />
+                          <TextField label="生成指令" multiline minRows={20} value={editor.chapterInstruction} onChange={(e) => editor.setChapterInstruction(e.target.value)} fullWidth />
                         </Stack>
                       )}
                     </CardContent>
@@ -608,54 +270,54 @@ export default function ChapterEditorPage({
               }}
             >
               <Button
-                variant={sidePanel === 'summary' ? 'contained' : 'outlined'}
-                onClick={() => setSidePanel((p) => (p === 'summary' ? null : 'summary'))}
+                variant={editor.sidePanel === 'summary' ? 'contained' : 'outlined'}
+                onClick={() => editor.setSidePanel((p) => (p === 'summary' ? null : 'summary'))}
                 sx={{
                   borderRadius: 3,
                   py: 1,
                   fontWeight: 700,
-                  color: sidePanel === 'summary' ? '#ffffff' : '#374151',
-                  bgcolor: sidePanel === 'summary' ? '#0f766e' : '#f8fafc',
-                  borderColor: sidePanel === 'summary' ? '#0f766e' : '#d1d5db',
+                  color: editor.sidePanel === 'summary' ? '#ffffff' : '#374151',
+                  bgcolor: editor.sidePanel === 'summary' ? '#0f766e' : '#f8fafc',
+                  borderColor: editor.sidePanel === 'summary' ? '#0f766e' : '#d1d5db',
                   '&:hover': {
-                    bgcolor: sidePanel === 'summary' ? '#0d9488' : '#eef2f7',
-                    borderColor: sidePanel === 'summary' ? '#0d9488' : '#9ca3af',
+                    bgcolor: editor.sidePanel === 'summary' ? '#0d9488' : '#eef2f7',
+                    borderColor: editor.sidePanel === 'summary' ? '#0d9488' : '#9ca3af',
                   },
                 }}
               >
                 总结
               </Button>
               <Button
-                variant={sidePanel === 'outline' ? 'contained' : 'outlined'}
-                onClick={() => setSidePanel((p) => (p === 'outline' ? null : 'outline'))}
+                variant={editor.sidePanel === 'outline' ? 'contained' : 'outlined'}
+                onClick={() => editor.setSidePanel((p) => (p === 'outline' ? null : 'outline'))}
                 sx={{
                   borderRadius: 3,
                   py: 1,
                   fontWeight: 700,
-                  color: sidePanel === 'outline' ? '#ffffff' : '#374151',
-                  bgcolor: sidePanel === 'outline' ? '#0f766e' : '#f8fafc',
-                  borderColor: sidePanel === 'outline' ? '#0f766e' : '#d1d5db',
+                  color: editor.sidePanel === 'outline' ? '#ffffff' : '#374151',
+                  bgcolor: editor.sidePanel === 'outline' ? '#0f766e' : '#f8fafc',
+                  borderColor: editor.sidePanel === 'outline' ? '#0f766e' : '#d1d5db',
                   '&:hover': {
-                    bgcolor: sidePanel === 'outline' ? '#0d9488' : '#eef2f7',
-                    borderColor: sidePanel === 'outline' ? '#0d9488' : '#9ca3af',
+                    bgcolor: editor.sidePanel === 'outline' ? '#0d9488' : '#eef2f7',
+                    borderColor: editor.sidePanel === 'outline' ? '#0d9488' : '#9ca3af',
                   },
                 }}
               >
                 大纲
               </Button>
               <Button
-                variant={sidePanel === 'instruction' ? 'contained' : 'outlined'}
-                onClick={() => setSidePanel((p) => (p === 'instruction' ? null : 'instruction'))}
+                variant={editor.sidePanel === 'instruction' ? 'contained' : 'outlined'}
+                onClick={() => editor.setSidePanel((p) => (p === 'instruction' ? null : 'instruction'))}
                 sx={{
                   borderRadius: 3,
                   py: 1,
                   fontWeight: 700,
-                  color: sidePanel === 'instruction' ? '#ffffff' : '#374151',
-                  bgcolor: sidePanel === 'instruction' ? '#0f766e' : '#f8fafc',
-                  borderColor: sidePanel === 'instruction' ? '#0f766e' : '#d1d5db',
+                  color: editor.sidePanel === 'instruction' ? '#ffffff' : '#374151',
+                  bgcolor: editor.sidePanel === 'instruction' ? '#0f766e' : '#f8fafc',
+                  borderColor: editor.sidePanel === 'instruction' ? '#0f766e' : '#d1d5db',
                   '&:hover': {
-                    bgcolor: sidePanel === 'instruction' ? '#0d9488' : '#eef2f7',
-                    borderColor: sidePanel === 'instruction' ? '#0d9488' : '#9ca3af',
+                    bgcolor: editor.sidePanel === 'instruction' ? '#0d9488' : '#eef2f7',
+                    borderColor: editor.sidePanel === 'instruction' ? '#0d9488' : '#9ca3af',
                   },
                 }}
               >
@@ -682,25 +344,25 @@ export default function ChapterEditorPage({
         >
           <EditorActionButtons
             onBack={onBack}
-            onGenerate={() => void handleGenerate()}
-            onSave={() => void handleSave()}
-            generating={generating}
-            saving={saving}
-            chapterNumber={chapterNumber}
-            volumeID={volumeID}
-            isEdit={isEdit}
+            onGenerate={() => void editor.handleGenerate()}
+            onSave={() => void editor.handleSave()}
+            generating={editor.generating}
+            saving={editor.saving}
+            chapterNumber={editor.chapterNumber}
+            volumeID={editor.volumeID}
+            isEdit={editor.isEdit}
             compact
           />
         </Box>
 
-        <Snackbar open={Boolean(localSuccess)} autoHideDuration={2400} onClose={() => setLocalSuccess('')}>
-          <Alert severity="success" onClose={() => setLocalSuccess('')} sx={{ width: '100%' }}>
-            {localSuccess}
+        <Snackbar open={Boolean(editor.localSuccess)} autoHideDuration={2400} onClose={() => editor.setLocalSuccess('')}>
+          <Alert severity="success" onClose={() => editor.setLocalSuccess('')} sx={{ width: '100%' }}>
+            {editor.localSuccess}
           </Alert>
         </Snackbar>
-        <Snackbar open={Boolean(localError)} autoHideDuration={3200} onClose={() => setLocalError('')}>
-          <Alert severity="error" onClose={() => setLocalError('')} sx={{ width: '100%' }}>
-            {localError}
+        <Snackbar open={Boolean(editor.localError)} autoHideDuration={3200} onClose={() => editor.setLocalError('')}>
+          <Alert severity="error" onClose={() => editor.setLocalError('')} sx={{ width: '100%' }}>
+            {editor.localError}
           </Alert>
         </Snackbar>
       </Container>
