@@ -278,6 +278,88 @@ func TestAPIIntegration_FailurePaths(t *testing.T) {
 	if createDupChapterStatus != http.StatusBadRequest {
 		t.Fatalf("duplicate chapter status: want %d got %d body=%s", http.StatusBadRequest, createDupChapterStatus, createDupChapterBody)
 	}
+
+	createLoreStatus, createLoreBody := doJSON(t, e, http.MethodPost, fmt.Sprintf("/novels/%d/lore-entries", novelID), map[string]any{
+		"category":      "artifact",
+		"name":          "it_lore_1",
+		"description":   "it lore desc",
+		"rules_or_limits": "it lore rules",
+		"tags":          "it,artifact",
+	}, token)
+	if createLoreStatus != http.StatusCreated {
+		t.Fatalf("create lore status: want %d got %d body=%s", http.StatusCreated, createLoreStatus, createLoreBody)
+	}
+
+	generateMissingInstructionStatus, generateMissingInstructionBody := doJSON(t, e, http.MethodPost, fmt.Sprintf("%s/chapters/generate", novelPath), map[string]any{
+		"volume_id":              volumeID,
+		"chapter_number":         2,
+		"title":                  "it_generate_fail_missing_instruction",
+		"generation_instruction": "   ",
+		"character_ids":          []int64{},
+		"lore_entry_ids":         []int64{},
+	}, token)
+	if generateMissingInstructionStatus != http.StatusBadRequest {
+		t.Fatalf("generate missing instruction status: want %d got %d body=%s", http.StatusBadRequest, generateMissingInstructionStatus, generateMissingInstructionBody)
+	}
+	if !strings.Contains(generateMissingInstructionBody, "generation_instruction is required") {
+		t.Fatalf("unexpected generate missing instruction body=%s", generateMissingInstructionBody)
+	}
+
+	generateInvalidCharacterStatus, generateInvalidCharacterBody := doJSON(t, e, http.MethodPost, fmt.Sprintf("%s/chapters/generate", novelPath), map[string]any{
+		"volume_id":              volumeID,
+		"chapter_number":         2,
+		"title":                  "it_generate_fail_invalid_character",
+		"generation_instruction": "继续推进剧情",
+		"character_ids":          []int64{999999},
+		"lore_entry_ids":         []int64{},
+	}, token)
+	if generateInvalidCharacterStatus != http.StatusBadRequest {
+		t.Fatalf("generate invalid character status: want %d got %d body=%s", http.StatusBadRequest, generateInvalidCharacterStatus, generateInvalidCharacterBody)
+	}
+	if !strings.Contains(generateInvalidCharacterBody, "character_ids contains non-existing character") {
+		t.Fatalf("unexpected generate invalid character body=%s", generateInvalidCharacterBody)
+	}
+
+	generateInvalidLoreStatus, generateInvalidLoreBody := doJSON(t, e, http.MethodPost, fmt.Sprintf("%s/chapters/generate", novelPath), map[string]any{
+		"volume_id":              volumeID,
+		"chapter_number":         2,
+		"title":                  "it_generate_fail_invalid_lore",
+		"generation_instruction": "继续推进剧情",
+		"character_ids":          []int64{},
+		"lore_entry_ids":         []int64{999999},
+	}, token)
+	if generateInvalidLoreStatus != http.StatusBadRequest {
+		t.Fatalf("generate invalid lore status: want %d got %d body=%s", http.StatusBadRequest, generateInvalidLoreStatus, generateInvalidLoreBody)
+	}
+	if !strings.Contains(generateInvalidLoreBody, "lore_entry_ids contains non-existing lore entry") {
+		t.Fatalf("unexpected generate invalid lore body=%s", generateInvalidLoreBody)
+	}
+
+	otherEmail := "it_api_user_fail_2@example.com"
+	registerOtherStatus, registerOtherBody := doJSON(t, e, http.MethodPost, "/auth/register", map[string]any{
+		"name":     "it-user-fail-2",
+		"email":    otherEmail,
+		"password": "pass123",
+	}, "")
+	if registerOtherStatus != http.StatusCreated {
+		t.Fatalf("register other user status: want %d got %d body=%s", http.StatusCreated, registerOtherStatus, registerOtherBody)
+	}
+	otherToken := mustTokenFromBody(t, registerOtherBody)
+
+	generateCrossUserStatus, generateCrossUserBody := doJSON(t, e, http.MethodPost, fmt.Sprintf("%s/chapters/generate", novelPath), map[string]any{
+		"volume_id":              volumeID,
+		"chapter_number":         2,
+		"title":                  "it_generate_fail_cross_user",
+		"generation_instruction": "继续推进剧情",
+		"character_ids":          []int64{},
+		"lore_entry_ids":         []int64{},
+	}, otherToken)
+	if generateCrossUserStatus != http.StatusNotFound {
+		t.Fatalf("generate cross user status: want %d got %d body=%s", http.StatusNotFound, generateCrossUserStatus, generateCrossUserBody)
+	}
+	if !strings.Contains(generateCrossUserBody, "novel not found") {
+		t.Fatalf("unexpected generate cross user body=%s", generateCrossUserBody)
+	}
 }
 
 func requireIntegrationTestDSN(t *testing.T) string {
@@ -297,7 +379,7 @@ func requireIntegrationTestDSN(t *testing.T) string {
 
 func requireSchemaReady(t *testing.T, db *sql.DB) {
 	t.Helper()
-	required := []string{"users", "novels", "characters", "volumes", "chapters"}
+	required := []string{"users", "novels", "characters", "volumes", "chapters", "lore_entries", "lore_entry_characters"}
 	for _, table := range required {
 		var count int
 		err := db.QueryRow(`
@@ -318,6 +400,8 @@ func cleanupTestRows(t *testing.T, db *sql.DB) {
 	t.Helper()
 	queries := []string{
 		`DELETE FROM chapters WHERE title LIKE 'it_%' OR title LIKE 'it-%'`,
+		`DELETE FROM lore_entry_characters WHERE lore_entry_id IN (SELECT id FROM lore_entries WHERE name LIKE 'it_%' OR name LIKE 'it-%')`,
+		`DELETE FROM lore_entries WHERE name LIKE 'it_%' OR name LIKE 'it-%'`,
 		`DELETE FROM characters WHERE name LIKE 'it_%' OR name LIKE 'it-%'`,
 		`DELETE FROM volumes WHERE title LIKE 'it_%' OR title LIKE 'it-%'`,
 		`DELETE FROM novels WHERE title LIKE 'it_%' OR title LIKE 'it-%'`,

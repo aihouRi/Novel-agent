@@ -58,6 +58,14 @@
   - 左侧导航改为“小说列表直接选择”
   - 右侧改为横向 Tab 切换四个模块
   - 移除四个模块内重复“选择小说”步骤
+- V1-2（后端部分）已完成：失败路径测试增量补强
+  - 新增 `chapters/generate` 失败场景集成测试
+  - 覆盖 `generation_instruction` 缺失、非法 `character_ids`、非法 `lore_entry_ids`、跨用户越权访问
+- V1-2（前端部分）已完成：章节编辑核心交互最小测试
+  - 新增 `useChapterEditor` 测试
+  - 覆盖生成失败提示与重试状态
+  - 覆盖保存失败不触发生成重试
+  - 覆盖生成请求携带 `character_ids + lore_entry_ids`
 
 ## 6. V1 非目标
 - RAG / 向量数据库
