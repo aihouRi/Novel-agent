@@ -1,12 +1,8 @@
-import { Box, Button, Card, CardActionArea, CardContent, IconButton, Stack, Typography } from '@mui/material'
-import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
-import EditOutlinedIcon from '@mui/icons-material/EditOutlined'
+import { Button, Card, CardContent, Stack, Typography } from '@mui/material'
 import type { Novel } from '../../api/novels'
 import NovelForm from './NovelForm'
 
 type Props = {
-  novels: Novel[]
-  selectedNovelId: number | null
   selectedNovel: Novel | null
   showNovelEditor: boolean
   loading: boolean
@@ -20,10 +16,8 @@ type Props = {
   writingRules: string
   forbiddenRules: string
   recentChapterCount: number
-  formatNovelMeta: (novel: Novel) => string
-  onSelectNovel: (id: number) => void
-  onEditNovel: (id: number) => void
-  onDeleteNovel: (id: number) => void
+  onEditNovel: () => void
+  onDeleteNovel: () => void
   onHideEditor: () => void
   onUpdateNovel: () => void
   onTitle: (v: string) => void
@@ -40,8 +34,6 @@ type Props = {
 
 export default function NovelDetailSection(props: Props) {
   const {
-    novels,
-    selectedNovelId,
     selectedNovel,
     showNovelEditor,
     loading,
@@ -55,8 +47,6 @@ export default function NovelDetailSection(props: Props) {
     writingRules,
     forbiddenRules,
     recentChapterCount,
-    formatNovelMeta,
-    onSelectNovel,
     onEditNovel,
     onDeleteNovel,
     onHideEditor,
@@ -77,28 +67,20 @@ export default function NovelDetailSection(props: Props) {
     <Stack spacing={2}>
       <Card variant="outlined" sx={{ borderRadius: 3 }}>
         <CardContent>
-          <Typography variant="h6" sx={{ mb: 2 }}>My Novels</Typography>
-          {novels.length === 0 ? (
-            <Typography variant="body2" color="text.secondary">No novels yet.</Typography>
-          ) : (
-            <Stack spacing={1.5}>
-              {novels.map((novel) => (
-                <Card key={novel.id} variant="outlined" sx={{ borderRadius: 2, borderColor: selectedNovelId === novel.id ? '#14b8a6' : '#e2e8f0' }}>
-                  <CardActionArea onClick={() => onSelectNovel(novel.id)}>
-                    <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ p: 1.5 }}>
-                      <Box>
-                        <Typography sx={{ fontWeight: 600 }}>{novel.title}</Typography>
-                        <Typography variant="body2" color="text.secondary">{formatNovelMeta(novel)}</Typography>
-                      </Box>
-                      <Stack direction="row" spacing={0.5}>
-                        <IconButton onClick={(e) => { e.stopPropagation(); onEditNovel(novel.id) }}><EditOutlinedIcon /></IconButton>
-                        <IconButton onClick={(e) => { e.stopPropagation(); onDeleteNovel(novel.id) }}><DeleteOutlineIcon /></IconButton>
-                      </Stack>
-                    </Stack>
-                  </CardActionArea>
-                </Card>
-              ))}
+          <Typography variant="h6" sx={{ mb: 1.2 }}>当前小说</Typography>
+          {selectedNovel ? (
+            <Stack spacing={1.2}>
+              <Typography sx={{ fontSize: 20, fontWeight: 700 }}>{selectedNovel.title}</Typography>
+              <Typography variant="body2" color="text.secondary">
+                {selectedNovel.genre || 'No genre'}{selectedNovel.language && selectedNovel.language !== 'zh-CN' ? ` · ${selectedNovel.language}` : ''}
+              </Typography>
+              <Stack direction="row" spacing={1.2}>
+                <Button variant="outlined" onClick={onEditNovel}>编辑小说</Button>
+                <Button variant="outlined" color="error" onClick={onDeleteNovel}>删除小说</Button>
+              </Stack>
             </Stack>
+          ) : (
+            <Typography variant="body2" color="text.secondary">请先在左侧选择一本小说。</Typography>
           )}
         </CardContent>
       </Card>

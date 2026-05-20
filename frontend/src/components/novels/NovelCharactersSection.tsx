@@ -1,4 +1,4 @@
-import { Box, Button, Card, CardContent, FormControl, IconButton, InputLabel, MenuItem, Select, Stack, Typography } from '@mui/material'
+import { Box, Button, Card, CardContent, IconButton, Stack, Typography } from '@mui/material'
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined'
 import type { Novel } from '../../api/novels'
@@ -7,14 +7,11 @@ import CharacterManager from '../CharacterManager'
 
 type Props = {
   token: string
-  novels: Novel[]
-  selectedNovelId: number | null
   selectedNovel: Novel | null
   characters: Character[]
   characterLoading: boolean
   showCharacterManager: boolean
   editingCharacter: Character | null
-  onNovelChange: (id: number) => void
   onEditCharacter: (character: Character) => void
   onDeleteCharacter: (id: number) => void
   onOpenCreateCharacter: () => void
@@ -25,14 +22,11 @@ type Props = {
 
 export default function NovelCharactersSection({
   token,
-  novels,
-  selectedNovelId,
   selectedNovel,
   characters,
   characterLoading,
   showCharacterManager,
   editingCharacter,
-  onNovelChange,
   onEditCharacter,
   onDeleteCharacter,
   onOpenCreateCharacter,
@@ -54,19 +48,9 @@ export default function NovelCharactersSection({
     <Card variant="outlined" sx={{ borderRadius: 3 }}>
       <CardContent>
         <Typography variant="h6" sx={{ mb: 1.5 }}>小说角色</Typography>
-        <FormControl fullWidth sx={{ mb: 2 }}>
-          <InputLabel id="character-novel-select">选择小说</InputLabel>
-          <Select
-            labelId="character-novel-select"
-            label="选择小说"
-            value={selectedNovelId ?? ''}
-            onChange={(e) => onNovelChange(Number(e.target.value))}
-          >
-            {novels.map((n) => (
-              <MenuItem key={n.id} value={n.id}>{n.title}</MenuItem>
-            ))}
-          </Select>
-        </FormControl>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          当前小说：{selectedNovel.title}
+        </Typography>
 
         <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 600 }}>当前角色</Typography>
         {characterLoading ? (

@@ -1,4 +1,4 @@
-import { Box, Button, Card, CardContent, FormControl, IconButton, InputLabel, MenuItem, Select, Stack, Typography } from '@mui/material'
+import { Box, Button, Card, CardContent, IconButton, Stack, Typography } from '@mui/material'
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined'
 import type { Character } from '../../api/characters'
@@ -8,15 +8,12 @@ import LoreEntryManager from './LoreEntryManager'
 
 type Props = {
   token: string
-  novels: Novel[]
-  selectedNovelId: number | null
   selectedNovel: Novel | null
   characters: Character[]
   loreEntries: LoreEntry[]
   loreLoading: boolean
   showLoreManager: boolean
   editingLoreEntry: LoreEntry | null
-  onNovelChange: (id: number) => void
   onEditLoreEntry: (entry: LoreEntry) => void
   onDeleteLoreEntry: (id: number) => void
   onOpenCreateLoreEntry: () => void
@@ -37,15 +34,12 @@ const categoryLabelMap: Record<string, string> = {
 
 export default function NovelLoreEntriesSection({
   token,
-  novels,
-  selectedNovelId,
   selectedNovel,
   characters,
   loreEntries,
   loreLoading,
   showLoreManager,
   editingLoreEntry,
-  onNovelChange,
   onEditLoreEntry,
   onDeleteLoreEntry,
   onOpenCreateLoreEntry,
@@ -67,19 +61,9 @@ export default function NovelLoreEntriesSection({
     <Card variant="outlined" sx={{ borderRadius: 3 }}>
       <CardContent>
         <Typography variant="h6" sx={{ mb: 1.5 }}>小说设定</Typography>
-        <FormControl fullWidth sx={{ mb: 2 }}>
-          <InputLabel id="lore-novel-select">选择小说</InputLabel>
-          <Select
-            labelId="lore-novel-select"
-            label="选择小说"
-            value={selectedNovelId ?? ''}
-            onChange={(e) => onNovelChange(Number(e.target.value))}
-          >
-            {novels.map((n) => (
-              <MenuItem key={n.id} value={n.id}>{n.title}</MenuItem>
-            ))}
-          </Select>
-        </FormControl>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          当前小说：{selectedNovel.title}
+        </Typography>
 
         <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 600 }}>当前设定</Typography>
         {loreLoading ? (

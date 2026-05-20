@@ -5,6 +5,7 @@ import {
   Card,
   CardContent,
   Container,
+  Divider,
   Dialog,
   DialogActions,
   DialogContent,
@@ -12,6 +13,8 @@ import {
   DialogTitle,
   Snackbar,
   Stack,
+  Tab,
+  Tabs,
   TextField,
 } from '@mui/material'
 import type { AuthUser } from '../api/auth'
@@ -60,37 +63,26 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
         <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
           <NovelSidebar
             userName={user.name}
+            novels={state.novels}
+            selectedNovelId={state.selectedNovelId}
             mainTab={state.mainTab}
             myNovelsExpanded={state.myNovelsExpanded}
-            myNovelTab={state.myNovelTab}
             onToggleMyNovels={() => { state.setMainTab('myNovels'); state.setMyNovelsExpanded((v) => !v) }}
-            onSelectNovelDetail={() => { state.setMainTab('myNovels'); state.setMyNovelTab('novelDetail'); state.setShowNovelEditor(false) }}
-            onSelectNovelCharacters={() => {
+            onSelectNovel={(id) => {
               state.setMainTab('myNovels')
-              state.setMyNovelTab('novelCharacters')
+              state.setSelectedNovelId(id)
               state.setShowCharacterManager(false)
               state.setEditingCharacter(null)
-              if (state.selectedNovelId) void state.refreshCharacters(state.selectedNovelId)
-            }}
-            onSelectNovelLoreEntries={() => {
-              state.setMainTab('myNovels')
-              state.setMyNovelTab('novelLoreEntries')
               state.setShowLoreManager(false)
               state.setEditingLoreEntry(null)
-              if (state.selectedNovelId) {
-                void state.refreshCharacters(state.selectedNovelId)
-                void state.refreshLoreEntries(state.selectedNovelId)
-              }
-            }}
-            onSelectNovelChapters={() => {
-              state.setMainTab('myNovels')
-              state.setMyNovelTab('novelChapters')
               state.setChapterEditorOpen(false)
               state.setChapterEditorTarget(null)
-              if (state.selectedNovelId) void state.refreshChapters(state.selectedNovelId)
-              if (state.selectedNovelId) void state.refreshVolumes(state.selectedNovelId)
-              if (state.selectedNovelId) void state.refreshLoreEntries(state.selectedNovelId)
+              void state.refreshCharacters(id)
+              void state.refreshChapters(id)
+              void state.refreshVolumes(id)
+              void state.refreshLoreEntries(id)
             }}
+            formatNovelMeta={state.formatNovelMeta}
             onSelectCreateNovel={() => {
               state.setMainTab('createNovel')
               state.setShowNovelEditor(false)
@@ -115,6 +107,25 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
               onLogout={state.clickLogout}
             />
 
+            {state.mainTab === 'myNovels' && (
+              <Card variant="outlined" sx={{ mb: 2, borderRadius: 3 }}>
+                <CardContent sx={{ pb: '8px !important' }}>
+                  <Tabs
+                    value={state.myNovelTab}
+                    onChange={(_, value) => state.setMyNovelTab(value)}
+                    variant="scrollable"
+                    scrollButtons="auto"
+                  >
+                    <Tab label="小说详情" value="novelDetail" />
+                    <Tab label="小说角色" value="novelCharacters" />
+                    <Tab label="小说设定" value="novelLoreEntries" />
+                    <Tab label="小说章节" value="novelChapters" />
+                  </Tabs>
+                  <Divider />
+                </CardContent>
+              </Card>
+            )}
+
             {state.mainTab === 'createNovel' && (
               <Card variant="outlined" sx={{ borderRadius: 3 }}>
                 <CardContent>
@@ -133,8 +144,6 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
 
             {state.mainTab === 'myNovels' && state.myNovelTab === 'novelDetail' && (
               <NovelDetailSection
-                novels={state.novels}
-                selectedNovelId={state.selectedNovelId}
                 selectedNovel={state.selectedNovel}
                 showNovelEditor={state.showNovelEditor}
                 loading={state.loading}
@@ -148,10 +157,8 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
                 writingRules={state.writingRules}
                 forbiddenRules={state.forbiddenRules}
                 recentChapterCount={state.recentChapterCount}
-                formatNovelMeta={state.formatNovelMeta}
-                onSelectNovel={state.setSelectedNovelId}
-                onEditNovel={(id) => { state.setSelectedNovelId(id); state.setShowNovelEditor(true) }}
-                onDeleteNovel={state.setConfirmDeleteId}
+                onEditNovel={() => state.setShowNovelEditor(true)}
+                onDeleteNovel={() => state.selectedNovelId && state.setConfirmDeleteId(state.selectedNovelId)}
                 onHideEditor={() => state.setShowNovelEditor(false)}
                 onUpdateNovel={() => void state.handleUpdate()}
                 onTitle={state.setTitle}
@@ -170,14 +177,11 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
             {state.mainTab === 'myNovels' && state.myNovelTab === 'novelCharacters' && (
               <NovelCharactersSection
                 token={token}
-                novels={state.novels}
-                selectedNovelId={state.selectedNovelId}
                 selectedNovel={state.selectedNovel}
                 characters={state.characters}
                 characterLoading={state.characterLoading}
                 showCharacterManager={state.showCharacterManager}
                 editingCharacter={state.editingCharacter}
-                onNovelChange={(next) => { state.setSelectedNovelId(next); state.setShowCharacterManager(false); state.setEditingCharacter(null); void state.refreshCharacters(next) }}
                 onEditCharacter={(character) => { state.setEditingCharacter(character); state.setShowCharacterManager(true) }}
                 onDeleteCharacter={state.setConfirmDeleteCharacterId}
                 onOpenCreateCharacter={() => { state.setEditingCharacter(null); state.setShowCharacterManager(true) }}
@@ -194,21 +198,12 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
             {state.mainTab === 'myNovels' && state.myNovelTab === 'novelLoreEntries' && (
               <NovelLoreEntriesSection
                 token={token}
-                novels={state.novels}
-                selectedNovelId={state.selectedNovelId}
                 selectedNovel={state.selectedNovel}
                 characters={state.characters}
                 loreEntries={state.loreEntries}
                 loreLoading={state.loreLoading}
                 showLoreManager={state.showLoreManager}
                 editingLoreEntry={state.editingLoreEntry}
-                onNovelChange={(next) => {
-                  state.setSelectedNovelId(next)
-                  state.setShowLoreManager(false)
-                  state.setEditingLoreEntry(null)
-                  void state.refreshCharacters(next)
-                  void state.refreshLoreEntries(next)
-                }}
                 onEditLoreEntry={(entry) => { state.setEditingLoreEntry(entry); state.setShowLoreManager(true) }}
                 onDeleteLoreEntry={state.setConfirmDeleteLoreEntryId}
                 onOpenCreateLoreEntry={() => { state.setEditingLoreEntry(null); state.setShowLoreManager(true) }}
@@ -224,8 +219,6 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
 
             {state.mainTab === 'myNovels' && state.myNovelTab === 'novelChapters' && (
               <NovelChaptersSection
-                novels={state.novels}
-                selectedNovelId={state.selectedNovelId}
                 selectedNovel={state.selectedNovel}
                 novelTotalWordCount={state.novelTotalWordCount}
                 exportingMarkdown={state.exportingMarkdown}
@@ -237,15 +230,6 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
                 visibleChapters={state.visibleChapters}
                 groupedChapters={state.groupedChapters}
                 movingChapterId={state.movingChapterId}
-                onNovelChange={(next) => {
-                  state.setSelectedNovelId(next)
-                  state.setChapterEditorOpen(false)
-                  state.setChapterEditorTarget(null)
-                  void state.refreshChapters(next)
-                  void state.refreshVolumes(next)
-                  void state.refreshCharacters(next)
-                  void state.refreshLoreEntries(next)
-                }}
                 onOpenExport={() => state.setExportDialogOpen(true)}
                 onNewVolumeTitleChange={state.setNewVolumeTitle}
                 onCreateVolume={() => void state.handleCreateVolume()}

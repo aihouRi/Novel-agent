@@ -13,8 +13,6 @@ type GroupedChapter = {
 }
 
 type Props = {
-  novels: Novel[]
-  selectedNovelId: number | null
   selectedNovel: Novel | null
   novelTotalWordCount: number
   exportingMarkdown: boolean
@@ -26,7 +24,6 @@ type Props = {
   visibleChapters: Chapter[]
   groupedChapters: GroupedChapter[]
   movingChapterId: number | null
-  onNovelChange: (id: number) => void
   onOpenExport: () => void
   onNewVolumeTitleChange: (value: string) => void
   onCreateVolume: () => void
@@ -40,8 +37,6 @@ type Props = {
 }
 
 export default function NovelChaptersSection({
-  novels,
-  selectedNovelId,
   selectedNovel,
   novelTotalWordCount,
   exportingMarkdown,
@@ -53,7 +48,6 @@ export default function NovelChaptersSection({
   visibleChapters,
   groupedChapters,
   movingChapterId,
-  onNovelChange,
   onOpenExport,
   onNewVolumeTitleChange,
   onCreateVolume,
@@ -79,19 +73,9 @@ export default function NovelChaptersSection({
     <Card variant="outlined" sx={{ borderRadius: 3 }}>
       <CardContent>
         <Typography variant="h6" sx={{ mb: 1.5 }}>小说章节</Typography>
-        <FormControl fullWidth sx={{ mb: 2 }}>
-          <InputLabel id="chapter-novel-select">选择小说</InputLabel>
-          <Select
-            labelId="chapter-novel-select"
-            label="选择小说"
-            value={selectedNovelId ?? ''}
-            onChange={(e) => onNovelChange(Number(e.target.value))}
-          >
-            {novels.map((n) => (
-              <MenuItem key={n.id} value={n.id}>{n.title}</MenuItem>
-            ))}
-          </Select>
-        </FormControl>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          当前小说：{selectedNovel.title}
+        </Typography>
 
         <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 600 }}>当前章节</Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>小说总字数：{novelTotalWordCount.toLocaleString()} 字</Typography>

@@ -3,33 +3,32 @@ import AddIcon from '@mui/icons-material/Add'
 import ExpandLessIcon from '@mui/icons-material/ExpandLess'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import LibraryBooksOutlinedIcon from '@mui/icons-material/LibraryBooksOutlined'
+import type { Novel } from '../../api/novels'
 
 export type MainTab = 'myNovels' | 'createNovel'
 export type MyNovelTab = 'novelDetail' | 'novelCharacters' | 'novelLoreEntries' | 'novelChapters'
 
 type Props = {
   userName: string
+  novels: Novel[]
+  selectedNovelId: number | null
   mainTab: MainTab
   myNovelsExpanded: boolean
-  myNovelTab: MyNovelTab
   onToggleMyNovels: () => void
-  onSelectNovelDetail: () => void
-  onSelectNovelCharacters: () => void
-  onSelectNovelLoreEntries: () => void
-  onSelectNovelChapters: () => void
+  onSelectNovel: (id: number) => void
+  formatNovelMeta: (novel: Novel) => string
   onSelectCreateNovel: () => void
 }
 
 export default function NovelSidebar({
   userName,
+  novels,
+  selectedNovelId,
   mainTab,
   myNovelsExpanded,
-  myNovelTab,
   onToggleMyNovels,
-  onSelectNovelDetail,
-  onSelectNovelCharacters,
-  onSelectNovelLoreEntries,
-  onSelectNovelChapters,
+  onSelectNovel,
+  formatNovelMeta,
   onSelectCreateNovel,
 }: Props) {
   return (
@@ -63,58 +62,39 @@ export default function NovelSidebar({
 
           <Collapse in={myNovelsExpanded}>
             <Stack spacing={0.6} sx={{ pl: 1.5, pr: 1, mt: 0.4 }}>
-              <Button
-                fullWidth
-                onClick={onSelectNovelDetail}
-                sx={{
-                  justifyContent: 'flex-start', textTransform: 'none', borderRadius: 2,
-                  pl: 5.5, pr: 1.5, py: 1,
-                  color: mainTab === 'myNovels' && myNovelTab === 'novelDetail' ? '#ea580c' : '#111827',
-                  bgcolor: mainTab === 'myNovels' && myNovelTab === 'novelDetail' ? 'rgba(251, 146, 60, 0.14)' : 'transparent',
-                  fontWeight: mainTab === 'myNovels' && myNovelTab === 'novelDetail' ? 700 : 500,
-                }}
-              >
-                小说详情
-              </Button>
-              <Button
-                fullWidth
-                onClick={onSelectNovelCharacters}
-                sx={{
-                  justifyContent: 'flex-start', textTransform: 'none', borderRadius: 2,
-                  pl: 5.5, pr: 1.5, py: 1,
-                  color: mainTab === 'myNovels' && myNovelTab === 'novelCharacters' ? '#ea580c' : '#111827',
-                  bgcolor: mainTab === 'myNovels' && myNovelTab === 'novelCharacters' ? 'rgba(251, 146, 60, 0.14)' : 'transparent',
-                  fontWeight: mainTab === 'myNovels' && myNovelTab === 'novelCharacters' ? 700 : 500,
-                }}
-              >
-                小说角色
-              </Button>
-              <Button
-                fullWidth
-                onClick={onSelectNovelLoreEntries}
-                sx={{
-                  justifyContent: 'flex-start', textTransform: 'none', borderRadius: 2,
-                  pl: 5.5, pr: 1.5, py: 1,
-                  color: mainTab === 'myNovels' && myNovelTab === 'novelLoreEntries' ? '#ea580c' : '#111827',
-                  bgcolor: mainTab === 'myNovels' && myNovelTab === 'novelLoreEntries' ? 'rgba(251, 146, 60, 0.14)' : 'transparent',
-                  fontWeight: mainTab === 'myNovels' && myNovelTab === 'novelLoreEntries' ? 700 : 500,
-                }}
-              >
-                小说设定
-              </Button>
-              <Button
-                fullWidth
-                onClick={onSelectNovelChapters}
-                sx={{
-                  justifyContent: 'flex-start', textTransform: 'none', borderRadius: 2,
-                  pl: 5.5, pr: 1.5, py: 1,
-                  color: mainTab === 'myNovels' && myNovelTab === 'novelChapters' ? '#ea580c' : '#111827',
-                  bgcolor: mainTab === 'myNovels' && myNovelTab === 'novelChapters' ? 'rgba(251, 146, 60, 0.14)' : 'transparent',
-                  fontWeight: mainTab === 'myNovels' && myNovelTab === 'novelChapters' ? 700 : 500,
-                }}
-              >
-                小说章节
-              </Button>
+              {novels.length === 0 ? (
+                <Typography variant="body2" color="text.secondary" sx={{ pl: 4.2, py: 0.5 }}>
+                  暂无小说
+                </Typography>
+              ) : (
+                novels.map((novel) => (
+                  <Button
+                    key={novel.id}
+                    fullWidth
+                    onClick={() => onSelectNovel(novel.id)}
+                    sx={{
+                      justifyContent: 'flex-start',
+                      textTransform: 'none',
+                      borderRadius: 2,
+                      pl: 4.2,
+                      pr: 1.2,
+                      py: 1,
+                      color: selectedNovelId === novel.id ? '#ea580c' : '#111827',
+                      bgcolor: selectedNovelId === novel.id ? 'rgba(251, 146, 60, 0.14)' : 'transparent',
+                      fontWeight: selectedNovelId === novel.id ? 700 : 500,
+                    }}
+                  >
+                    <Box sx={{ textAlign: 'left', minWidth: 0 }}>
+                      <Typography sx={{ fontSize: 14, fontWeight: 'inherit', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {novel.title}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {formatNovelMeta(novel)}
+                      </Typography>
+                    </Box>
+                  </Button>
+                ))
+              )}
             </Stack>
           </Collapse>
 
