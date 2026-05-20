@@ -128,7 +128,7 @@ func newServer(db *sql.DB, cfg config.AppConfig) *echo.Echo {
 	novels.POST("/:novelId/export", exportHandler.ExportNovel)
 
 	openaiClient := service.NewOpenAIClient(cfg.OpenAIAPIKey, cfg.OpenAIBaseURL, cfg.OpenAIModelName)
-	chapterGenerateUC := usecase.NewChapterGenerateUsecase(novelUC, chapterUC, characterUC, openaiClient)
+	chapterGenerateUC := usecase.NewChapterGenerateUsecase(novelUC, chapterUC, characterUC, loreEntryUC, openaiClient)
 	chapterGenerateHandler := handler.NewChapterGenerateHandler(chapterGenerateUC)
 	novelChapters.POST("/generate", chapterGenerateHandler.Generate)
 

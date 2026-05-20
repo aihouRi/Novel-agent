@@ -5,6 +5,7 @@ import HistoryRoundedIcon from '@mui/icons-material/HistoryRounded'
 import TaskAltRoundedIcon from '@mui/icons-material/TaskAltRounded'
 import type { Chapter } from '../api/chapters'
 import type { Character } from '../api/characters'
+import type { LoreEntry } from '../api/loreEntries'
 import type { Volume } from '../api/volumes'
 import EditorActionButtons from '../components/chapter-editor/EditorActionButtons'
 import { useChapterEditor } from '../hooks/useChapterEditor'
@@ -15,6 +16,7 @@ type Props = {
   novelTitle: string
   volumes: Volume[]
   characters: Character[]
+  loreEntries: LoreEntry[]
   initialChapter?: Chapter | null
   defaultChapterNumber?: number
   onBack: () => void
@@ -31,6 +33,7 @@ export default function ChapterEditorPage({
   defaultChapterNumber = 1,
   volumes,
   characters,
+  loreEntries,
   onBack,
   onNotifySuccess,
   onNotifyError,
@@ -43,6 +46,7 @@ export default function ChapterEditorPage({
     defaultChapterNumber,
     volumes,
     characters,
+    loreEntries,
     onNotifySuccess,
     onNotifyError,
     onSaved,
@@ -256,6 +260,27 @@ export default function ChapterEditorPage({
                                   <Typography sx={{ fontWeight: 600 }}>{option.name}</Typography>
                                   <Typography variant="body2" color="text.secondary">
                                     {option.role || '无身份'}{option.aliases ? ` · 别名：${option.aliases}` : ''}
+                                  </Typography>
+                                </Box>
+                              </li>
+                            )}
+                          />
+                          <Autocomplete
+                            multiple
+                            options={loreEntries}
+                            value={editor.selectedLoreEntries}
+                            onChange={(_, next) => editor.setSelectedLoreEntryIDs(next.map((e) => e.id))}
+                            getOptionLabel={(option) => option.name}
+                            isOptionEqualToValue={(option, value) => option.id === value.id}
+                            renderInput={(params) => (
+                              <TextField {...params} label="本章相关设定（可选）" placeholder="选择法器/丹药/阵法等" />
+                            )}
+                            renderOption={(props, option) => (
+                              <li {...props} key={option.id}>
+                                <Box>
+                                  <Typography sx={{ fontWeight: 600 }}>{option.name}</Typography>
+                                  <Typography variant="body2" color="text.secondary">
+                                    {option.category}{option.tags ? ` · ${option.tags}` : ''}
                                   </Typography>
                                 </Box>
                               </li>

@@ -236,6 +236,7 @@ novel-agent/
 - `title`
 - `generation_instruction`
 - `character_ids`（可选）
+- `lore_entry_ids`（可选）
 
 响应字段：
 - `outline`
@@ -247,6 +248,7 @@ novel-agent/
 - JSON 至少包含 `outline/body/summary`
 - 解析失败时返回错误，不保存章节
 - 未选择 `character_ids` 时回退到主要人物（importance >= 5）
+- 可选注入 `lore_entry_ids` 对应设定卡（法器/丹药/阵法等）辅助生成
 
 ### 7.7 导出
 - 兼容接口：`GET /novels/:novelId/export/markdown`
@@ -331,9 +333,10 @@ novel-agent/
 
 1. 在章节写作页填写：分卷、章节号、标题（可选）、生成指令
 2. （可选）选择本章登场人物
-3. 点击 AI 生成，返回 `outline/body/summary`
-4. 作者手动编辑
-5. 点击保存/创建章节入库
+3. （可选）选择本章相关设定卡（法器/丹药/阵法等）
+4. 点击 AI 生成，返回 `outline/body/summary`
+5. 作者手动编辑
+6. 点击保存/创建章节入库
 
 关键原则：
 - **生成与保存分离**（先生成草稿，再人工确认保存）

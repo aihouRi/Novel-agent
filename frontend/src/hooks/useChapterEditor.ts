@@ -1,6 +1,7 @@
 import { ClipboardEvent, KeyboardEvent, useEffect, useMemo, useState } from 'react'
 import { createChapter, generateChapter, type Chapter, updateChapter } from '../api/chapters'
 import type { Character } from '../api/characters'
+import type { LoreEntry } from '../api/loreEntries'
 import type { Volume } from '../api/volumes'
 
 type SidePanel = 'summary' | 'outline' | 'instruction' | null
@@ -12,6 +13,7 @@ type Params = {
   defaultChapterNumber?: number
   volumes: Volume[]
   characters: Character[]
+  loreEntries: LoreEntry[]
   onNotifySuccess: (msg: string) => void
   onNotifyError: (msg: string) => void
   onSaved: () => Promise<void> | void
@@ -29,6 +31,7 @@ export function useChapterEditor({
   defaultChapterNumber = 1,
   volumes,
   characters,
+  loreEntries,
   onNotifySuccess,
   onNotifyError,
   onSaved,
@@ -51,6 +54,7 @@ export function useChapterEditor({
   const [chapterOutline, setChapterOutline] = useState(initialChapter?.outline ?? '')
   const [chapterInstruction, setChapterInstruction] = useState(initialChapter?.generation_instruction ?? '')
   const [selectedCharacterIDs, setSelectedCharacterIDs] = useState<number[]>([])
+  const [selectedLoreEntryIDs, setSelectedLoreEntryIDs] = useState<number[]>([])
   const [saving, setSaving] = useState(false)
   const [generating, setGenerating] = useState(false)
   const [sidePanel, setSidePanel] = useState<SidePanel>(null)
@@ -80,6 +84,11 @@ export function useChapterEditor({
     [groupedCharacterOptions, selectedCharacterIDs],
   )
   const validCharacterIDSet = useMemo(() => new Set(characters.map((c) => c.id)), [characters])
+  const selectedLoreEntries = useMemo(
+    () => loreEntries.filter((e) => selectedLoreEntryIDs.includes(e.id)),
+    [loreEntries, selectedLoreEntryIDs],
+  )
+  const validLoreEntryIDSet = useMemo(() => new Set(loreEntries.map((e) => e.id)), [loreEntries])
 
   useEffect(() => {
     if (volumes.length === 0) {
@@ -118,6 +127,7 @@ export function useChapterEditor({
         chapterOutline: string
         chapterInstruction: string
         selectedCharacterIDs?: number[]
+        selectedLoreEntryIDs?: number[]
       }
       if (isEdit) setVolumeID(draft.volumeID ?? volumeID)
       else setVolumeID(latestVolumeID)
@@ -128,19 +138,20 @@ export function useChapterEditor({
       setChapterOutline(draft.chapterOutline ?? '')
       setChapterInstruction(draft.chapterInstruction ?? '')
       setSelectedCharacterIDs(Array.isArray(draft.selectedCharacterIDs) ? draft.selectedCharacterIDs.filter((id) => validCharacterIDSet.has(id)) : [])
+      setSelectedLoreEntryIDs(Array.isArray(draft.selectedLoreEntryIDs) ? draft.selectedLoreEntryIDs.filter((id) => validLoreEntryIDSet.has(id)) : [])
     } catch {
       localStorage.removeItem(draftKey)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draftKey, isEdit, latestVolumeID, validCharacterIDSet])
+  }, [draftKey, isEdit, latestVolumeID, validCharacterIDSet, validLoreEntryIDSet])
 
   useEffect(() => {
     const id = window.setTimeout(() => {
-      const draft = { volumeID, chapterNumber, chapterTitle, chapterBody, chapterSummary, chapterOutline, chapterInstruction, selectedCharacterIDs }
+      const draft = { volumeID, chapterNumber, chapterTitle, chapterBody, chapterSummary, chapterOutline, chapterInstruction, selectedCharacterIDs, selectedLoreEntryIDs }
       localStorage.setItem(draftKey, JSON.stringify(draft))
     }, 500)
     return () => window.clearTimeout(id)
-  }, [draftKey, volumeID, chapterNumber, chapterTitle, chapterBody, chapterSummary, chapterOutline, chapterInstruction, selectedCharacterIDs])
+  }, [draftKey, volumeID, chapterNumber, chapterTitle, chapterBody, chapterSummary, chapterOutline, chapterInstruction, selectedCharacterIDs, selectedLoreEntryIDs])
 
   function handleBodyKeyDown(e: KeyboardEvent<HTMLDivElement>) {
     const target = e.target as HTMLTextAreaElement
@@ -325,12 +336,14 @@ export function useChapterEditor({
     setGenerating(true)
     try {
       const safeCharacterIDs = selectedCharacterIDs.filter((id) => validCharacterIDSet.has(id))
+      const safeLoreEntryIDs = selectedLoreEntryIDs.filter((id) => validLoreEntryIDSet.has(id))
       const data = await generateChapter(token, novelId, {
         volume_id: volumeID,
         chapter_number: chapterNumber,
         title: chapterTitle.trim(),
         generation_instruction: chapterInstruction.trim(),
         character_ids: safeCharacterIDs,
+        lore_entry_ids: safeLoreEntryIDs,
       })
       if (safeCharacterIDs.length > 0) {
         const merged = Array.from(new Set([...safeCharacterIDs, ...recentCharacterIDs])).slice(0, 30)
@@ -363,6 +376,7 @@ export function useChapterEditor({
     chapterOutline,
     chapterInstruction,
     selectedCharacterIDs,
+    selectedLoreEntryIDs,
     saving,
     generating,
     sidePanel,
@@ -373,6 +387,7 @@ export function useChapterEditor({
     isEdit,
     groupedCharacterOptions,
     selectedCharacters,
+    selectedLoreEntries,
     setChapterNumber,
     setVolumeID,
     setChapterTitle,
@@ -381,6 +396,7 @@ export function useChapterEditor({
     setChapterOutline,
     setChapterInstruction,
     setSelectedCharacterIDs,
+    setSelectedLoreEntryIDs,
     setSidePanel,
     setLocalSuccess,
     setLocalError,

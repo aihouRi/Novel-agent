@@ -25,6 +25,7 @@ type chapterGenerateRequest struct {
 	Title                 string  `json:"title"`
 	GenerationInstruction string  `json:"generation_instruction"`
 	CharacterIDs          []int64 `json:"character_ids"`
+	LoreEntryIDs          []int64 `json:"lore_entry_ids"`
 }
 
 func (h *ChapterGenerateHandler) Generate(c echo.Context) error {
@@ -48,6 +49,7 @@ func (h *ChapterGenerateHandler) Generate(c echo.Context) error {
 		Title:                 req.Title,
 		GenerationInstruction: req.GenerationInstruction,
 		CharacterIDs:          req.CharacterIDs,
+		LoreEntryIDs:          req.LoreEntryIDs,
 	})
 	if err != nil {
 		switch {

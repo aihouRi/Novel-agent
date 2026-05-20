@@ -103,6 +103,7 @@ export function useNovelsPage(token: string, onLogout: () => void) {
       void chaptersState.refreshChapters(selectedNovelId)
       void chaptersState.refreshVolumes(selectedNovelId)
       void refreshCharacters(selectedNovelId)
+      void refreshLoreEntries(selectedNovelId)
     }
     if (mainTab === 'myNovels' && myNovelTab === 'novelLoreEntries' && selectedNovelId) {
       void refreshCharacters(selectedNovelId)

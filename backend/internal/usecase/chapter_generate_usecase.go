@@ -19,26 +19,30 @@ type ChapterGenerateInput struct {
 	Title                 string
 	GenerationInstruction string
 	CharacterIDs          []int64
+	LoreEntryIDs          []int64
 }
 
 type ChapterGenerateUsecase struct {
-	novels     *NovelUsecase
-	chapters   *ChapterUsecase
-	characters *CharacterUsecase
-	generator  service.OpenAIChapterGenerator
+	novels      *NovelUsecase
+	chapters    *ChapterUsecase
+	characters  *CharacterUsecase
+	loreEntries *LoreEntryUsecase
+	generator   service.OpenAIChapterGenerator
 }
 
 func NewChapterGenerateUsecase(
 	novels *NovelUsecase,
 	chapters *ChapterUsecase,
 	characters *CharacterUsecase,
+	loreEntries *LoreEntryUsecase,
 	generator service.OpenAIChapterGenerator,
 ) *ChapterGenerateUsecase {
 	return &ChapterGenerateUsecase{
-		novels:     novels,
-		chapters:   chapters,
-		characters: characters,
-		generator:  generator,
+		novels:      novels,
+		chapters:    chapters,
+		characters:  characters,
+		loreEntries: loreEntries,
+		generator:   generator,
 	}
 }
 
@@ -67,12 +71,20 @@ func (u *ChapterGenerateUsecase) Generate(ctx context.Context, userID, novelID i
 	if err != nil {
 		return nil, err
 	}
+	loreEntries, err := u.loreEntries.List(ctx, userID, novelID)
+	if err != nil {
+		return nil, err
+	}
+	loreEntries, err = filterLoreEntriesBySelectedIDs(loreEntries, in.LoreEntryIDs)
+	if err != nil {
+		return nil, err
+	}
 	chapters, err := u.chapters.List(ctx, userID, novelID)
 	if err != nil {
 		return nil, err
 	}
 
-	prompt := buildChapterGeneratePrompt(novel, characters, chapters, in)
+	prompt := buildChapterGeneratePrompt(novel, characters, loreEntries, chapters, in)
 	out, err := u.generator.GenerateChapter(ctx, prompt)
 	if err != nil {
 		if errors.Is(err, service.ErrOpenAIInvalidOutput) {
@@ -86,6 +98,7 @@ func (u *ChapterGenerateUsecase) Generate(ctx context.Context, userID, novelID i
 func buildChapterGeneratePrompt(
 	novel *domain.Novel,
 	characters []domain.Character,
+	loreEntries []domain.LoreEntry,
 	chapters []domain.Chapter,
 	in ChapterGenerateInput,
 ) string {
@@ -114,6 +127,22 @@ func buildChapterGeneratePrompt(
 			c.Name, c.Role, c.Personality, c.Goal, c.SpeechStyle))
 	}
 	if len(characters) == 0 {
+		b.WriteString("- 无\n")
+	}
+	b.WriteString("\n")
+
+	b.WriteString("【本章相关设定】\n")
+	for _, le := range loreEntries {
+		b.WriteString(fmt.Sprintf("- [%s] %s：%s", le.Category, le.Name, le.Description))
+		if strings.TrimSpace(le.RulesOrLimits) != "" {
+			b.WriteString(fmt.Sprintf("（限制：%s）", strings.TrimSpace(le.RulesOrLimits)))
+		}
+		if strings.TrimSpace(le.Tags) != "" {
+			b.WriteString(fmt.Sprintf("（标签：%s）", strings.TrimSpace(le.Tags)))
+		}
+		b.WriteString("\n")
+	}
+	if len(loreEntries) == 0 {
 		b.WriteString("- 无\n")
 	}
 	b.WriteString("\n")
@@ -199,6 +228,32 @@ func filterCharactersBySelectedIDs(all []domain.Character, selectedIDs []int64) 
 	}
 	if len(filtered) != len(selectedSet) {
 		return nil, errors.New("character_ids contains non-existing character")
+	}
+	sort.Slice(filtered, func(i, j int) bool { return filtered[i].ID < filtered[j].ID })
+	return filtered, nil
+}
+
+func filterLoreEntriesBySelectedIDs(all []domain.LoreEntry, selectedIDs []int64) ([]domain.LoreEntry, error) {
+	if len(selectedIDs) == 0 {
+		return []domain.LoreEntry{}, nil
+	}
+
+	selectedSet := make(map[int64]bool, len(selectedIDs))
+	for _, id := range selectedIDs {
+		if id <= 0 {
+			return nil, errors.New("lore_entry_ids contains invalid id")
+		}
+		selectedSet[id] = true
+	}
+
+	filtered := make([]domain.LoreEntry, 0, len(selectedSet))
+	for _, e := range all {
+		if selectedSet[e.ID] {
+			filtered = append(filtered, e)
+		}
+	}
+	if len(filtered) != len(selectedSet) {
+		return nil, errors.New("lore_entry_ids contains non-existing lore entry")
 	}
 	sort.Slice(filtered, func(i, j int) bool { return filtered[i].ID < filtered[j].ID })
 	return filtered, nil

@@ -43,6 +43,7 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
         novelTitle={state.selectedNovel.title}
         volumes={state.volumes}
         characters={state.characters}
+        loreEntries={state.loreEntries}
         initialChapter={state.chapterEditorTarget}
         defaultChapterNumber={state.nextChapterNumber}
         onBack={() => { state.setChapterEditorOpen(false); state.setChapterEditorTarget(null) }}
@@ -88,6 +89,7 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
               state.setChapterEditorTarget(null)
               if (state.selectedNovelId) void state.refreshChapters(state.selectedNovelId)
               if (state.selectedNovelId) void state.refreshVolumes(state.selectedNovelId)
+              if (state.selectedNovelId) void state.refreshLoreEntries(state.selectedNovelId)
             }}
             onSelectCreateNovel={() => {
               state.setMainTab('createNovel')
@@ -242,6 +244,7 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
                   void state.refreshChapters(next)
                   void state.refreshVolumes(next)
                   void state.refreshCharacters(next)
+                  void state.refreshLoreEntries(next)
                 }}
                 onOpenExport={() => state.setExportDialogOpen(true)}
                 onNewVolumeTitleChange={state.setNewVolumeTitle}

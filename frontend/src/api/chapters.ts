@@ -31,6 +31,7 @@ export type GenerateChapterPayload = {
   title: string
   generation_instruction: string
   character_ids: number[]
+  lore_entry_ids: number[]
 }
 
 export type GenerateChapterResponse = {
@@ -154,4 +155,3 @@ export async function exportNovel(
     `novel-${novelId}.md`
   return { blob, filename }
 }
-
