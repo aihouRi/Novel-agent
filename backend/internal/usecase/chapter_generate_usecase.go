@@ -26,6 +26,7 @@ type ChapterGenerateInput struct {
 	AvoidModernSlang      bool
 	KeepPovConsistent     bool
 	KeepTenseConsistent   bool
+	RecentChapterCount    int
 }
 
 type ChapterGenerateUsecase struct {
@@ -74,6 +75,9 @@ func (u *ChapterGenerateUsecase) Generate(ctx context.Context, userID, novelID i
 	}
 	if in.TargetWordMin > 12000 || in.TargetWordMax > 12000 {
 		return nil, errors.New("target word range is too large")
+	}
+	if in.RecentChapterCount < 0 {
+		return nil, errors.New("recent_chapter_count must be greater than or equal to 0")
 	}
 	in.Title = strings.TrimSpace(in.Title)
 
@@ -166,7 +170,11 @@ func buildChapterGeneratePrompt(
 	b.WriteString("\n")
 
 	b.WriteString("【最近章节总结】\n")
-	recentSummaries := pickRecentSummaries(chapters, novel.RecentChapterCount)
+	recentCount := novel.RecentChapterCount
+	if in.RecentChapterCount > 0 {
+		recentCount = in.RecentChapterCount
+	}
+	recentSummaries := pickRecentSummaries(chapters, recentCount)
 	if len(recentSummaries) == 0 {
 		b.WriteString("- 无\n")
 	} else {

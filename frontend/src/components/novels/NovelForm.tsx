@@ -8,8 +8,6 @@ import {
 } from '@mui/material'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 
-const DEFAULT_RECENT_COUNT = 3
-
 export type NovelFormProps = {
   title: string
   genre: string
@@ -20,7 +18,6 @@ export type NovelFormProps = {
   mainPlot: string
   writingRules: string
   forbiddenRules: string
-  recentChapterCount: number
   onTitle: (v: string) => void
   onGenre: (v: string) => void
   onLanguage: (v: string) => void
@@ -30,7 +27,6 @@ export type NovelFormProps = {
   onMainPlot: (v: string) => void
   onWritingRules: (v: string) => void
   onForbiddenRules: (v: string) => void
-  onRecentChapterCount: (v: number) => void
 }
 
 export default function NovelForm(props: NovelFormProps) {
@@ -45,14 +41,6 @@ export default function NovelForm(props: NovelFormProps) {
             <TextField label="标题" value={props.title} onChange={(e) => props.onTitle(e.target.value)} fullWidth required />
             <TextField label="类型" value={props.genre} onChange={(e) => props.onGenre(e.target.value)} fullWidth />
             <TextField label="语言" value={props.language} onChange={(e) => props.onLanguage(e.target.value)} fullWidth />
-            <TextField
-              label="最近章节参考数量"
-              type="number"
-              value={props.recentChapterCount}
-              onChange={(e) => props.onRecentChapterCount(Number(e.target.value) || DEFAULT_RECENT_COUNT)}
-              fullWidth
-              inputProps={{ min: 1 }}
-            />
           </Stack>
         </AccordionDetails>
       </Accordion>

@@ -14,6 +14,7 @@ type Params = {
   volumes: Volume[]
   characters: Character[]
   loreEntries: LoreEntry[]
+  recentChapterCountDefault: number
   onNotifySuccess: (msg: string) => void
   onNotifyError: (msg: string) => void
   onSaved: () => Promise<void> | void
@@ -32,6 +33,7 @@ export function useChapterEditor({
   volumes,
   characters,
   loreEntries,
+  recentChapterCountDefault,
   onNotifySuccess,
   onNotifyError,
   onSaved,
@@ -53,6 +55,7 @@ export function useChapterEditor({
   const [chapterSummary, setChapterSummary] = useState(initialChapter?.summary ?? '')
   const [chapterOutline, setChapterOutline] = useState(initialChapter?.outline ?? '')
   const [chapterInstruction, setChapterInstruction] = useState(initialChapter?.generation_instruction ?? '')
+  const [recentChapterCount, setRecentChapterCount] = useState(Math.max(1, recentChapterCountDefault || 3))
   const [targetWordMin, setTargetWordMin] = useState(1800)
   const [targetWordMax, setTargetWordMax] = useState(2600)
   const [avoidTranslationTone, setAvoidTranslationTone] = useState(true)
@@ -140,6 +143,7 @@ export function useChapterEditor({
         avoidModernSlang?: boolean
         keepPovConsistent?: boolean
         keepTenseConsistent?: boolean
+        recentChapterCount?: number
       }
       if (isEdit) setVolumeID(draft.volumeID ?? volumeID)
       else setVolumeID(latestVolumeID)
@@ -157,11 +161,12 @@ export function useChapterEditor({
       setAvoidModernSlang(draft.avoidModernSlang ?? true)
       setKeepPovConsistent(draft.keepPovConsistent ?? true)
       setKeepTenseConsistent(draft.keepTenseConsistent ?? true)
+      setRecentChapterCount(Number.isFinite(draft.recentChapterCount) ? Math.max(1, Number(draft.recentChapterCount)) : Math.max(1, recentChapterCountDefault || 3))
     } catch {
       localStorage.removeItem(draftKey)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draftKey, isEdit, latestVolumeID, validCharacterIDSet, validLoreEntryIDSet])
+  }, [draftKey, isEdit, latestVolumeID, recentChapterCountDefault, validCharacterIDSet, validLoreEntryIDSet])
 
   useEffect(() => {
     const id = window.setTimeout(() => {
@@ -181,11 +186,12 @@ export function useChapterEditor({
         avoidModernSlang,
         keepPovConsistent,
         keepTenseConsistent,
+        recentChapterCount,
       }
       localStorage.setItem(draftKey, JSON.stringify(draft))
     }, 500)
     return () => window.clearTimeout(id)
-  }, [draftKey, volumeID, chapterNumber, chapterTitle, chapterBody, chapterSummary, chapterOutline, chapterInstruction, selectedCharacterIDs, selectedLoreEntryIDs, targetWordMin, targetWordMax, avoidTranslationTone, avoidModernSlang, keepPovConsistent, keepTenseConsistent])
+  }, [draftKey, volumeID, chapterNumber, chapterTitle, chapterBody, chapterSummary, chapterOutline, chapterInstruction, selectedCharacterIDs, selectedLoreEntryIDs, targetWordMin, targetWordMax, avoidTranslationTone, avoidModernSlang, keepPovConsistent, keepTenseConsistent, recentChapterCount])
 
   function handleBodyKeyDown(e: KeyboardEvent<HTMLDivElement>) {
     const target = e.target as HTMLTextAreaElement
@@ -390,6 +396,7 @@ export function useChapterEditor({
         avoid_modern_slang: avoidModernSlang,
         keep_pov_consistent: keepPovConsistent,
         keep_tense_consistent: keepTenseConsistent,
+        recent_chapter_count: recentChapterCount,
       })
       if (safeCharacterIDs.length > 0) {
         const merged = Array.from(new Set([...safeCharacterIDs, ...recentCharacterIDs])).slice(0, 30)
@@ -427,6 +434,7 @@ export function useChapterEditor({
     avoidModernSlang,
     keepPovConsistent,
     keepTenseConsistent,
+    recentChapterCount,
     selectedCharacterIDs,
     selectedLoreEntryIDs,
     saving,
@@ -453,6 +461,7 @@ export function useChapterEditor({
     setAvoidModernSlang,
     setKeepPovConsistent,
     setKeepTenseConsistent,
+    setRecentChapterCount,
     setSelectedCharacterIDs,
     setSelectedLoreEntryIDs,
     setSidePanel,

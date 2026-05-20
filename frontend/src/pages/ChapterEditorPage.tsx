@@ -14,6 +14,7 @@ type Props = {
   token: string
   novelId: number
   novelTitle: string
+  recentChapterCountDefault: number
   volumes: Volume[]
   characters: Character[]
   loreEntries: LoreEntry[]
@@ -29,6 +30,7 @@ export default function ChapterEditorPage({
   token,
   novelId,
   novelTitle,
+  recentChapterCountDefault,
   initialChapter,
   defaultChapterNumber = 1,
   volumes,
@@ -57,6 +59,7 @@ export default function ChapterEditorPage({
     volumes,
     characters,
     loreEntries,
+    recentChapterCountDefault,
     onNotifySuccess,
     onNotifyError,
     onSaved,
@@ -298,6 +301,14 @@ export default function ChapterEditorPage({
                           />
                           <TextField label="生成指令" multiline minRows={20} value={editor.chapterInstruction} onChange={(e) => editor.setChapterInstruction(e.target.value)} fullWidth />
                           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.2}>
+                            <TextField
+                              label="最近章节参考数"
+                              type="number"
+                              value={editor.recentChapterCount}
+                              onChange={(e) => editor.setRecentChapterCount(Math.max(1, Number(e.target.value) || 1))}
+                              sx={{ flex: 1 }}
+                              inputProps={{ min: 1, max: 20 }}
+                            />
                             <TextField
                               label="目标字数下限"
                               type="number"

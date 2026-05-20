@@ -32,6 +32,7 @@ type chapterGenerateRequest struct {
 	AvoidModernSlang      bool    `json:"avoid_modern_slang"`
 	KeepPovConsistent     bool    `json:"keep_pov_consistent"`
 	KeepTenseConsistent   bool    `json:"keep_tense_consistent"`
+	RecentChapterCount    int     `json:"recent_chapter_count"`
 }
 
 func (h *ChapterGenerateHandler) Generate(c echo.Context) error {
@@ -62,6 +63,7 @@ func (h *ChapterGenerateHandler) Generate(c echo.Context) error {
 		AvoidModernSlang:      req.AvoidModernSlang,
 		KeepPovConsistent:     req.KeepPovConsistent,
 		KeepTenseConsistent:   req.KeepTenseConsistent,
+		RecentChapterCount:    req.RecentChapterCount,
 	})
 	if err != nil {
 		switch {

@@ -15,7 +15,6 @@ type Props = {
   mainPlot: string
   writingRules: string
   forbiddenRules: string
-  recentChapterCount: number
   onEditNovel: () => void
   onDeleteNovel: () => void
   onHideEditor: () => void
@@ -29,7 +28,6 @@ type Props = {
   onMainPlot: (v: string) => void
   onWritingRules: (v: string) => void
   onForbiddenRules: (v: string) => void
-  onRecentChapterCount: (v: number) => void
 }
 
 export default function NovelDetailSection(props: Props) {
@@ -46,7 +44,6 @@ export default function NovelDetailSection(props: Props) {
     mainPlot,
     writingRules,
     forbiddenRules,
-    recentChapterCount,
     onEditNovel,
     onDeleteNovel,
     onHideEditor,
@@ -60,7 +57,6 @@ export default function NovelDetailSection(props: Props) {
     onMainPlot,
     onWritingRules,
     onForbiddenRules,
-    onRecentChapterCount,
   } = props
 
   return (
@@ -92,10 +88,9 @@ export default function NovelDetailSection(props: Props) {
             <NovelForm
               title={title} genre={genre} language={language} styleProfile={styleProfile} worldview={worldview}
               powerSystem={powerSystem} mainPlot={mainPlot} writingRules={writingRules} forbiddenRules={forbiddenRules}
-              recentChapterCount={recentChapterCount}
               onTitle={onTitle} onGenre={onGenre} onLanguage={onLanguage} onStyleProfile={onStyleProfile}
               onWorldview={onWorldview} onPowerSystem={onPowerSystem} onMainPlot={onMainPlot}
-              onWritingRules={onWritingRules} onForbiddenRules={onForbiddenRules} onRecentChapterCount={onRecentChapterCount}
+              onWritingRules={onWritingRules} onForbiddenRules={onForbiddenRules}
             />
             <Stack direction="row" spacing={1.5} sx={{ mt: 2 }}>
               <Button variant="contained" disabled={!title.trim() || loading} onClick={onUpdateNovel}>保存小说</Button>

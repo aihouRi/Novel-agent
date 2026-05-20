@@ -50,6 +50,7 @@ function createParams(): any {
       created_at: '',
       updated_at: '',
     }],
+    recentChapterCountDefault: 3,
     onNotifySuccess: vi.fn(),
     onNotifyError: vi.fn(),
     onSaved: vi.fn(async () => {}),
@@ -141,6 +142,7 @@ describe('useChapterEditor', () => {
         avoid_modern_slang: true,
         keep_pov_consistent: true,
         keep_tense_consistent: true,
+        recent_chapter_count: 3,
       })
       expect(result.current.canRetryGenerate).toBe(false)
       expect(result.current.localSuccess).toContain('AI 生成完成')

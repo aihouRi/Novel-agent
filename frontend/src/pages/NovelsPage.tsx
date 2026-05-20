@@ -44,6 +44,7 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
         token={token}
         novelId={state.selectedNovel.id}
         novelTitle={state.selectedNovel.title}
+        recentChapterCountDefault={state.selectedNovel.recent_chapter_count}
         volumes={state.volumes}
         characters={state.characters}
         loreEntries={state.loreEntries}
@@ -132,10 +133,9 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
                   <NovelForm
                     title={state.title} genre={state.genre} language={state.language} styleProfile={state.styleProfile} worldview={state.worldview}
                     powerSystem={state.powerSystem} mainPlot={state.mainPlot} writingRules={state.writingRules} forbiddenRules={state.forbiddenRules}
-                    recentChapterCount={state.recentChapterCount}
                     onTitle={state.setTitle} onGenre={state.setGenre} onLanguage={state.setLanguage} onStyleProfile={state.setStyleProfile}
                     onWorldview={state.setWorldview} onPowerSystem={state.setPowerSystem} onMainPlot={state.setMainPlot}
-                    onWritingRules={state.setWritingRules} onForbiddenRules={state.setForbiddenRules} onRecentChapterCount={state.setRecentChapterCount}
+                    onWritingRules={state.setWritingRules} onForbiddenRules={state.setForbiddenRules}
                   />
                   <Button sx={{ mt: 2 }} variant="contained" disabled={!state.title.trim() || state.loading} onClick={() => void state.handleCreate()}>创建小说</Button>
                 </CardContent>
@@ -156,7 +156,6 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
                 mainPlot={state.mainPlot}
                 writingRules={state.writingRules}
                 forbiddenRules={state.forbiddenRules}
-                recentChapterCount={state.recentChapterCount}
                 onEditNovel={() => state.setShowNovelEditor(true)}
                 onDeleteNovel={() => state.selectedNovelId && state.setConfirmDeleteId(state.selectedNovelId)}
                 onHideEditor={() => state.setShowNovelEditor(false)}
@@ -170,7 +169,6 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
                 onMainPlot={state.setMainPlot}
                 onWritingRules={state.setWritingRules}
                 onForbiddenRules={state.setForbiddenRules}
-                onRecentChapterCount={state.setRecentChapterCount}
               />
             )}
 

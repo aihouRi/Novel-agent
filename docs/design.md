@@ -235,6 +235,7 @@ novel-agent/
 - `chapter_number`
 - `title`
 - `generation_instruction`
+- `recent_chapter_count`（可选，本次生成覆盖默认“最近章节参考数”）
 - `character_ids`（可选）
 - `lore_entry_ids`（可选）
 - `target_word_min`（可选，目标字数下限）
@@ -256,6 +257,7 @@ novel-agent/
 - 未选择 `character_ids` 时回退到主要人物（importance >= 5）
 - 可选注入 `lore_entry_ids` 对应设定卡（法器/丹药/阵法等）辅助生成
 - 可选配置“目标字数范围 + 风格硬约束”，用于提升中文网文生成质量与稳定性
+- 最近章节参考数可在章节写作页按“本次生成”单独调整；未填写时回退小说默认值
 
 ### 7.7 导出
 - 兼容接口：`GET /novels/:novelId/export/markdown`

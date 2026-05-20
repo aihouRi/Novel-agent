@@ -38,6 +38,7 @@ export type GenerateChapterPayload = {
   avoid_modern_slang: boolean
   keep_pov_consistent: boolean
   keep_tense_consistent: boolean
+  recent_chapter_count: number
 }
 
 export type GenerateChapterResponse = {

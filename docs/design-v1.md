@@ -67,6 +67,7 @@
     - `keep_pov_consistent`
     - `keep_tense_consistent`
   - 写作页“生成指令”面板已接入对应表单项与本地草稿持久化
+  - “最近章节参考数”已迁移到章节写作页生成面板（本次生成参数），不再放在小说详情编辑中
 - V1-2（后端部分）已完成：失败路径测试增量补强
   - 新增 `chapters/generate` 失败场景集成测试
   - 覆盖 `generation_instruction` 缺失、非法 `character_ids`、非法 `lore_entry_ids`、跨用户越权访问
