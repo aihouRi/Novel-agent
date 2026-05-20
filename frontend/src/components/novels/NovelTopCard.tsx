@@ -33,14 +33,14 @@ export default function NovelTopCard({ userName, mainTab, myNovelTab, menuAnchor
           </Typography>
           <Typography variant="body2" color="text.secondary">
             {mainTab === 'createNovel'
-              ? 'Create a new novel project'
+              ? '创建新的小说项目'
               : myNovelTab === 'novelDetail'
-                ? 'Select and edit your novel'
+                ? '查看并编辑当前小说'
                 : myNovelTab === 'novelCharacters'
-                  ? 'Manage characters under selected novel'
+                  ? '管理当前小说的角色'
                   : myNovelTab === 'novelLoreEntries'
-                    ? 'Manage lore entries under selected novel'
-                    : 'Manage chapters under selected novel'}
+                    ? '管理当前小说的设定卡'
+                    : '管理当前小说的章节'}
           </Typography>
         </Box>
 
@@ -51,8 +51,8 @@ export default function NovelTopCard({ userName, mainTab, myNovelTab, menuAnchor
         </IconButton>
 
         <Menu anchorEl={menuAnchor} open={Boolean(menuAnchor)} onClose={onCloseMenu}>
-          <MenuItem onClick={onSettings}><ListItemIcon><SettingsIcon fontSize="small" /></ListItemIcon>User Settings (Soon)</MenuItem>
-          <MenuItem onClick={onLogout}><ListItemIcon><LogoutIcon fontSize="small" /></ListItemIcon>Logout</MenuItem>
+          <MenuItem onClick={onSettings}><ListItemIcon><SettingsIcon fontSize="small" /></ListItemIcon>用户设置（后续开放）</MenuItem>
+          <MenuItem onClick={onLogout}><ListItemIcon><LogoutIcon fontSize="small" /></ListItemIcon>退出登录</MenuItem>
         </Menu>
       </CardContent>
     </Card>

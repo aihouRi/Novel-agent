@@ -91,7 +91,7 @@ export function useNovelsChapters({
       const data = await listChapters(token, novelId)
       setChapters(data.chapters)
     } catch (e) {
-      onNotifyError(e instanceof Error ? e.message : 'Failed to load chapters')
+      onNotifyError(e instanceof Error ? e.message : '加载章节失败')
     } finally {
       setChapterLoading(false)
     }
@@ -106,7 +106,7 @@ export function useNovelsChapters({
     try {
       setVolumes((await listVolumes(token, novelId)).volumes)
     } catch (e) {
-      onNotifyError(e instanceof Error ? e.message : 'Failed to load volumes')
+      onNotifyError(e instanceof Error ? e.message : '加载分卷失败')
     }
   }
 
@@ -129,9 +129,9 @@ export function useNovelsChapters({
       await createVolume(token, selectedNovelId, { volume_number: nextNumber, title: cleanTitle })
       setNewVolumeTitle('')
       await refreshVolumes(selectedNovelId)
-      onNotifySuccess('Volume created.')
+      onNotifySuccess('分卷已创建。')
     } catch (e) {
-      onNotifyError(e instanceof Error ? e.message : 'Failed to create volume')
+      onNotifyError(e instanceof Error ? e.message : '创建分卷失败')
     }
   }
 
@@ -161,7 +161,7 @@ export function useNovelsChapters({
       onNotifySuccess('卷名已更新。')
       closeEditVolume()
     } catch (e) {
-      onNotifyError(e instanceof Error ? e.message : 'Failed to update volume')
+      onNotifyError(e instanceof Error ? e.message : '更新卷名失败')
     }
   }
 
@@ -182,7 +182,7 @@ export function useNovelsChapters({
       await refreshChapters(selectedNovelId)
       onNotifySuccess('章节分卷已更新。')
     } catch (e) {
-      onNotifyError(e instanceof Error ? e.message : 'Failed to move chapter volume')
+      onNotifyError(e instanceof Error ? e.message : '移动章节分卷失败')
     } finally {
       setMovingChapterId(null)
     }
@@ -195,11 +195,11 @@ export function useNovelsChapters({
     setChapterLoading(true)
     try {
       await deleteChapter(token, selectedNovelId, id)
-      onNotifySuccess('Chapter deleted.')
+      onNotifySuccess('章节已删除。')
       await refreshChapters(selectedNovelId)
       await onRefreshNovels()
     } catch (e) {
-      onNotifyError(e instanceof Error ? e.message : 'Failed to delete chapter')
+      onNotifyError(e instanceof Error ? e.message : '删除章节失败')
     } finally {
       setChapterLoading(false)
     }
@@ -243,7 +243,7 @@ export function useNovelsChapters({
       onNotifySuccess('Markdown 导出成功。')
       setExportDialogOpen(false)
     } catch (e) {
-      onNotifyError(e instanceof Error ? e.message : 'Failed to export markdown')
+      onNotifyError(e instanceof Error ? e.message : '导出 Markdown 失败')
     } finally {
       setExportingMarkdown(false)
     }

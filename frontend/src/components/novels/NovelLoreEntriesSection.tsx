@@ -67,10 +67,10 @@ export default function NovelLoreEntriesSection({
 
         <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 600 }}>当前设定</Typography>
         {loreLoading ? (
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>Loading...</Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>加载中...</Typography>
         ) : (
           !showLoreManager && (loreEntries.length === 0 ? (
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>No lore entries yet.</Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>暂无设定。</Typography>
           ) : (
             <Stack spacing={1.2} sx={{ mb: 2 }}>
               {loreEntries.map((entry) => (

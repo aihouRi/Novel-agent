@@ -137,7 +137,7 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
                     onWorldview={state.setWorldview} onPowerSystem={state.setPowerSystem} onMainPlot={state.setMainPlot}
                     onWritingRules={state.setWritingRules} onForbiddenRules={state.setForbiddenRules} onRecentChapterCount={state.setRecentChapterCount}
                   />
-                  <Button sx={{ mt: 2 }} variant="contained" disabled={!state.title.trim() || state.loading} onClick={() => void state.handleCreate()}>Create Novel</Button>
+                  <Button sx={{ mt: 2 }} variant="contained" disabled={!state.title.trim() || state.loading} onClick={() => void state.handleCreate()}>创建小说</Button>
                 </CardContent>
               </Card>
             )}
@@ -246,31 +246,31 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
         </Stack>
 
         <Dialog open={state.confirmDeleteId !== null} onClose={() => state.setConfirmDeleteId(null)}>
-          <DialogTitle>Delete Novel</DialogTitle>
-          <DialogContent><DialogContentText>Are you sure you want to delete this novel? This action cannot be undone.</DialogContentText></DialogContent>
-          <DialogActions><Button onClick={() => state.setConfirmDeleteId(null)}>Cancel</Button><Button onClick={() => void state.confirmDelete()} color="error" variant="contained">Delete</Button></DialogActions>
+          <DialogTitle>删除小说</DialogTitle>
+          <DialogContent><DialogContentText>确认删除这本小说吗？此操作不可撤销。</DialogContentText></DialogContent>
+          <DialogActions><Button onClick={() => state.setConfirmDeleteId(null)}>取消</Button><Button onClick={() => void state.confirmDelete()} color="error" variant="contained">删除</Button></DialogActions>
         </Dialog>
 
         <Dialog open={state.confirmDeleteCharacterId !== null} onClose={() => state.setConfirmDeleteCharacterId(null)}>
-          <DialogTitle>Delete Character</DialogTitle>
-          <DialogContent><DialogContentText>Are you sure you want to delete this character? This action cannot be undone.</DialogContentText></DialogContent>
-          <DialogActions><Button onClick={() => state.setConfirmDeleteCharacterId(null)}>Cancel</Button><Button onClick={() => void state.confirmDeleteCharacter()} color="error" variant="contained">Delete</Button></DialogActions>
+          <DialogTitle>删除角色</DialogTitle>
+          <DialogContent><DialogContentText>确认删除这个角色吗？此操作不可撤销。</DialogContentText></DialogContent>
+          <DialogActions><Button onClick={() => state.setConfirmDeleteCharacterId(null)}>取消</Button><Button onClick={() => void state.confirmDeleteCharacter()} color="error" variant="contained">删除</Button></DialogActions>
         </Dialog>
 
         <Dialog open={state.confirmDeleteLoreEntryId !== null} onClose={() => state.setConfirmDeleteLoreEntryId(null)}>
-          <DialogTitle>Delete Lore Entry</DialogTitle>
-          <DialogContent><DialogContentText>Are you sure you want to delete this lore entry? This action cannot be undone.</DialogContentText></DialogContent>
-          <DialogActions><Button onClick={() => state.setConfirmDeleteLoreEntryId(null)}>Cancel</Button><Button onClick={() => void state.confirmDeleteLoreEntry()} color="error" variant="contained">Delete</Button></DialogActions>
+          <DialogTitle>删除设定</DialogTitle>
+          <DialogContent><DialogContentText>确认删除这个设定吗？此操作不可撤销。</DialogContentText></DialogContent>
+          <DialogActions><Button onClick={() => state.setConfirmDeleteLoreEntryId(null)}>取消</Button><Button onClick={() => void state.confirmDeleteLoreEntry()} color="error" variant="contained">删除</Button></DialogActions>
         </Dialog>
 
         <Dialog open={state.confirmDeleteChapterId !== null} onClose={() => state.setConfirmDeleteChapterId(null)}>
-          <DialogTitle>Delete Chapter</DialogTitle>
+          <DialogTitle>删除章节</DialogTitle>
           <DialogContent>
             <DialogContentText>
-              {state.chapterToDelete ? `你将删除：第 ${state.chapterToDelete.chapter_number} 章《${state.chapterToDelete.title || 'Untitled'}》，此操作不可撤销。` : 'Are you sure you want to delete this chapter? This action cannot be undone.'}
+              {state.chapterToDelete ? `你将删除：第 ${state.chapterToDelete.chapter_number} 章《${state.chapterToDelete.title || '未命名'}》，此操作不可撤销。` : '确认删除此章节吗？此操作不可撤销。'}
             </DialogContentText>
           </DialogContent>
-          <DialogActions><Button onClick={() => state.setConfirmDeleteChapterId(null)}>Cancel</Button><Button onClick={() => void state.confirmDeleteChapter()} color="error" variant="contained">Delete</Button></DialogActions>
+          <DialogActions><Button onClick={() => state.setConfirmDeleteChapterId(null)}>取消</Button><Button onClick={() => void state.confirmDeleteChapter()} color="error" variant="contained">删除</Button></DialogActions>
         </Dialog>
 
         <Dialog open={state.editingVolume !== null} onClose={state.closeEditVolume} fullWidth maxWidth="sm">

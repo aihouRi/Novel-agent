@@ -72,7 +72,7 @@ export function useNovelsPage(token: string, onLogout: () => void) {
       void refreshNovelWordCounts(data.novels)
       if (!selectedNovelId && data.novels.length > 0) setSelectedNovelId(data.novels[0].id)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load novels')
+      setError(e instanceof Error ? e.message : '加载小说失败')
     } finally {
       setLoading(false)
     }
@@ -143,7 +143,7 @@ export function useNovelsPage(token: string, onLogout: () => void) {
       const data = await listCharacters(token, novelId)
       setCharacters(data.characters)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load characters')
+      setError(e instanceof Error ? e.message : '加载角色失败')
     } finally {
       setCharacterLoading(false)
     }
@@ -155,7 +155,7 @@ export function useNovelsPage(token: string, onLogout: () => void) {
       const data = await listLoreEntries(token, novelId)
       setLoreEntries(data.lore_entries)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load lore entries')
+      setError(e instanceof Error ? e.message : '加载设定失败')
     } finally {
       setLoreLoading(false)
     }
@@ -215,10 +215,10 @@ export function useNovelsPage(token: string, onLogout: () => void) {
       setMyNovelsExpanded(true)
       setMyNovelTab('novelDetail')
       setShowNovelEditor(false)
-      notifySuccess('Novel created.')
+      notifySuccess('小说已创建。')
       fillForm(data.novel)
     } catch (e) {
-      notifyError(e instanceof Error ? e.message : 'Failed to create novel')
+      notifyError(e instanceof Error ? e.message : '创建小说失败')
     } finally {
       setLoading(false)
     }
@@ -232,10 +232,10 @@ export function useNovelsPage(token: string, onLogout: () => void) {
     try {
       const data = await updateNovel(token, selectedNovelId, currentPayload())
       setNovels((prev) => prev.map((n) => (n.id === selectedNovelId ? data.novel : n)))
-      notifySuccess('Novel updated.')
+      notifySuccess('小说已更新。')
       setShowNovelEditor(false)
     } catch (e) {
-      notifyError(e instanceof Error ? e.message : 'Failed to update novel')
+      notifyError(e instanceof Error ? e.message : '更新小说失败')
     } finally {
       setLoading(false)
     }
@@ -253,12 +253,12 @@ export function useNovelsPage(token: string, onLogout: () => void) {
       const next = novels.filter((n) => n.id !== id)
       setNovels(next)
       setSelectedNovelId(next.length > 0 ? next[0].id : null)
-      notifySuccess('Novel deleted.')
+      notifySuccess('小说已删除。')
       setShowNovelEditor(false)
       if (next.length > 0) fillForm(next[0])
       else resetForm()
     } catch (e) {
-      notifyError(e instanceof Error ? e.message : 'Failed to delete novel')
+      notifyError(e instanceof Error ? e.message : '删除小说失败')
     } finally {
       setLoading(false)
     }
@@ -274,9 +274,9 @@ export function useNovelsPage(token: string, onLogout: () => void) {
     try {
       await deleteCharacter(token, selectedNovelId, id)
       setCharacters((prev) => prev.filter((c) => c.id !== id))
-      notifySuccess('Character deleted.')
+      notifySuccess('角色已删除。')
     } catch (e) {
-      notifyError(e instanceof Error ? e.message : 'Failed to delete character')
+      notifyError(e instanceof Error ? e.message : '删除角色失败')
     } finally {
       setCharacterLoading(false)
     }
@@ -294,14 +294,14 @@ export function useNovelsPage(token: string, onLogout: () => void) {
       setLoreEntries((prev) => prev.filter((entry) => entry.id !== id))
       notifySuccess('设定已删除。')
     } catch (e) {
-      notifyError(e instanceof Error ? e.message : 'Failed to delete lore entry')
+      notifyError(e instanceof Error ? e.message : '删除设定失败')
     } finally {
       setLoreLoading(false)
     }
   }
 
   function formatNovelMeta(novel: Novel): string {
-    const parts: string[] = [novel.genre || 'No genre']
+    const parts: string[] = [novel.genre || '未填写类型']
     if (novel.language && novel.language !== DEFAULT_LANGUAGE) parts.push(novel.language)
     parts.push(`${(novelWordCounts[novel.id] ?? 0).toLocaleString()} 字`)
     return parts.join(' · ')
@@ -317,7 +317,7 @@ export function useNovelsPage(token: string, onLogout: () => void) {
 
   function clickSettings() {
     closeMenu()
-    notifySuccess('User settings will be available in a later phase.')
+    notifySuccess('用户设置将在后续版本开放。')
   }
 
   function clickLogout() {

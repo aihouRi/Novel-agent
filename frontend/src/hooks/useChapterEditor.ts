@@ -289,11 +289,11 @@ export function useChapterEditor({
 
       if (isEdit && initialChapter) {
         await updateChapter(token, novelId, initialChapter.id, payload)
-        onNotifySuccess('Chapter updated.')
+        onNotifySuccess('章节已更新。')
         setLocalSuccess('章节已保存。')
       } else {
         await createChapter(token, novelId, payload)
-        onNotifySuccess('Chapter created.')
+        onNotifySuccess('章节已创建。')
         setLocalSuccess('章节已创建。')
       }
 
@@ -301,7 +301,7 @@ export function useChapterEditor({
       await onSaved()
       onBack()
     } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Failed to save chapter'
+      const msg = e instanceof Error ? e.message : '保存章节失败'
       onNotifyError(msg)
       setLocalError(msg)
       setCanRetryGenerate(false)
@@ -358,7 +358,7 @@ export function useChapterEditor({
       setLocalSuccess('AI 生成完成，请检查后再保存。')
       setCanRetryGenerate(false)
     } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Failed to generate chapter'
+      const msg = e instanceof Error ? e.message : '生成章节失败'
       onNotifyError(msg)
       setLocalError(msg)
       setCanRetryGenerate(true)

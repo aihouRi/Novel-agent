@@ -39,7 +39,7 @@ export default function AuthPage() {
       localStorage.removeItem(TOKEN_KEY)
       setToken(null)
       setUser(null)
-      setError(e instanceof Error ? e.message : 'Failed to fetch current user')
+      setError(e instanceof Error ? e.message : '获取当前用户失败')
     }
   }
 
@@ -57,9 +57,9 @@ export default function AuthPage() {
       localStorage.setItem(TOKEN_KEY, data.token)
       setToken(data.token)
       setUser(data.user)
-      setMessage(mode === 'register' ? 'Register success.' : 'Login success.')
+      setMessage(mode === 'register' ? '注册成功。' : '登录成功。')
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Request failed')
+      setError(e instanceof Error ? e.message : '请求失败')
     } finally {
       setLoading(false)
     }
@@ -69,7 +69,7 @@ export default function AuthPage() {
     localStorage.removeItem(TOKEN_KEY)
     setToken(null)
     setUser(null)
-    setMessage('Logged out.')
+    setMessage('已退出登录。')
   }
 
   function toggleMode() {
@@ -111,16 +111,16 @@ export default function AuthPage() {
         >
           <CardContent sx={{ p: { xs: 3, md: 4 } }}>
             <Typography variant="h5" sx={{ fontWeight: 600, mb: 0.5 }}>
-              {mode === 'login' ? 'Login' : 'Create Account'}
+              {mode === 'login' ? '登录' : '创建账号'}
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-              {mode === 'login' ? 'Welcome back.' : 'Create your account to continue.'}
+              {mode === 'login' ? '欢迎回来。' : '创建账号后继续使用。'}
             </Typography>
 
             <Stack spacing={2}>
               {mode === 'register' && (
                 <TextField
-                  label="Name"
+                  label="昵称"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   fullWidth
@@ -128,7 +128,7 @@ export default function AuthPage() {
                 />
               )}
               <TextField
-                label="Email"
+                label="邮箱"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -136,7 +136,7 @@ export default function AuthPage() {
                 autoComplete="email"
               />
               <TextField
-                label="Password"
+                label="密码"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -149,16 +149,16 @@ export default function AuthPage() {
                 disabled={!canSubmit || loading}
                 sx={{ mt: 1, py: 1.25, fontWeight: 600, textTransform: 'none' }}
               >
-                {loading ? 'Submitting...' : mode === 'register' ? 'Create Account' : 'Login'}
+                {loading ? '提交中...' : mode === 'register' ? '创建账号' : '登录'}
               </Button>
             </Stack>
 
             <Box sx={{ mt: 2.5, textAlign: 'center' }}>
               <Typography variant="body2" color="text.secondary" component="span">
-                {mode === 'login' ? "Don't have an account? " : 'Already have an account? '}
+                {mode === 'login' ? '还没有账号？' : '已有账号？'}
               </Typography>
               <Button variant="text" onClick={toggleMode} sx={{ textTransform: 'none', minWidth: 0, px: 0.5 }}>
-                {mode === 'login' ? 'Register' : 'Login'}
+                {mode === 'login' ? '去注册' : '去登录'}
               </Button>
             </Box>
           </CardContent>

@@ -54,17 +54,17 @@ export default function NovelCharactersSection({
 
         <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 600 }}>当前角色</Typography>
         {characterLoading ? (
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>Loading...</Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>加载中...</Typography>
         ) : (
           !showCharacterManager && (characters.length === 0 ? (
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>No characters yet.</Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>暂无角色。</Typography>
           ) : (
             <Stack spacing={1.2} sx={{ mb: 2 }}>
               {characters.map((c) => (
                 <Box key={c.id} sx={{ border: '1px solid #e2e8f0', borderRadius: 2, p: 1.2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <Box>
                     <Typography sx={{ fontWeight: 600 }}>{c.name}</Typography>
-                    <Typography variant="body2" color="text.secondary">{c.role || 'No role'} · Importance {c.importance_level}</Typography>
+                    <Typography variant="body2" color="text.secondary">{c.role || '未填写身份'} · 重要度 {c.importance_level}</Typography>
                   </Box>
                   <Stack direction="row" spacing={0.5}>
                     <IconButton onClick={() => onEditCharacter(c)} disabled={characterLoading}><EditOutlinedIcon /></IconButton>

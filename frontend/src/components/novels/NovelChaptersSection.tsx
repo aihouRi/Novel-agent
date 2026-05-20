@@ -99,9 +99,9 @@ export default function NovelChaptersSection({
         </Stack>
 
         {chapterLoading ? (
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>Loading...</Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>加载中...</Typography>
         ) : visibleChapters.length === 0 ? (
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>No chapters yet.</Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>暂无章节。</Typography>
         ) : (
           <Stack spacing={2} sx={{ mb: 2 }}>
             {groupedChapters.map(({ volume, chapters: volumeChapters }) => {
@@ -120,7 +120,7 @@ export default function NovelChaptersSection({
                         {volumeChapters.map((c) => (
                           <Box key={c.id} sx={{ border: '1px solid #e2e8f0', borderRadius: 2, p: 1.2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <Box>
-                              <Typography sx={{ fontWeight: 600 }}>第 {c.chapter_number} 章 · {c.title || 'Untitled'}</Typography>
+                              <Typography sx={{ fontWeight: 600 }}>第 {c.chapter_number} 章 · {c.title || '未命名'}</Typography>
                               <Typography variant="body2" color="text.secondary">{c.word_count} 字 · {c.summary.trim() ? '有总结' : '无总结'} · 更新于 {new Date(c.updated_at).toLocaleString()}</Typography>
                             </Box>
                             <Stack direction="row" spacing={0.5}>

@@ -39,6 +39,16 @@ export default function ChapterEditorPage({
   onNotifyError,
   onSaved,
 }: Props) {
+  const loreCategoryLabelMap: Record<string, string> = {
+    artifact: '法器',
+    elixir: '丹药',
+    formation: '阵法',
+    technique: '功法',
+    location: '地点',
+    organization: '势力',
+    other: '其他',
+  }
+
   const editor = useChapterEditor({
     token,
     novelId,
@@ -280,7 +290,7 @@ export default function ChapterEditorPage({
                                 <Box>
                                   <Typography sx={{ fontWeight: 600 }}>{option.name}</Typography>
                                   <Typography variant="body2" color="text.secondary">
-                                    {option.category}{option.tags ? ` · ${option.tags}` : ''}
+                                    {loreCategoryLabelMap[option.category] ?? option.category}{option.tags ? ` · ${option.tags}` : ''}
                                   </Typography>
                                 </Box>
                               </li>

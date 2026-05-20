@@ -72,7 +72,7 @@ export default function NovelDetailSection(props: Props) {
             <Stack spacing={1.2}>
               <Typography sx={{ fontSize: 20, fontWeight: 700 }}>{selectedNovel.title}</Typography>
               <Typography variant="body2" color="text.secondary">
-                {selectedNovel.genre || 'No genre'}{selectedNovel.language && selectedNovel.language !== 'zh-CN' ? ` · ${selectedNovel.language}` : ''}
+                {selectedNovel.genre || '未填写类型'}{selectedNovel.language && selectedNovel.language !== 'zh-CN' ? ` · ${selectedNovel.language}` : ''}
               </Typography>
               <Stack direction="row" spacing={1.2}>
                 <Button variant="outlined" onClick={onEditNovel}>编辑小说</Button>
@@ -88,7 +88,7 @@ export default function NovelDetailSection(props: Props) {
       {selectedNovel && showNovelEditor && (
         <Card variant="outlined" sx={{ borderRadius: 3 }}>
           <CardContent>
-            <Typography variant="h6" sx={{ mb: 2 }}>Novel Detail Editor</Typography>
+            <Typography variant="h6" sx={{ mb: 2 }}>小说详情编辑</Typography>
             <NovelForm
               title={title} genre={genre} language={language} styleProfile={styleProfile} worldview={worldview}
               powerSystem={powerSystem} mainPlot={mainPlot} writingRules={writingRules} forbiddenRules={forbiddenRules}
@@ -98,8 +98,8 @@ export default function NovelDetailSection(props: Props) {
               onWritingRules={onWritingRules} onForbiddenRules={onForbiddenRules} onRecentChapterCount={onRecentChapterCount}
             />
             <Stack direction="row" spacing={1.5} sx={{ mt: 2 }}>
-              <Button variant="contained" disabled={!title.trim() || loading} onClick={onUpdateNovel}>Update Novel</Button>
-              <Button variant="outlined" onClick={onHideEditor} disabled={loading}>Cancel</Button>
+              <Button variant="contained" disabled={!title.trim() || loading} onClick={onUpdateNovel}>保存小说</Button>
+              <Button variant="outlined" onClick={onHideEditor} disabled={loading}>取消</Button>
             </Stack>
           </CardContent>
         </Card>

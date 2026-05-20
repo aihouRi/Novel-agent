@@ -69,15 +69,15 @@ export default function CharacterManager({ token, novelId, initialCharacter, onN
     try {
       if (editingId) {
         await updateCharacter(token, novelId, editingId, form)
-        onNotifySuccess?.('Character updated.')
+        onNotifySuccess?.('角色已更新。')
       } else {
         await createCharacter(token, novelId, form)
-        onNotifySuccess?.('Character created.')
+        onNotifySuccess?.('角色已创建。')
       }
       resetForm()
       onDone?.()
     } catch (e) {
-      onNotifyError?.(e instanceof Error ? e.message : 'Failed to save character')
+      onNotifyError?.(e instanceof Error ? e.message : '保存角色失败')
     } finally {
       setLoading(false)
     }
@@ -92,59 +92,59 @@ export default function CharacterManager({ token, novelId, initialCharacter, onN
     <Card variant="outlined" sx={{ borderRadius: 3, mt: 2 }}>
       <CardContent>
         <Typography variant="h6" sx={{ mb: 2 }}>
-          Character Manager
+          角色管理
         </Typography>
 
         <Stack spacing={1.5} sx={{ mb: 2 }}>
-          <TextField label="Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
-          <TextField label="Aliases" value={form.aliases} onChange={(e) => setForm({ ...form, aliases: e.target.value })} />
-          <TextField label="Role" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} />
+          <TextField label="姓名" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
+          <TextField label="别名" value={form.aliases} onChange={(e) => setForm({ ...form, aliases: e.target.value })} />
+          <TextField label="身份" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} />
           <TextField
-            label="Personality"
+            label="性格"
             multiline
             minRows={2}
             value={form.personality}
             onChange={(e) => setForm({ ...form, personality: e.target.value })}
           />
           <TextField
-            label="Realm / Ability"
+            label="境界 / 能力"
             multiline
             minRows={2}
             value={form.realm_or_ability}
             onChange={(e) => setForm({ ...form, realm_or_ability: e.target.value })}
           />
-          <TextField label="Goal" multiline minRows={2} value={form.goal} onChange={(e) => setForm({ ...form, goal: e.target.value })} />
+          <TextField label="目标" multiline minRows={2} value={form.goal} onChange={(e) => setForm({ ...form, goal: e.target.value })} />
           <TextField
-            label="Relationships"
+            label="关系"
             multiline
             minRows={2}
             value={form.relationships}
             onChange={(e) => setForm({ ...form, relationships: e.target.value })}
           />
           <TextField
-            label="Speech Style"
+            label="说话风格"
             value={form.speech_style}
             onChange={(e) => setForm({ ...form, speech_style: e.target.value })}
           />
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
             <TextField
-              label="First Appearance Chapter"
+              label="首次登场章节"
               type="number"
               value={form.first_appearance_chapter}
               onChange={(e) => setForm({ ...form, first_appearance_chapter: Number(e.target.value) || 0 })}
               fullWidth
             />
             <TextField
-              label="Last Appearance Chapter"
+              label="最近登场章节"
               type="number"
               value={form.last_appearance_chapter}
               onChange={(e) => setForm({ ...form, last_appearance_chapter: Number(e.target.value) || 0 })}
               fullWidth
             />
           </Stack>
-          <TextField label="Memo" multiline minRows={2} value={form.memo} onChange={(e) => setForm({ ...form, memo: e.target.value })} />
+          <TextField label="备注" multiline minRows={2} value={form.memo} onChange={(e) => setForm({ ...form, memo: e.target.value })} />
           <TextField
-            label="Importance Level (0-9, 7+ protected)"
+            label="重要度（0-9，7及以上不可删）"
             type="number"
             value={form.importance_level}
             onChange={(e) => {
@@ -155,10 +155,10 @@ export default function CharacterManager({ token, novelId, initialCharacter, onN
           />
           <Stack direction="row" spacing={1.5}>
             <Button variant="contained" disabled={!canSubmit} onClick={() => void submit()}>
-              {editingId ? 'Update Character' : 'Create Character'}
+              {editingId ? '更新角色' : '创建角色'}
             </Button>
             <Button variant="outlined" onClick={() => onDone?.()} disabled={loading}>
-              Back
+              返回
             </Button>
           </Stack>
         </Stack>

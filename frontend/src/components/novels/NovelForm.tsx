@@ -38,15 +38,15 @@ export default function NovelForm(props: NovelFormProps) {
     <>
       <Accordion defaultExpanded disableGutters sx={{ border: '1px solid #e2e8f0', borderRadius: 2, mb: 2 }}>
         <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-          <Typography sx={{ fontWeight: 600 }}>Basic Info</Typography>
+          <Typography sx={{ fontWeight: 600 }}>基础信息</Typography>
         </AccordionSummary>
         <AccordionDetails>
           <Stack spacing={2}>
-            <TextField label="Title" value={props.title} onChange={(e) => props.onTitle(e.target.value)} fullWidth required />
-            <TextField label="Genre" value={props.genre} onChange={(e) => props.onGenre(e.target.value)} fullWidth />
-            <TextField label="Language" value={props.language} onChange={(e) => props.onLanguage(e.target.value)} fullWidth />
+            <TextField label="标题" value={props.title} onChange={(e) => props.onTitle(e.target.value)} fullWidth required />
+            <TextField label="类型" value={props.genre} onChange={(e) => props.onGenre(e.target.value)} fullWidth />
+            <TextField label="语言" value={props.language} onChange={(e) => props.onLanguage(e.target.value)} fullWidth />
             <TextField
-              label="Recent Chapter Count"
+              label="最近章节参考数量"
               type="number"
               value={props.recentChapterCount}
               onChange={(e) => props.onRecentChapterCount(Number(e.target.value) || DEFAULT_RECENT_COUNT)}
@@ -59,16 +59,16 @@ export default function NovelForm(props: NovelFormProps) {
 
       <Accordion disableGutters sx={{ border: '1px solid #e2e8f0', borderRadius: 2 }}>
         <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-          <Typography sx={{ fontWeight: 600 }}>Advanced Settings</Typography>
+          <Typography sx={{ fontWeight: 600 }}>高级设定</Typography>
         </AccordionSummary>
         <AccordionDetails>
           <Stack spacing={2}>
-            <TextField label="Style Profile" value={props.styleProfile} onChange={(e) => props.onStyleProfile(e.target.value)} fullWidth multiline minRows={2} />
-            <TextField label="Worldview" value={props.worldview} onChange={(e) => props.onWorldview(e.target.value)} fullWidth multiline minRows={2} />
-            <TextField label="Power System" value={props.powerSystem} onChange={(e) => props.onPowerSystem(e.target.value)} fullWidth multiline minRows={2} />
-            <TextField label="Main Plot" value={props.mainPlot} onChange={(e) => props.onMainPlot(e.target.value)} fullWidth multiline minRows={3} />
-            <TextField label="Writing Rules" value={props.writingRules} onChange={(e) => props.onWritingRules(e.target.value)} fullWidth multiline minRows={3} />
-            <TextField label="Forbidden Rules" value={props.forbiddenRules} onChange={(e) => props.onForbiddenRules(e.target.value)} fullWidth multiline minRows={3} />
+            <TextField label="整体风格" value={props.styleProfile} onChange={(e) => props.onStyleProfile(e.target.value)} fullWidth multiline minRows={2} />
+            <TextField label="世界观" value={props.worldview} onChange={(e) => props.onWorldview(e.target.value)} fullWidth multiline minRows={2} />
+            <TextField label="修炼体系" value={props.powerSystem} onChange={(e) => props.onPowerSystem(e.target.value)} fullWidth multiline minRows={2} />
+            <TextField label="主线剧情" value={props.mainPlot} onChange={(e) => props.onMainPlot(e.target.value)} fullWidth multiline minRows={3} />
+            <TextField label="写作规则" value={props.writingRules} onChange={(e) => props.onWritingRules(e.target.value)} fullWidth multiline minRows={3} />
+            <TextField label="禁止事项" value={props.forbiddenRules} onChange={(e) => props.onForbiddenRules(e.target.value)} fullWidth multiline minRows={3} />
           </Stack>
         </AccordionDetails>
       </Accordion>
