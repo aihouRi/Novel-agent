@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -92,30 +93,265 @@ func (c *OpenAIClient) GenerateChapter(ctx context.Context, prompt string) (*Cha
 		return nil, fmt.Errorf("%w: status=%d body=%s", ErrOpenAIRequestFailed, resp.StatusCode, string(raw))
 	}
 
+	content, err := extractAssistantContent(raw)
+	if err != nil {
+		return nil, err
+	}
+	content = normalizeJSONContent(content)
+	out, err := decodeChapterGenerateResult(content)
+	if err != nil {
+		repaired, repairErr := c.repairChapterJSON(ctx, content)
+		if repairErr != nil {
+			log.Printf("openai parse failed; repair failed; fallback to plain text; content_preview=%q", truncateForLog(content, 600))
+			fallback := fallbackChapterResultFromText(content)
+			if fallback != nil {
+				return fallback, nil
+			}
+			return nil, fmt.Errorf("%w: decode chapter json failed", ErrOpenAIInvalidOutput)
+		}
+		out, err = decodeChapterGenerateResult(repaired)
+		if err != nil {
+			log.Printf("openai parse failed after repair; fallback to plain text; repaired_preview=%q", truncateForLog(repaired, 600))
+			fallback := fallbackChapterResultFromText(repaired)
+			if fallback != nil {
+				return fallback, nil
+			}
+			return nil, fmt.Errorf("%w: decode chapter json failed", ErrOpenAIInvalidOutput)
+		}
+	}
+	return out, nil
+}
+
+func (c *OpenAIClient) repairChapterJSON(ctx context.Context, rawContent string) (string, error) {
+	reqBody := map[string]interface{}{
+		"model": c.model,
+		"messages": []map[string]string{
+			{
+				"role":    "system",
+				"content": "你是 JSON 修复助手。请把用户输入改写为严格 JSON，且只能输出 JSON 对象，不要输出其他文字。",
+			},
+			{
+				"role": "user",
+				"content": "请把以下内容修复为严格 JSON，且必须包含且仅包含 outline/body/summary 三个字符串字段：\n\n" +
+					rawContent,
+			},
+		},
+		"response_format": map[string]string{
+			"type": "json_object",
+		},
+	}
+
+	body, err := json.Marshal(reqBody)
+	if err != nil {
+		return "", err
+	}
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+"/chat/completions", bytes.NewReader(body))
+	if err != nil {
+		return "", err
+	}
+	httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return "", fmt.Errorf("%w: %v", ErrOpenAIRequestFailed, err)
+	}
+	defer resp.Body.Close()
+
+	raw, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+	if resp.StatusCode >= 300 {
+		return "", fmt.Errorf("%w: status=%d body=%s", ErrOpenAIRequestFailed, resp.StatusCode, string(raw))
+	}
+	content, err := extractAssistantContent(raw)
+	if err != nil {
+		return "", err
+	}
+	return normalizeJSONContent(content), nil
+}
+
+func extractAssistantContent(raw []byte) (string, error) {
 	var data struct {
 		Choices []struct {
 			Message struct {
-				Content string `json:"content"`
+				Content interface{} `json:"content"`
 			} `json:"message"`
 		} `json:"choices"`
 	}
 	if err := json.Unmarshal(raw, &data); err != nil {
-		return nil, err
+		return "", err
 	}
 	if len(data.Choices) == 0 {
-		return nil, fmt.Errorf("%w: empty choices", ErrOpenAIRequestFailed)
+		return "", fmt.Errorf("%w: empty choices", ErrOpenAIRequestFailed)
 	}
 
-	content := strings.TrimSpace(data.Choices[0].Message.Content)
-	var out ChapterGenerateResult
-	if err := json.Unmarshal([]byte(content), &out); err != nil {
-		return nil, ErrOpenAIInvalidOutput
+	content := data.Choices[0].Message.Content
+	switch v := content.(type) {
+	case string:
+		return strings.TrimSpace(v), nil
+	case []interface{}:
+		var b strings.Builder
+		for _, part := range v {
+			obj, ok := part.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			// Compatible with providers that return content parts like:
+			// [{"type":"text","text":"..."}]
+			if text, ok := obj["text"].(string); ok && strings.TrimSpace(text) != "" {
+				if b.Len() > 0 {
+					b.WriteString("\n")
+				}
+				b.WriteString(text)
+			}
+		}
+		out := strings.TrimSpace(b.String())
+		if out == "" {
+			return "", fmt.Errorf("%w: empty content parts", ErrOpenAIInvalidOutput)
+		}
+		return out, nil
+	default:
+		return "", fmt.Errorf("%w: unsupported content type", ErrOpenAIInvalidOutput)
 	}
-	out.Outline = strings.TrimSpace(out.Outline)
-	out.Body = strings.TrimSpace(out.Body)
-	out.Summary = strings.TrimSpace(out.Summary)
-	if out.Outline == "" || out.Body == "" || out.Summary == "" {
-		return nil, ErrOpenAIInvalidOutput
+}
+
+func normalizeJSONContent(content string) string {
+	content = strings.TrimSpace(content)
+	content = strings.TrimPrefix(content, "```json")
+	content = strings.TrimPrefix(content, "```JSON")
+	content = strings.TrimPrefix(content, "```")
+	content = strings.TrimSuffix(content, "```")
+	content = strings.TrimSpace(content)
+
+	start := strings.Index(content, "{")
+	end := strings.LastIndex(content, "}")
+	if start >= 0 && end > start {
+		return content[start : end+1]
 	}
-	return &out, nil
+	return content
+}
+
+func decodeChapterGenerateResult(content string) (*ChapterGenerateResult, error) {
+	content = strings.TrimSpace(content)
+	if content == "" {
+		return nil, fmt.Errorf("%w: empty content", ErrOpenAIInvalidOutput)
+	}
+
+	var direct ChapterGenerateResult
+	if err := json.Unmarshal([]byte(content), &direct); err == nil {
+		direct.Outline = strings.TrimSpace(direct.Outline)
+		direct.Body = strings.TrimSpace(direct.Body)
+		direct.Summary = strings.TrimSpace(direct.Summary)
+		if direct.Outline != "" && direct.Body != "" && direct.Summary != "" {
+			return &direct, nil
+		}
+	}
+
+	var generic map[string]interface{}
+	if err := json.Unmarshal([]byte(content), &generic); err != nil {
+		return nil, fmt.Errorf("%w: invalid json object", ErrOpenAIInvalidOutput)
+	}
+
+	outline := pickTextValue(generic, "outline", "大纲", "chapter_outline")
+	body := pickTextValue(generic, "body", "正文", "content", "chapter_body")
+	summary := pickTextValue(generic, "summary", "总结", "chapter_summary")
+
+	// Some providers wrap the actual payload inside a field.
+	if (outline == "" || body == "" || summary == "") && len(generic) > 0 {
+		for _, v := range generic {
+			switch vv := v.(type) {
+			case string:
+				if strings.Contains(vv, "{") && strings.Contains(vv, "}") {
+					if nested, err := decodeChapterGenerateResult(normalizeJSONContent(vv)); err == nil {
+						return nested, nil
+					}
+				}
+			}
+		}
+	}
+
+	if outline == "" || body == "" || summary == "" {
+		return nil, fmt.Errorf("%w: missing required fields", ErrOpenAIInvalidOutput)
+	}
+
+	return &ChapterGenerateResult{
+		Outline: outline,
+		Body:    body,
+		Summary: summary,
+	}, nil
+}
+
+func pickTextValue(m map[string]interface{}, keys ...string) string {
+	for _, key := range keys {
+		v, ok := m[key]
+		if !ok {
+			continue
+		}
+		if s := anyToText(v); s != "" {
+			return s
+		}
+	}
+	return ""
+}
+
+func anyToText(v interface{}) string {
+	switch vv := v.(type) {
+	case string:
+		return strings.TrimSpace(vv)
+	case []interface{}:
+		lines := make([]string, 0, len(vv))
+		for _, item := range vv {
+			if s := strings.TrimSpace(anyToText(item)); s != "" {
+				lines = append(lines, s)
+			}
+		}
+		return strings.TrimSpace(strings.Join(lines, "\n"))
+	default:
+		return ""
+	}
+}
+
+func truncateForLog(s string, max int) string {
+	if len(s) <= max {
+		return s
+	}
+	return s[:max] + "...(truncated)"
+}
+
+func fallbackChapterResultFromText(raw string) *ChapterGenerateResult {
+	text := strings.TrimSpace(raw)
+	text = strings.TrimPrefix(text, "```")
+	text = strings.TrimSuffix(text, "```")
+	text = strings.TrimSpace(text)
+	if text == "" {
+		return nil
+	}
+
+	// Keep a short outline/summary and preserve full text in body.
+	outline := "自动提取：模型未返回标准 JSON，已回退为文本结果。"
+	summary := firstNRunes(text, 120)
+	if summary == "" {
+		summary = "自动提取：请手动补充总结。"
+	}
+	return &ChapterGenerateResult{
+		Outline: outline,
+		Body:    text,
+		Summary: summary,
+	}
+}
+
+func firstNRunes(s string, n int) string {
+	if n <= 0 {
+		return ""
+	}
+	r := []rune(strings.TrimSpace(s))
+	if len(r) == 0 {
+		return ""
+	}
+	if len(r) <= n {
+		return string(r)
+	}
+	return string(r[:n])
 }
