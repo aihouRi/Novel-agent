@@ -1,4 +1,4 @@
-import { extractError } from './http'
+import { extractAPIError, extractError } from './http'
 export type Chapter = {
   id: number
   novel_id: number
@@ -116,7 +116,7 @@ export async function generateChapter(
     },
     body: JSON.stringify(payload),
   })
-  if (!res.ok) throw new Error(await extractError(res))
+  if (!res.ok) throw await extractAPIError(res)
   return res.json()
 }
 

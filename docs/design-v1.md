@@ -75,6 +75,13 @@
   - 章节生成响应增加 `model + usage(prompt/completion/total tokens)`
   - 后端日志记录生成耗时、模型、token 使用量与失败信息
   - 前端成功提示显示“本次消耗约 X tokens”
+- V1-6（交互增强）已完成：生成失败提示分级
+  - 解析失败：提示“模型输出格式异常，建议重试/简化指令”
+  - 请求失败：提示检查 API Key、额度、模型配置
+  - 超时/网络失败：提示缩短字数后重试
+- V1-6（协议增强）已完成：标准错误码 + 前端按码映射
+  - 后端 `chapters/generate` 错误响应增加 `code`
+  - 前端优先按 `code` 映射提示，文本关键字匹配作为兜底
 - V1-2（后端部分）已完成：失败路径测试增量补强
   - 新增 `chapters/generate` 失败场景集成测试
   - 覆盖 `generation_instruction` 缺失、非法 `character_ids`、非法 `lore_entry_ids`、跨用户越权访问

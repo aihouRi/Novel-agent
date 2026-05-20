@@ -2,6 +2,7 @@ import { act, renderHook, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useChapterEditor } from './useChapterEditor'
 import { createChapter, generateChapter, updateChapter } from '../api/chapters'
+import { APIError } from '../api/http'
 
 vi.mock('../api/chapters', () => ({
   createChapter: vi.fn(),
@@ -80,6 +81,26 @@ describe('useChapterEditor', () => {
 
     await waitFor(() => {
       expect(result.current.localError).toBe('生成失败')
+      expect(result.current.canRetryGenerate).toBe(true)
+    })
+  })
+
+  it('ai output parse failed 应映射为可读提示', async () => {
+    mockedGenerateChapter.mockRejectedValueOnce(new APIError('ai output parse failed, please retry', 502, 'AI_OUTPUT_INVALID'))
+    const params = createParams()
+
+    const { result } = renderHook(() => useChapterEditor(params))
+
+    act(() => {
+      result.current.setChapterInstruction('继续推进剧情')
+    })
+
+    await act(async () => {
+      await result.current.handleGenerate()
+    })
+
+    await waitFor(() => {
+      expect(result.current.localError).toContain('模型输出格式异常')
       expect(result.current.canRetryGenerate).toBe(true)
     })
   })

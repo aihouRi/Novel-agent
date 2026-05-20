@@ -17,6 +17,11 @@ type ChapterGenerateHandler struct {
 	generate *usecase.ChapterGenerateUsecase
 }
 
+type chapterGenerateErrorResponse struct {
+	Code  string `json:"code"`
+	Error string `json:"error"`
+}
+
 func NewChapterGenerateHandler(generate *usecase.ChapterGenerateUsecase) *ChapterGenerateHandler {
 	return &ChapterGenerateHandler{generate: generate}
 }
@@ -41,16 +46,16 @@ func (h *ChapterGenerateHandler) Generate(c echo.Context) error {
 	startAt := time.Now()
 	userID, ok := c.Get(middleware.UserIDContextKey).(int64)
 	if !ok {
-		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+		return h.writeErr(c, http.StatusUnauthorized, "AUTH_UNAUTHORIZED", "unauthorized")
 	}
 	novelID, err := parseInt64Param(c, "novelId")
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid novel id"})
+		return h.writeErr(c, http.StatusBadRequest, "NOVEL_ID_INVALID", "invalid novel id")
 	}
 
 	var req chapterGenerateRequest
 	if err := c.Bind(&req); err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+		return h.writeErr(c, http.StatusBadRequest, "REQUEST_BODY_INVALID", "invalid request body")
 	}
 
 	out, err := h.generate.Generate(c.Request().Context(), userID, novelID, usecase.ChapterGenerateInput{
@@ -72,13 +77,13 @@ func (h *ChapterGenerateHandler) Generate(c echo.Context) error {
 		log.Printf("chapter.generate failed user_id=%d novel_id=%d latency_ms=%d err=%v", userID, novelID, time.Since(startAt).Milliseconds(), err)
 		switch {
 		case errors.Is(err, usecase.ErrNovelNotFound):
-			return c.JSON(http.StatusNotFound, map[string]string{"error": "novel not found"})
+			return h.writeErr(c, http.StatusNotFound, "NOVEL_NOT_FOUND", "novel not found")
 		case errors.Is(err, usecase.ErrChapterGenerateInvalidOutput):
-			return c.JSON(http.StatusBadGateway, map[string]string{"error": "ai output parse failed, please retry"})
+			return h.writeErr(c, http.StatusBadGateway, "AI_OUTPUT_INVALID", "ai output parse failed, please retry")
 		case errors.Is(err, service.ErrOpenAIRequestFailed):
-			return c.JSON(http.StatusBadGateway, map[string]string{"error": "ai service request failed"})
+			return h.writeErr(c, http.StatusBadGateway, "AI_REQUEST_FAILED", "ai service request failed")
 		default:
-			return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+			return h.writeErr(c, http.StatusBadRequest, "CHAPTER_GENERATE_BAD_REQUEST", err.Error())
 		}
 	}
 	log.Printf(
@@ -102,5 +107,12 @@ func (h *ChapterGenerateHandler) Generate(c echo.Context) error {
 			"completion_tokens": out.Usage.CompletionTokens,
 			"total_tokens":      out.Usage.TotalTokens,
 		},
+	})
+}
+
+func (h *ChapterGenerateHandler) writeErr(c echo.Context, status int, code, message string) error {
+	return c.JSON(status, chapterGenerateErrorResponse{
+		Code:  code,
+		Error: message,
 	})
 }

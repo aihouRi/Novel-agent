@@ -1,5 +1,6 @@
 import { ClipboardEvent, KeyboardEvent, useEffect, useMemo, useState } from 'react'
 import { createChapter, generateChapter, type Chapter, updateChapter } from '../api/chapters'
+import { APIError } from '../api/http'
 import type { Character } from '../api/characters'
 import type { LoreEntry } from '../api/loreEntries'
 import type { Volume } from '../api/volumes'
@@ -413,7 +414,7 @@ export function useChapterEditor({
       setLocalSuccess(`AI 生成完成，请检查后再保存。${usageText}`)
       setCanRetryGenerate(false)
     } catch (e) {
-      const msg = e instanceof Error ? e.message : '生成章节失败'
+      const msg = mapGenerateErrorMessage(e)
       onNotifyError(msg)
       setLocalError(msg)
       setCanRetryGenerate(true)
@@ -478,6 +479,48 @@ export function useChapterEditor({
     retryGenerate: handleGenerate,
     ensureIndentedBody,
   }
+}
+
+function mapGenerateErrorMessage(error: unknown): string {
+  if (error instanceof APIError) {
+    switch (error.code) {
+      case 'AI_OUTPUT_INVALID':
+        return '生成失败：模型输出格式异常。建议点击重试，或缩短并明确你的生成指令。'
+      case 'AI_REQUEST_FAILED':
+        return '生成失败：模型请求异常。请检查 API Key、额度、模型配置或稍后重试。'
+      case 'AUTH_UNAUTHORIZED':
+        return '登录状态已失效，请重新登录。'
+      case 'NOVEL_NOT_FOUND':
+        return '当前小说不存在或无权限访问。'
+      default:
+        break
+    }
+  }
+
+  const raw = error instanceof Error ? error.message : '生成章节失败'
+  const msg = raw.toLowerCase()
+
+  if (msg.includes('ai output parse failed') || msg.includes('openai returned invalid json output')) {
+    return '生成失败：模型输出格式异常。建议点击重试，或缩短并明确你的生成指令。'
+  }
+  if (
+    msg.includes('ai service request failed') ||
+    msg.includes('openai request failed') ||
+    msg.includes('401') ||
+    msg.includes('403') ||
+    msg.includes('429')
+  ) {
+    return '生成失败：模型请求异常。请检查 API Key、额度、模型配置或稍后重试。'
+  }
+  if (
+    msg.includes('timeout') ||
+    msg.includes('deadline exceeded') ||
+    msg.includes('network error') ||
+    msg.includes('failed to fetch')
+  ) {
+    return '生成失败：请求超时或网络异常。建议缩短目标字数后重试。'
+  }
+  return raw
 }
 
 function ensureIndentedBody(text: string): string {
