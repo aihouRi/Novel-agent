@@ -78,6 +78,38 @@ npm run dev
 - `OPENAI_BASE_URL`（默认 `https://api.openai.com/v1`）
 - `OPENAI_MODEL`（默认 `gpt-4o-mini`）
 
+## 环境分层（dev / test / prod）
+
+当前仓库提供以下模板文件：
+- `.env.example`：通用模板
+- `.env.dev.example`：本地开发模板
+- `.env.test.example`：测试模板（集成测试用）
+
+推荐约定：
+- `dev`：连接 `novel_agent` 开发库，`INTEGRATION_TEST=0`
+- `test`：连接 `novel_agent_test` 测试库，`INTEGRATION_TEST=1`
+- `prod`：仅文档占位，等部署阶段再提供真实配置
+
+本地加载示例（zsh/bash）：
+
+```bash
+cd backend
+set -a
+source ../.env.dev
+set +a
+go run ./cmd/api
+```
+
+集成测试加载示例（zsh/bash）：
+
+```bash
+cd backend
+set -a
+source ../.env.test
+set +a
+go test ./... -run Integration -v
+```
+
 ## 数据迁移
 
 当前迁移文件在 `backend/migrations/`，按文件顺序执行。  

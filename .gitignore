@@ -11,6 +11,9 @@ backend/bin/
 # Env
 .env
 .env.*
+!.env.example
+!.env.dev.example
+!.env.test.example
 
 # Logs
 *.log
