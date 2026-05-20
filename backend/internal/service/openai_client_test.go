@@ -4,7 +4,7 @@ import "testing"
 
 func TestExtractAssistantContent(t *testing.T) {
 	rawString := []byte(`{"choices":[{"message":{"content":"{\"outline\":\"a\",\"body\":\"b\",\"summary\":\"c\"}"}}]}`)
-	got, err := extractAssistantContent(rawString)
+	got, _, _, err := extractAssistantContent(rawString)
 	if err != nil {
 		t.Fatalf("unexpected err: %v", err)
 	}
@@ -13,7 +13,7 @@ func TestExtractAssistantContent(t *testing.T) {
 	}
 
 	rawParts := []byte(`{"choices":[{"message":{"content":[{"type":"text","text":"{\"outline\":\"a\",\"body\":\"b\",\"summary\":\"c\"}"}]}}]}`)
-	got, err = extractAssistantContent(rawParts)
+	got, _, _, err = extractAssistantContent(rawParts)
 	if err != nil {
 		t.Fatalf("unexpected err: %v", err)
 	}

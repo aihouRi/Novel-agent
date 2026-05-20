@@ -249,6 +249,10 @@ novel-agent/
 - `outline`
 - `body`
 - `summary`
+- `model`（实际调用模型名）
+- `usage.prompt_tokens`
+- `usage.completion_tokens`
+- `usage.total_tokens`
 
 规则：
 - OpenAI 必须返回可解析 JSON
@@ -258,6 +262,7 @@ novel-agent/
 - 可选注入 `lore_entry_ids` 对应设定卡（法器/丹药/阵法等）辅助生成
 - 可选配置“目标字数范围 + 风格硬约束”，用于提升中文网文生成质量与稳定性
 - 最近章节参考数可在章节写作页按“本次生成”单独调整；未填写时回退小说默认值
+- 服务端记录生成可观测日志：耗时、模型、token 使用量、失败信息
 
 ### 7.7 导出
 - 兼容接口：`GET /novels/:novelId/export/markdown`

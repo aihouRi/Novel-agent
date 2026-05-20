@@ -16,10 +16,18 @@ import (
 var ErrOpenAIInvalidOutput = errors.New("openai returned invalid json output")
 var ErrOpenAIRequestFailed = errors.New("openai request failed")
 
+type OpenAIUsage struct {
+	PromptTokens     int `json:"prompt_tokens"`
+	CompletionTokens int `json:"completion_tokens"`
+	TotalTokens      int `json:"total_tokens"`
+}
+
 type ChapterGenerateResult struct {
 	Outline string `json:"outline"`
 	Body    string `json:"body"`
 	Summary string `json:"summary"`
+	Model   string `json:"model"`
+	Usage   OpenAIUsage `json:"usage"`
 }
 
 type OpenAIChapterGenerator interface {
@@ -93,7 +101,7 @@ func (c *OpenAIClient) GenerateChapter(ctx context.Context, prompt string) (*Cha
 		return nil, fmt.Errorf("%w: status=%d body=%s", ErrOpenAIRequestFailed, resp.StatusCode, string(raw))
 	}
 
-	content, err := extractAssistantContent(raw)
+	content, model, usage, err := extractAssistantContent(raw)
 	if err != nil {
 		return nil, err
 	}
@@ -105,6 +113,10 @@ func (c *OpenAIClient) GenerateChapter(ctx context.Context, prompt string) (*Cha
 			log.Printf("openai parse failed; repair failed; fallback to plain text; content_preview=%q", truncateForLog(content, 600))
 			fallback := fallbackChapterResultFromText(content)
 			if fallback != nil {
+				fallback.Model = model
+				fallback.Usage.PromptTokens = usage.PromptTokens
+				fallback.Usage.CompletionTokens = usage.CompletionTokens
+				fallback.Usage.TotalTokens = usage.TotalTokens
 				return fallback, nil
 			}
 			return nil, fmt.Errorf("%w: decode chapter json failed", ErrOpenAIInvalidOutput)
@@ -114,11 +126,19 @@ func (c *OpenAIClient) GenerateChapter(ctx context.Context, prompt string) (*Cha
 			log.Printf("openai parse failed after repair; fallback to plain text; repaired_preview=%q", truncateForLog(repaired, 600))
 			fallback := fallbackChapterResultFromText(repaired)
 			if fallback != nil {
+				fallback.Model = model
+				fallback.Usage.PromptTokens = usage.PromptTokens
+				fallback.Usage.CompletionTokens = usage.CompletionTokens
+				fallback.Usage.TotalTokens = usage.TotalTokens
 				return fallback, nil
 			}
 			return nil, fmt.Errorf("%w: decode chapter json failed", ErrOpenAIInvalidOutput)
 		}
 	}
+	out.Model = model
+	out.Usage.PromptTokens = usage.PromptTokens
+	out.Usage.CompletionTokens = usage.CompletionTokens
+	out.Usage.TotalTokens = usage.TotalTokens
 	return out, nil
 }
 
@@ -165,15 +185,17 @@ func (c *OpenAIClient) repairChapterJSON(ctx context.Context, rawContent string)
 	if resp.StatusCode >= 300 {
 		return "", fmt.Errorf("%w: status=%d body=%s", ErrOpenAIRequestFailed, resp.StatusCode, string(raw))
 	}
-	content, err := extractAssistantContent(raw)
+	content, _, _, err := extractAssistantContent(raw)
 	if err != nil {
 		return "", err
 	}
 	return normalizeJSONContent(content), nil
 }
 
-func extractAssistantContent(raw []byte) (string, error) {
+func extractAssistantContent(raw []byte) (string, string, OpenAIUsage, error) {
 	var data struct {
+		Model string `json:"model"`
+		Usage OpenAIUsage `json:"usage"`
 		Choices []struct {
 			Message struct {
 				Content interface{} `json:"content"`
@@ -181,16 +203,16 @@ func extractAssistantContent(raw []byte) (string, error) {
 		} `json:"choices"`
 	}
 	if err := json.Unmarshal(raw, &data); err != nil {
-		return "", err
+		return "", "", data.Usage, err
 	}
 	if len(data.Choices) == 0 {
-		return "", fmt.Errorf("%w: empty choices", ErrOpenAIRequestFailed)
+		return "", data.Model, data.Usage, fmt.Errorf("%w: empty choices", ErrOpenAIRequestFailed)
 	}
 
 	content := data.Choices[0].Message.Content
 	switch v := content.(type) {
 	case string:
-		return strings.TrimSpace(v), nil
+		return strings.TrimSpace(v), data.Model, data.Usage, nil
 	case []interface{}:
 		var b strings.Builder
 		for _, part := range v {
@@ -209,11 +231,11 @@ func extractAssistantContent(raw []byte) (string, error) {
 		}
 		out := strings.TrimSpace(b.String())
 		if out == "" {
-			return "", fmt.Errorf("%w: empty content parts", ErrOpenAIInvalidOutput)
+			return "", data.Model, data.Usage, fmt.Errorf("%w: empty content parts", ErrOpenAIInvalidOutput)
 		}
-		return out, nil
+		return out, data.Model, data.Usage, nil
 	default:
-		return "", fmt.Errorf("%w: unsupported content type", ErrOpenAIInvalidOutput)
+		return "", data.Model, data.Usage, fmt.Errorf("%w: unsupported content type", ErrOpenAIInvalidOutput)
 	}
 }
 

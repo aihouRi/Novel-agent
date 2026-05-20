@@ -71,6 +71,10 @@
 - V1-6（文档部分）已完成：环境分层模板与说明
   - 新增 `.env.example`、`.env.dev.example`、`.env.test.example`
   - README 增加 dev/test/prod 分层约定与加载示例
+- V1-6（可观测性第一步）已完成：生成 token 与日志
+  - 章节生成响应增加 `model + usage(prompt/completion/total tokens)`
+  - 后端日志记录生成耗时、模型、token 使用量与失败信息
+  - 前端成功提示显示“本次消耗约 X tokens”
 - V1-2（后端部分）已完成：失败路径测试增量补强
   - 新增 `chapters/generate` 失败场景集成测试
   - 覆盖 `generation_instruction` 缺失、非法 `character_ids`、非法 `lore_entry_ids`、跨用户越权访问

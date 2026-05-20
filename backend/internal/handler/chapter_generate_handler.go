@@ -2,7 +2,9 @@ package handler
 
 import (
 	"errors"
+	"log"
 	"net/http"
+	"time"
 
 	"novel-agent/backend/internal/middleware"
 	"novel-agent/backend/internal/service"
@@ -36,6 +38,7 @@ type chapterGenerateRequest struct {
 }
 
 func (h *ChapterGenerateHandler) Generate(c echo.Context) error {
+	startAt := time.Now()
 	userID, ok := c.Get(middleware.UserIDContextKey).(int64)
 	if !ok {
 		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
@@ -66,6 +69,7 @@ func (h *ChapterGenerateHandler) Generate(c echo.Context) error {
 		RecentChapterCount:    req.RecentChapterCount,
 	})
 	if err != nil {
+		log.Printf("chapter.generate failed user_id=%d novel_id=%d latency_ms=%d err=%v", userID, novelID, time.Since(startAt).Milliseconds(), err)
 		switch {
 		case errors.Is(err, usecase.ErrNovelNotFound):
 			return c.JSON(http.StatusNotFound, map[string]string{"error": "novel not found"})
@@ -77,10 +81,26 @@ func (h *ChapterGenerateHandler) Generate(c echo.Context) error {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
 		}
 	}
+	log.Printf(
+		"chapter.generate success user_id=%d novel_id=%d latency_ms=%d model=%s prompt_tokens=%d completion_tokens=%d total_tokens=%d",
+		userID,
+		novelID,
+		time.Since(startAt).Milliseconds(),
+		out.Model,
+		out.Usage.PromptTokens,
+		out.Usage.CompletionTokens,
+		out.Usage.TotalTokens,
+	)
 
 	return c.JSON(http.StatusOK, map[string]interface{}{
 		"outline": out.Outline,
 		"body":    out.Body,
 		"summary": out.Summary,
+		"model":   out.Model,
+		"usage": map[string]int{
+			"prompt_tokens":     out.Usage.PromptTokens,
+			"completion_tokens": out.Usage.CompletionTokens,
+			"total_tokens":      out.Usage.TotalTokens,
+		},
 	})
 }

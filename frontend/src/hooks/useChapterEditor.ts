@@ -407,8 +407,10 @@ export function useChapterEditor({
       setChapterBody(ensureIndentedBody(data.body))
       setChapterSummary(data.summary)
       setSidePanel('outline')
-      onNotifySuccess('AI 生成完成。')
-      setLocalSuccess('AI 生成完成，请检查后再保存。')
+      const totalTokens = data.usage?.total_tokens ?? 0
+      const usageText = totalTokens > 0 ? ` 本次消耗约 ${totalTokens} tokens。` : ''
+      onNotifySuccess(`AI 生成完成。${usageText}`.trim())
+      setLocalSuccess(`AI 生成完成，请检查后再保存。${usageText}`)
       setCanRetryGenerate(false)
     } catch (e) {
       const msg = e instanceof Error ? e.message : '生成章节失败'

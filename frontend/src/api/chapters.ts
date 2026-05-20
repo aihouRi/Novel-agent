@@ -45,6 +45,12 @@ export type GenerateChapterResponse = {
   outline: string
   body: string
   summary: string
+  model?: string
+  usage?: {
+    prompt_tokens: number
+    completion_tokens: number
+    total_tokens: number
+  }
 }
 
 const JSON_HEADERS = {
