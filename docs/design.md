@@ -265,6 +265,15 @@ novel-agent/
 - 服务端记录生成可观测日志：耗时、模型、token 使用量、失败信息
 - 错误响应采用标准错误码（`code`）+ 人类可读错误文案（`error`）
 
+错误码（`POST /novels/:novelId/chapters/generate`）：
+- `AUTH_UNAUTHORIZED`：未登录或登录态无效（HTTP 401）
+- `NOVEL_ID_INVALID`：`novelId` 路径参数非法（HTTP 400）
+- `REQUEST_BODY_INVALID`：请求 JSON 非法（HTTP 400）
+- `NOVEL_NOT_FOUND`：小说不存在或无权限（HTTP 404）
+- `AI_OUTPUT_INVALID`：模型返回格式无法解析（HTTP 502）
+- `AI_REQUEST_FAILED`：模型请求失败（HTTP 502）
+- `CHAPTER_GENERATE_BAD_REQUEST`：业务参数校验失败（HTTP 400）
+
 ### 7.7 导出
 - 兼容接口：`GET /novels/:novelId/export/markdown`
 - 主接口：`POST /novels/:novelId/export`

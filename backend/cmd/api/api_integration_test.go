@@ -301,6 +301,7 @@ func TestAPIIntegration_FailurePaths(t *testing.T) {
 	if generateMissingInstructionStatus != http.StatusBadRequest {
 		t.Fatalf("generate missing instruction status: want %d got %d body=%s", http.StatusBadRequest, generateMissingInstructionStatus, generateMissingInstructionBody)
 	}
+	assertErrorCode(t, generateMissingInstructionBody, "CHAPTER_GENERATE_BAD_REQUEST")
 	if !strings.Contains(generateMissingInstructionBody, "generation_instruction is required") {
 		t.Fatalf("unexpected generate missing instruction body=%s", generateMissingInstructionBody)
 	}
@@ -357,8 +358,22 @@ func TestAPIIntegration_FailurePaths(t *testing.T) {
 	if generateCrossUserStatus != http.StatusNotFound {
 		t.Fatalf("generate cross user status: want %d got %d body=%s", http.StatusNotFound, generateCrossUserStatus, generateCrossUserBody)
 	}
+	assertErrorCode(t, generateCrossUserBody, "NOVEL_NOT_FOUND")
 	if !strings.Contains(generateCrossUserBody, "novel not found") {
 		t.Fatalf("unexpected generate cross user body=%s", generateCrossUserBody)
+	}
+}
+
+func assertErrorCode(t *testing.T, rawBody string, wantCode string) {
+	t.Helper()
+	var payload struct {
+		Code string `json:"code"`
+	}
+	if err := json.Unmarshal([]byte(rawBody), &payload); err != nil {
+		t.Fatalf("invalid json error body: %v body=%s", err, rawBody)
+	}
+	if payload.Code != wantCode {
+		t.Fatalf("unexpected error code: want %s got %s body=%s", wantCode, payload.Code, rawBody)
 	}
 }
 
