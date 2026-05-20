@@ -135,6 +135,12 @@ describe('useChapterEditor', () => {
       expect(mockedGenerateChapter.mock.calls[0][2]).toMatchObject({
         character_ids: [21],
         lore_entry_ids: [31],
+        target_word_min: 1800,
+        target_word_max: 2600,
+        avoid_translation_tone: true,
+        avoid_modern_slang: true,
+        keep_pov_consistent: true,
+        keep_tense_consistent: true,
       })
       expect(result.current.canRetryGenerate).toBe(false)
       expect(result.current.localSuccess).toContain('AI 生成完成')

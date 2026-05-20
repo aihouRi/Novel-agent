@@ -1,6 +1,6 @@
 # Novel Agent V1 设计书
 
-更新时间：2026-05-19
+更新时间：2026-05-20
 
 ## 1. 文档目的
 本设计书用于定义 V1 的目标、范围与约束，作为 MVP 之后的迭代基线。
@@ -39,6 +39,7 @@
 - 运维与发布（增量）：
   - 增加“安全迁移 + 回滚”操作手册。
   - 增加开发/测试/生产环境配置分层说明。
+  - 增加 AI 生成调参指南（参数组合 + 指令模板 + 排查手册）。
 
 ## 5. V1 当前进展（已完成）
 - V1-1 已完成：Lore Entries 后端最小闭环
@@ -58,6 +59,14 @@
   - 左侧导航改为“小说列表直接选择”
   - 右侧改为横向 Tab 切换四个模块
   - 移除四个模块内重复“选择小说”步骤
+- V1-5（后半）已完成：章节生成质量控制参数
+  - 章节生成接口支持目标字数范围：`target_word_min / target_word_max`
+  - 章节生成接口支持风格硬约束开关：
+    - `avoid_translation_tone`
+    - `avoid_modern_slang`
+    - `keep_pov_consistent`
+    - `keep_tense_consistent`
+  - 写作页“生成指令”面板已接入对应表单项与本地草稿持久化
 - V1-2（后端部分）已完成：失败路径测试增量补强
   - 新增 `chapters/generate` 失败场景集成测试
   - 覆盖 `generation_instruction` 缺失、非法 `character_ids`、非法 `lore_entry_ids`、跨用户越权访问

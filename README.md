@@ -172,3 +172,4 @@ INTEGRATION_TEST=1 MYSQL_DSN='novel:novel@tcp(127.0.0.1:3306)/novel_agent_test?p
 - MVP 设计书（现状一致版）：[docs/design.md](docs/design.md)
 - V1 设计书：[docs/design-v1.md](docs/design-v1.md)
 - V1 Roadmap：[docs/roadmap-v1.md](docs/roadmap-v1.md)
+- AI 章节生成调参指南：[docs/ai-generation-guide.md](docs/ai-generation-guide.md)

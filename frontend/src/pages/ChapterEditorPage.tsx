@@ -1,4 +1,4 @@
-import { Alert, Autocomplete, Box, Button, Card, CardContent, CircularProgress, Container, FormControl, IconButton, InputLabel, MenuItem, Select, Snackbar, Stack, TextField, Typography } from '@mui/material'
+import { Alert, Autocomplete, Box, Button, Card, CardContent, Checkbox, CircularProgress, Container, FormControl, FormControlLabel, IconButton, InputLabel, MenuItem, Select, Snackbar, Stack, TextField, Typography } from '@mui/material'
 import CloseIcon from '@mui/icons-material/Close'
 import ArrowBackIosNewRoundedIcon from '@mui/icons-material/ArrowBackIosNewRounded'
 import HistoryRoundedIcon from '@mui/icons-material/HistoryRounded'
@@ -297,10 +297,50 @@ export default function ChapterEditorPage({
                             )}
                           />
                           <TextField label="生成指令" multiline minRows={20} value={editor.chapterInstruction} onChange={(e) => editor.setChapterInstruction(e.target.value)} fullWidth />
+                          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.2}>
+                            <TextField
+                              label="目标字数下限"
+                              type="number"
+                              value={editor.targetWordMin}
+                              onChange={(e) => editor.setTargetWordMin(Math.max(0, Number(e.target.value) || 0))}
+                              sx={{ flex: 1 }}
+                            />
+                            <TextField
+                              label="目标字数上限"
+                              type="number"
+                              value={editor.targetWordMax}
+                              onChange={(e) => editor.setTargetWordMax(Math.max(0, Number(e.target.value) || 0))}
+                              sx={{ flex: 1 }}
+                            />
+                          </Stack>
+                          <Stack spacing={0}>
+                            <FormControlLabel
+                              control={<Checkbox checked={editor.avoidTranslationTone} onChange={(e) => editor.setAvoidTranslationTone(e.target.checked)} />}
+                              label="避免翻译腔"
+                            />
+                            <FormControlLabel
+                              control={<Checkbox checked={editor.avoidModernSlang} onChange={(e) => editor.setAvoidModernSlang(e.target.checked)} />}
+                              label="避免现代网络口语"
+                            />
+                            <FormControlLabel
+                              control={<Checkbox checked={editor.keepPovConsistent} onChange={(e) => editor.setKeepPovConsistent(e.target.checked)} />}
+                              label="保持叙事视角一致"
+                            />
+                            <FormControlLabel
+                              control={<Checkbox checked={editor.keepTenseConsistent} onChange={(e) => editor.setKeepTenseConsistent(e.target.checked)} />}
+                              label="保持时态一致"
+                            />
+                          </Stack>
                           <Button
                             variant="outlined"
                             onClick={() => void editor.retryGenerate()}
-                            disabled={editor.generating || !editor.chapterInstruction.trim() || editor.volumeID <= 0 || editor.chapterNumber <= 0}
+                            disabled={
+                              editor.generating ||
+                              !editor.chapterInstruction.trim() ||
+                              editor.volumeID <= 0 ||
+                              editor.chapterNumber <= 0 ||
+                              (editor.targetWordMin > 0 && editor.targetWordMax > 0 && editor.targetWordMin > editor.targetWordMax)
+                            }
                           >
                             重试生成
                           </Button>

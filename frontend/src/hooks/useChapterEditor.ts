@@ -53,6 +53,12 @@ export function useChapterEditor({
   const [chapterSummary, setChapterSummary] = useState(initialChapter?.summary ?? '')
   const [chapterOutline, setChapterOutline] = useState(initialChapter?.outline ?? '')
   const [chapterInstruction, setChapterInstruction] = useState(initialChapter?.generation_instruction ?? '')
+  const [targetWordMin, setTargetWordMin] = useState(1800)
+  const [targetWordMax, setTargetWordMax] = useState(2600)
+  const [avoidTranslationTone, setAvoidTranslationTone] = useState(true)
+  const [avoidModernSlang, setAvoidModernSlang] = useState(true)
+  const [keepPovConsistent, setKeepPovConsistent] = useState(true)
+  const [keepTenseConsistent, setKeepTenseConsistent] = useState(true)
   const [selectedCharacterIDs, setSelectedCharacterIDs] = useState<number[]>([])
   const [selectedLoreEntryIDs, setSelectedLoreEntryIDs] = useState<number[]>([])
   const [saving, setSaving] = useState(false)
@@ -128,6 +134,12 @@ export function useChapterEditor({
         chapterInstruction: string
         selectedCharacterIDs?: number[]
         selectedLoreEntryIDs?: number[]
+        targetWordMin?: number
+        targetWordMax?: number
+        avoidTranslationTone?: boolean
+        avoidModernSlang?: boolean
+        keepPovConsistent?: boolean
+        keepTenseConsistent?: boolean
       }
       if (isEdit) setVolumeID(draft.volumeID ?? volumeID)
       else setVolumeID(latestVolumeID)
@@ -139,6 +151,12 @@ export function useChapterEditor({
       setChapterInstruction(draft.chapterInstruction ?? '')
       setSelectedCharacterIDs(Array.isArray(draft.selectedCharacterIDs) ? draft.selectedCharacterIDs.filter((id) => validCharacterIDSet.has(id)) : [])
       setSelectedLoreEntryIDs(Array.isArray(draft.selectedLoreEntryIDs) ? draft.selectedLoreEntryIDs.filter((id) => validLoreEntryIDSet.has(id)) : [])
+      setTargetWordMin(Number.isFinite(draft.targetWordMin) ? Math.max(0, Number(draft.targetWordMin)) : 1800)
+      setTargetWordMax(Number.isFinite(draft.targetWordMax) ? Math.max(0, Number(draft.targetWordMax)) : 2600)
+      setAvoidTranslationTone(draft.avoidTranslationTone ?? true)
+      setAvoidModernSlang(draft.avoidModernSlang ?? true)
+      setKeepPovConsistent(draft.keepPovConsistent ?? true)
+      setKeepTenseConsistent(draft.keepTenseConsistent ?? true)
     } catch {
       localStorage.removeItem(draftKey)
     }
@@ -147,11 +165,27 @@ export function useChapterEditor({
 
   useEffect(() => {
     const id = window.setTimeout(() => {
-      const draft = { volumeID, chapterNumber, chapterTitle, chapterBody, chapterSummary, chapterOutline, chapterInstruction, selectedCharacterIDs, selectedLoreEntryIDs }
+      const draft = {
+        volumeID,
+        chapterNumber,
+        chapterTitle,
+        chapterBody,
+        chapterSummary,
+        chapterOutline,
+        chapterInstruction,
+        selectedCharacterIDs,
+        selectedLoreEntryIDs,
+        targetWordMin,
+        targetWordMax,
+        avoidTranslationTone,
+        avoidModernSlang,
+        keepPovConsistent,
+        keepTenseConsistent,
+      }
       localStorage.setItem(draftKey, JSON.stringify(draft))
     }, 500)
     return () => window.clearTimeout(id)
-  }, [draftKey, volumeID, chapterNumber, chapterTitle, chapterBody, chapterSummary, chapterOutline, chapterInstruction, selectedCharacterIDs, selectedLoreEntryIDs])
+  }, [draftKey, volumeID, chapterNumber, chapterTitle, chapterBody, chapterSummary, chapterOutline, chapterInstruction, selectedCharacterIDs, selectedLoreEntryIDs, targetWordMin, targetWordMax, avoidTranslationTone, avoidModernSlang, keepPovConsistent, keepTenseConsistent])
 
   function handleBodyKeyDown(e: KeyboardEvent<HTMLDivElement>) {
     const target = e.target as HTMLTextAreaElement
@@ -329,6 +363,12 @@ export function useChapterEditor({
       setLocalError(msg)
       return
     }
+    if (targetWordMin > 0 && targetWordMax > 0 && targetWordMin > targetWordMax) {
+      const msg = '目标字数范围无效：下限不能大于上限。'
+      onNotifyError(msg)
+      setLocalError(msg)
+      return
+    }
 
     setLocalError('')
     setLocalSuccess('')
@@ -344,6 +384,12 @@ export function useChapterEditor({
         generation_instruction: chapterInstruction.trim(),
         character_ids: safeCharacterIDs,
         lore_entry_ids: safeLoreEntryIDs,
+        target_word_min: targetWordMin,
+        target_word_max: targetWordMax,
+        avoid_translation_tone: avoidTranslationTone,
+        avoid_modern_slang: avoidModernSlang,
+        keep_pov_consistent: keepPovConsistent,
+        keep_tense_consistent: keepTenseConsistent,
       })
       if (safeCharacterIDs.length > 0) {
         const merged = Array.from(new Set([...safeCharacterIDs, ...recentCharacterIDs])).slice(0, 30)
@@ -375,6 +421,12 @@ export function useChapterEditor({
     chapterSummary,
     chapterOutline,
     chapterInstruction,
+    targetWordMin,
+    targetWordMax,
+    avoidTranslationTone,
+    avoidModernSlang,
+    keepPovConsistent,
+    keepTenseConsistent,
     selectedCharacterIDs,
     selectedLoreEntryIDs,
     saving,
@@ -395,6 +447,12 @@ export function useChapterEditor({
     setChapterSummary,
     setChapterOutline,
     setChapterInstruction,
+    setTargetWordMin,
+    setTargetWordMax,
+    setAvoidTranslationTone,
+    setAvoidModernSlang,
+    setKeepPovConsistent,
+    setKeepTenseConsistent,
     setSelectedCharacterIDs,
     setSelectedLoreEntryIDs,
     setSidePanel,

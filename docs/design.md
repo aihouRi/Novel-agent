@@ -237,6 +237,12 @@ novel-agent/
 - `generation_instruction`
 - `character_ids`（可选）
 - `lore_entry_ids`（可选）
+- `target_word_min`（可选，目标字数下限）
+- `target_word_max`（可选，目标字数上限）
+- `avoid_translation_tone`（可选，避免翻译腔）
+- `avoid_modern_slang`（可选，避免现代网络口语）
+- `keep_pov_consistent`（可选，保持叙事视角一致）
+- `keep_tense_consistent`（可选，保持时态一致）
 
 响应字段：
 - `outline`
@@ -249,6 +255,7 @@ novel-agent/
 - 解析失败时返回错误，不保存章节
 - 未选择 `character_ids` 时回退到主要人物（importance >= 5）
 - 可选注入 `lore_entry_ids` 对应设定卡（法器/丹药/阵法等）辅助生成
+- 可选配置“目标字数范围 + 风格硬约束”，用于提升中文网文生成质量与稳定性
 
 ### 7.7 导出
 - 兼容接口：`GET /novels/:novelId/export/markdown`

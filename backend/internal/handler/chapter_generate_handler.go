@@ -26,6 +26,12 @@ type chapterGenerateRequest struct {
 	GenerationInstruction string  `json:"generation_instruction"`
 	CharacterIDs          []int64 `json:"character_ids"`
 	LoreEntryIDs          []int64 `json:"lore_entry_ids"`
+	TargetWordMin         int     `json:"target_word_min"`
+	TargetWordMax         int     `json:"target_word_max"`
+	AvoidTranslationTone  bool    `json:"avoid_translation_tone"`
+	AvoidModernSlang      bool    `json:"avoid_modern_slang"`
+	KeepPovConsistent     bool    `json:"keep_pov_consistent"`
+	KeepTenseConsistent   bool    `json:"keep_tense_consistent"`
 }
 
 func (h *ChapterGenerateHandler) Generate(c echo.Context) error {
@@ -50,6 +56,12 @@ func (h *ChapterGenerateHandler) Generate(c echo.Context) error {
 		GenerationInstruction: req.GenerationInstruction,
 		CharacterIDs:          req.CharacterIDs,
 		LoreEntryIDs:          req.LoreEntryIDs,
+		TargetWordMin:         req.TargetWordMin,
+		TargetWordMax:         req.TargetWordMax,
+		AvoidTranslationTone:  req.AvoidTranslationTone,
+		AvoidModernSlang:      req.AvoidModernSlang,
+		KeepPovConsistent:     req.KeepPovConsistent,
+		KeepTenseConsistent:   req.KeepTenseConsistent,
 	})
 	if err != nil {
 		switch {

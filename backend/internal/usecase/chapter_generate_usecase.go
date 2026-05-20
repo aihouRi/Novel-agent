@@ -20,6 +20,12 @@ type ChapterGenerateInput struct {
 	GenerationInstruction string
 	CharacterIDs          []int64
 	LoreEntryIDs          []int64
+	TargetWordMin         int
+	TargetWordMax         int
+	AvoidTranslationTone  bool
+	AvoidModernSlang      bool
+	KeepPovConsistent     bool
+	KeepTenseConsistent   bool
 }
 
 type ChapterGenerateUsecase struct {
@@ -56,6 +62,18 @@ func (u *ChapterGenerateUsecase) Generate(ctx context.Context, userID, novelID i
 	in.GenerationInstruction = strings.TrimSpace(in.GenerationInstruction)
 	if in.GenerationInstruction == "" {
 		return nil, errors.New("generation_instruction is required")
+	}
+	if in.TargetWordMin < 0 {
+		return nil, errors.New("target_word_min must be greater than or equal to 0")
+	}
+	if in.TargetWordMax < 0 {
+		return nil, errors.New("target_word_max must be greater than or equal to 0")
+	}
+	if in.TargetWordMin > 0 && in.TargetWordMax > 0 && in.TargetWordMin > in.TargetWordMax {
+		return nil, errors.New("target_word_min must be less than or equal to target_word_max")
+	}
+	if in.TargetWordMin > 12000 || in.TargetWordMax > 12000 {
+		return nil, errors.New("target word range is too large")
 	}
 	in.Title = strings.TrimSpace(in.Title)
 
@@ -166,10 +184,40 @@ func buildChapterGeneratePrompt(
 	if in.Title != "" {
 		b.WriteString(fmt.Sprintf("章节标题：%s\n", in.Title))
 	}
+	if in.TargetWordMin > 0 || in.TargetWordMax > 0 {
+		min := in.TargetWordMin
+		max := in.TargetWordMax
+		if min <= 0 {
+			min = max
+		}
+		if max <= 0 {
+			max = min
+		}
+		b.WriteString(fmt.Sprintf("目标正文长度：%d-%d 字（不含空白字符）\n", min, max))
+	}
+	b.WriteString("风格硬性约束：\n")
+	if in.AvoidTranslationTone {
+		b.WriteString("- 禁止翻译腔、欧化句式、书面腔堆砌。\n")
+	}
+	if in.AvoidModernSlang {
+		b.WriteString("- 禁止现代网络流行语与出戏表达。\n")
+	}
+	if in.KeepPovConsistent {
+		b.WriteString("- 全章保持同一叙事视角，不要中途跳视角。\n")
+	}
+	if in.KeepTenseConsistent {
+		b.WriteString("- 全章时态一致，不要混用过去时与现在时叙述。\n")
+	}
+	if !in.AvoidTranslationTone && !in.AvoidModernSlang && !in.KeepPovConsistent && !in.KeepTenseConsistent {
+		b.WriteString("- 无（按既有设定与指令输出）。\n")
+	}
 	b.WriteString(fmt.Sprintf("章节指令：%s\n", in.GenerationInstruction))
 	b.WriteString("\n")
 
-	b.WriteString("请严格输出 JSON，不要输出 Markdown 代码块。")
+	b.WriteString("输出规则：\n")
+	b.WriteString("1) 只输出 JSON，不要输出 Markdown 代码块。\n")
+	b.WriteString("2) body 必须是完整可读正文，不要返回段落数组。\n")
+	b.WriteString("3) outline 与 summary 必须为字符串，不要返回对象。\n")
 	return b.String()
 }
 

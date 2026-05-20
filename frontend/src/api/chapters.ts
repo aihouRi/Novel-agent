@@ -32,6 +32,12 @@ export type GenerateChapterPayload = {
   generation_instruction: string
   character_ids: number[]
   lore_entry_ids: number[]
+  target_word_min: number
+  target_word_max: number
+  avoid_translation_tone: boolean
+  avoid_modern_slang: boolean
+  keep_pov_consistent: boolean
+  keep_tense_consistent: boolean
 }
 
 export type GenerateChapterResponse = {
