@@ -1,8 +1,9 @@
-import { Alert, Autocomplete, Box, Button, Card, CardContent, Checkbox, CircularProgress, Container, FormControl, FormControlLabel, IconButton, InputLabel, MenuItem, Select, Snackbar, Stack, TextField, Typography } from '@mui/material'
+import { Alert, Autocomplete, Box, Button, Card, CardContent, Checkbox, CircularProgress, Container, Dialog, DialogActions, DialogContent, DialogTitle, FormControl, FormControlLabel, IconButton, InputLabel, MenuItem, Select, Snackbar, Stack, TextField, Typography } from '@mui/material'
 import CloseIcon from '@mui/icons-material/Close'
 import ArrowBackIosNewRoundedIcon from '@mui/icons-material/ArrowBackIosNewRounded'
 import HistoryRoundedIcon from '@mui/icons-material/HistoryRounded'
 import TaskAltRoundedIcon from '@mui/icons-material/TaskAltRounded'
+import { useMemo, useState } from 'react'
 import type { Chapter } from '../api/chapters'
 import type { Character } from '../api/characters'
 import type { LoreEntry } from '../api/loreEntries'
@@ -65,6 +66,11 @@ export default function ChapterEditorPage({
     onSaved,
     onBack,
   })
+  const [pendingHistoryIndex, setPendingHistoryIndex] = useState<number | null>(null)
+  const pendingHistoryItem = useMemo(
+    () => (pendingHistoryIndex === null ? null : editor.generateHistory[pendingHistoryIndex] ?? null),
+    [editor.generateHistory, pendingHistoryIndex],
+  )
 
   return (
     <Box
@@ -375,7 +381,7 @@ export default function ChapterEditorPage({
                                   <Typography variant="body2" sx={{ color: '#475569' }}>
                                     指令：{item.instructionPreview || '（无）'}
                                   </Typography>
-                                  <Button size="small" variant="outlined" onClick={() => editor.applyGenerateHistory(idx)}>
+                                  <Button size="small" variant="outlined" onClick={() => setPendingHistoryIndex(idx)}>
                                     回填此版本
                                   </Button>
                                 </Stack>
@@ -527,6 +533,60 @@ export default function ChapterEditorPage({
             {editor.localError}
           </Alert>
         </Snackbar>
+
+        <Dialog open={pendingHistoryIndex !== null} onClose={() => setPendingHistoryIndex(null)} fullWidth maxWidth="md">
+          <DialogTitle>确认回填历史版本</DialogTitle>
+          <DialogContent>
+            <Stack spacing={2} sx={{ mt: 1 }}>
+              <Typography variant="body2" color="text.secondary">
+                回填将覆盖当前“正文/大纲/总结”内容，请确认后继续。
+              </Typography>
+              {pendingHistoryItem && (
+                <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+                  <Card variant="outlined" sx={{ flex: 1 }}>
+                    <CardContent>
+                      <Typography variant="subtitle2" sx={{ mb: 1 }}>当前内容（预览）</Typography>
+                      <Typography variant="caption" color="text.secondary">正文</Typography>
+                      <Typography variant="body2" sx={{ mb: 1.5 }}>{editor.chapterBody.slice(0, 120) || '（空）'}</Typography>
+                      <Typography variant="caption" color="text.secondary">大纲</Typography>
+                      <Typography variant="body2" sx={{ mb: 1.5 }}>{editor.chapterOutline.slice(0, 120) || '（空）'}</Typography>
+                      <Typography variant="caption" color="text.secondary">总结</Typography>
+                      <Typography variant="body2">{editor.chapterSummary.slice(0, 120) || '（空）'}</Typography>
+                    </CardContent>
+                  </Card>
+                  <Card variant="outlined" sx={{ flex: 1 }}>
+                    <CardContent>
+                      <Typography variant="subtitle2" sx={{ mb: 1 }}>历史版本（预览）</Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {new Date(pendingHistoryItem.createdAt).toLocaleString('zh-CN')}
+                        {pendingHistoryItem.model ? ` · ${pendingHistoryItem.model}` : ''}
+                        {pendingHistoryItem.totalTokens ? ` · ${pendingHistoryItem.totalTokens} tokens` : ''}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>正文</Typography>
+                      <Typography variant="body2" sx={{ mb: 1.5 }}>{pendingHistoryItem.body.slice(0, 120) || '（空）'}</Typography>
+                      <Typography variant="caption" color="text.secondary">大纲</Typography>
+                      <Typography variant="body2" sx={{ mb: 1.5 }}>{pendingHistoryItem.outline.slice(0, 120) || '（空）'}</Typography>
+                      <Typography variant="caption" color="text.secondary">总结</Typography>
+                      <Typography variant="body2">{pendingHistoryItem.summary.slice(0, 120) || '（空）'}</Typography>
+                    </CardContent>
+                  </Card>
+                </Stack>
+              )}
+            </Stack>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setPendingHistoryIndex(null)}>取消</Button>
+            <Button
+              variant="contained"
+              onClick={() => {
+                if (pendingHistoryIndex !== null) editor.applyGenerateHistory(pendingHistoryIndex)
+                setPendingHistoryIndex(null)
+              }}
+            >
+              确认回填
+            </Button>
+          </DialogActions>
+        </Dialog>
       </Container>
     </Box>
   )
