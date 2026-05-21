@@ -5,7 +5,16 @@ import type { Character } from '../api/characters'
 import type { LoreEntry } from '../api/loreEntries'
 import type { Volume } from '../api/volumes'
 
-type SidePanel = 'summary' | 'outline' | 'instruction' | null
+type SidePanel = 'summary' | 'outline' | 'instruction' | 'history' | null
+type GenerateHistoryItem = {
+  createdAt: string
+  outline: string
+  body: string
+  summary: string
+  model?: string
+  totalTokens?: number
+  instructionPreview: string
+}
 
 type Params = {
   token: string
@@ -72,11 +81,16 @@ export function useChapterEditor({
   const [localError, setLocalError] = useState('')
   const [canRetryGenerate, setCanRetryGenerate] = useState(false)
   const [recentCharacterIDs, setRecentCharacterIDs] = useState<number[]>([])
+  const [generateHistory, setGenerateHistory] = useState<GenerateHistoryItem[]>([])
 
   const chapterWordCount = useMemo(() => chapterBody.replace(/\s/g, '').length, [chapterBody])
   const isEdit = Boolean(initialChapter)
   const draftKey = useMemo(() => `novel_agent_chapter_draft_${novelId}_${initialChapter?.id ?? 'new'}`,[novelId, initialChapter?.id])
   const recentCharacterKey = useMemo(() => `novel_agent_recent_characters_${novelId}`, [novelId])
+  const generateHistoryKey = useMemo(() => {
+    const chapterKey = initialChapter?.id ?? `new_${chapterNumber}`
+    return `novel_agent_generate_history_${novelId}_${chapterKey}`
+  }, [novelId, initialChapter?.id, chapterNumber])
   const groupedCharacterOptions = useMemo<CharacterOption[]>(
     () =>
       [...characters]
@@ -123,6 +137,22 @@ export function useChapterEditor({
       localStorage.removeItem(recentCharacterKey)
     }
   }, [recentCharacterKey])
+
+  useEffect(() => {
+    const raw = localStorage.getItem(generateHistoryKey)
+    if (!raw) {
+      setGenerateHistory([])
+      return
+    }
+    try {
+      const parsed = JSON.parse(raw) as GenerateHistoryItem[]
+      if (Array.isArray(parsed)) setGenerateHistory(parsed.slice(0, 3))
+      else setGenerateHistory([])
+    } catch {
+      localStorage.removeItem(generateHistoryKey)
+      setGenerateHistory([])
+    }
+  }, [generateHistoryKey])
 
   useEffect(() => {
     const saved = localStorage.getItem(draftKey)
@@ -412,6 +442,20 @@ export function useChapterEditor({
       const usageText = totalTokens > 0 ? ` 本次消耗约 ${totalTokens} tokens。` : ''
       onNotifySuccess(`AI 生成完成。${usageText}`.trim())
       setLocalSuccess(`AI 生成完成，请检查后再保存。${usageText}`)
+      const nextHistory: GenerateHistoryItem[] = [
+        {
+          createdAt: new Date().toISOString(),
+          outline: data.outline,
+          body: data.body,
+          summary: data.summary,
+          model: data.model,
+          totalTokens: totalTokens > 0 ? totalTokens : undefined,
+          instructionPreview: chapterInstruction.trim().slice(0, 80),
+        },
+        ...generateHistory,
+      ].slice(0, 3)
+      setGenerateHistory(nextHistory)
+      localStorage.setItem(generateHistoryKey, JSON.stringify(nextHistory))
       setCanRetryGenerate(false)
     } catch (e) {
       const msg = mapGenerateErrorMessage(e)
@@ -421,6 +465,16 @@ export function useChapterEditor({
     } finally {
       setGenerating(false)
     }
+  }
+
+  function applyGenerateHistory(index: number) {
+    const item = generateHistory[index]
+    if (!item) return
+    setChapterOutline(item.outline)
+    setChapterBody(ensureIndentedBody(item.body))
+    setChapterSummary(item.summary)
+    setSidePanel('outline')
+    onNotifySuccess('已回填历史生成版本。')
   }
 
   return {
@@ -446,6 +500,7 @@ export function useChapterEditor({
     localSuccess,
     localError,
     canRetryGenerate,
+    generateHistory,
     chapterWordCount,
     isEdit,
     groupedCharacterOptions,
@@ -477,6 +532,7 @@ export function useChapterEditor({
     handleSave,
     handleGenerate,
     retryGenerate: handleGenerate,
+    applyGenerateHistory,
     ensureIndentedBody,
   }
 }

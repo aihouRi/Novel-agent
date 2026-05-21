@@ -212,4 +212,28 @@ describe('useChapterEditor', () => {
 
     expect(mockedUpdateChapter).toHaveBeenCalledTimes(1)
   })
+
+  it('应仅保留最近 3 条生成历史', async () => {
+    mockedGenerateChapter
+      .mockResolvedValueOnce({ outline: 'o1', body: 'b1', summary: 's1', usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 } })
+      .mockResolvedValueOnce({ outline: 'o2', body: 'b2', summary: 's2', usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 } })
+      .mockResolvedValueOnce({ outline: 'o3', body: 'b3', summary: 's3', usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 } })
+      .mockResolvedValueOnce({ outline: 'o4', body: 'b4', summary: 's4', usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 } })
+
+    const params = createParams()
+    const { result } = renderHook(() => useChapterEditor(params))
+
+    act(() => {
+      result.current.setChapterInstruction('继续推进剧情')
+    })
+
+    await act(async () => { await result.current.handleGenerate() })
+    await act(async () => { await result.current.handleGenerate() })
+    await act(async () => { await result.current.handleGenerate() })
+    await act(async () => { await result.current.handleGenerate() })
+
+    expect(result.current.generateHistory.length).toBe(3)
+    expect(result.current.generateHistory[0].outline).toBe('o4')
+    expect(result.current.generateHistory[2].outline).toBe('o2')
+  })
 })

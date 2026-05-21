@@ -233,6 +233,7 @@ export default function ChapterEditorPage({
                           {editor.sidePanel === 'summary' && '章节总结'}
                           {editor.sidePanel === 'outline' && '章节大纲'}
                           {editor.sidePanel === 'instruction' && '生成指令'}
+                          {editor.sidePanel === 'history' && '生成历史'}
                         </Typography>
                         <IconButton size="small" onClick={() => editor.setSidePanel(null)}>
                           <CloseIcon fontSize="small" />
@@ -357,6 +358,32 @@ export default function ChapterEditorPage({
                           </Button>
                         </Stack>
                       )}
+                      {editor.sidePanel === 'history' && (
+                        <Stack spacing={1}>
+                          {editor.generateHistory.length === 0 && (
+                            <Typography variant="body2" color="text.secondary">暂无历史生成记录。</Typography>
+                          )}
+                          {editor.generateHistory.map((item, idx) => (
+                            <Card key={`${item.createdAt}_${idx}`} variant="outlined" sx={{ borderRadius: 2 }}>
+                              <CardContent sx={{ py: 1.5 }}>
+                                <Stack spacing={1}>
+                                  <Typography variant="caption" color="text.secondary">
+                                    {new Date(item.createdAt).toLocaleString('zh-CN')}
+                                    {item.model ? ` · ${item.model}` : ''}
+                                    {item.totalTokens ? ` · ${item.totalTokens} tokens` : ''}
+                                  </Typography>
+                                  <Typography variant="body2" sx={{ color: '#475569' }}>
+                                    指令：{item.instructionPreview || '（无）'}
+                                  </Typography>
+                                  <Button size="small" variant="outlined" onClick={() => editor.applyGenerateHistory(idx)}>
+                                    回填此版本
+                                  </Button>
+                                </Stack>
+                              </CardContent>
+                            </Card>
+                          ))}
+                        </Stack>
+                      )}
                     </CardContent>
                   </Card>
                 )}
@@ -425,6 +452,24 @@ export default function ChapterEditorPage({
                 }}
               >
                 指令
+              </Button>
+              <Button
+                variant={editor.sidePanel === 'history' ? 'contained' : 'outlined'}
+                onClick={() => editor.setSidePanel((p) => (p === 'history' ? null : 'history'))}
+                sx={{
+                  borderRadius: 3,
+                  py: 1,
+                  fontWeight: 700,
+                  color: editor.sidePanel === 'history' ? '#ffffff' : '#374151',
+                  bgcolor: editor.sidePanel === 'history' ? '#0f766e' : '#f8fafc',
+                  borderColor: editor.sidePanel === 'history' ? '#0f766e' : '#d1d5db',
+                  '&:hover': {
+                    bgcolor: editor.sidePanel === 'history' ? '#0d9488' : '#eef2f7',
+                    borderColor: editor.sidePanel === 'history' ? '#0d9488' : '#9ca3af',
+                  },
+                }}
+              >
+                历史
               </Button>
             </Stack>
           </Stack>
