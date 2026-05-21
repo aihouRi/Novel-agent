@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -105,11 +106,90 @@ func (c *GeminiClient) GenerateChapterWithConfig(ctx context.Context, prompt str
 	content = normalizeJSONContent(content)
 	out, err := decodeChapterGenerateResult(content)
 	if err != nil {
-		return nil, fmt.Errorf("%w: decode chapter json failed", ErrGeminiInvalidOutput)
+		repaired, repairErr := c.repairChapterJSON(ctx, content, GeminiConfig{
+			APIKey:          apiKey,
+			BaseURL:         baseURL,
+			Model:           model,
+			MaxOutputTokens: cfg.MaxOutputTokens,
+		})
+		if repairErr != nil {
+			log.Printf("gemini parse failed; repair failed; fallback to plain text; content_preview=%q", truncateForLog(content, 600))
+			fallback := fallbackChapterResultFromText(content)
+			if fallback != nil {
+				fallback.Model = model
+				fallback.Usage = usage
+				return fallback, nil
+			}
+			return nil, fmt.Errorf("%w: decode chapter json failed", ErrGeminiInvalidOutput)
+		}
+		out, err = decodeChapterGenerateResult(repaired)
+		if err != nil {
+			log.Printf("gemini parse failed after repair; fallback to plain text; repaired_preview=%q", truncateForLog(repaired, 600))
+			fallback := fallbackChapterResultFromText(repaired)
+			if fallback != nil {
+				fallback.Model = model
+				fallback.Usage = usage
+				return fallback, nil
+			}
+			return nil, fmt.Errorf("%w: decode chapter json failed", ErrGeminiInvalidOutput)
+		}
 	}
 	out.Model = model
 	out.Usage = usage
 	return out, nil
+}
+
+func (c *GeminiClient) repairChapterJSON(ctx context.Context, rawContent string, cfg GeminiConfig) (string, error) {
+	apiKey := strings.TrimSpace(cfg.APIKey)
+	baseURL := strings.TrimRight(strings.TrimSpace(cfg.BaseURL), "/")
+	model := strings.TrimSpace(cfg.Model)
+
+	reqBody := map[string]interface{}{
+		"contents": []map[string]interface{}{
+			{
+				"parts": []map[string]string{
+					{"text": "你是 JSON 修复助手。请把用户输入改写为严格 JSON，且只能输出 JSON 对象，不要输出其他文字。"},
+					{"text": "请把以下内容修复为严格 JSON，且必须包含且仅包含 outline/body/summary 三个字符串字段：\n\n" + rawContent},
+				},
+			},
+		},
+		"generationConfig": map[string]interface{}{
+			"responseMimeType": "application/json",
+		},
+	}
+	if cfg.MaxOutputTokens > 0 {
+		reqBody["generationConfig"].(map[string]interface{})["maxOutputTokens"] = cfg.MaxOutputTokens
+	}
+	body, err := json.Marshal(reqBody)
+	if err != nil {
+		return "", err
+	}
+	url := fmt.Sprintf("%s/models/%s:generateContent", baseURL, model)
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
+	if err != nil {
+		return "", err
+	}
+	httpReq.Header.Set("x-goog-api-key", apiKey)
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return "", fmt.Errorf("%w: %v", ErrGeminiRequestFailed, err)
+	}
+	defer resp.Body.Close()
+
+	raw, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+	if resp.StatusCode >= 300 {
+		return "", fmt.Errorf("%w: status=%d body=%s", ErrGeminiRequestFailed, resp.StatusCode, string(raw))
+	}
+	content, _, err := extractGeminiText(raw)
+	if err != nil {
+		return "", err
+	}
+	return normalizeJSONContent(content), nil
 }
 
 func extractGeminiText(raw []byte) (string, OpenAIUsage, error) {

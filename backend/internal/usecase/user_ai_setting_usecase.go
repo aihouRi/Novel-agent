@@ -77,11 +77,11 @@ func (u *UserAISettingUsecase) Get(ctx context.Context, userID int64) (*domain.U
 	}
 	openAIKey, err := u.crypto.Decrypt(row.OpenAIAPIKeyEncrypted)
 	if err != nil {
-		return nil, err
+		openAIKey = ""
 	}
 	geminiKey, err := u.crypto.Decrypt(row.GeminiAPIKeyEncrypted)
 	if err != nil {
-		return nil, err
+		geminiKey = ""
 	}
 	provider := normalizeProvider(row.Provider)
 	return &domain.UserAISetting{
@@ -183,11 +183,11 @@ func (u *UserAISettingUsecase) ResolveEffectiveConfig(
 	provider := normalizeProvider(row.Provider)
 	openAIKey, err := u.crypto.Decrypt(row.OpenAIAPIKeyEncrypted)
 	if err != nil {
-		return EffectiveAIConfig{}, err
+		openAIKey = ""
 	}
 	geminiKey, err := u.crypto.Decrypt(row.GeminiAPIKeyEncrypted)
 	if err != nil {
-		return EffectiveAIConfig{}, err
+		geminiKey = ""
 	}
 	if provider == AIProviderGemini {
 		key := pickNonEmpty(strings.TrimSpace(geminiKey), strings.TrimSpace(fallbackGeminiAPIKey))

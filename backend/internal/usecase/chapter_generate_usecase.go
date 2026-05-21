@@ -255,6 +255,7 @@ func buildChapterGeneratePrompt(
 		}
 		b.WriteString(fmt.Sprintf("目标正文长度：%d-%d 字（不含空白字符）\n", min, max))
 		b.WriteString("硬性长度要求：正文必须落在目标范围内；如超出上限必须自行压缩后输出。\n")
+		b.WriteString("令牌分配要求：优先保证 body 完整性，outline 与 summary 需简洁。\n")
 	}
 	b.WriteString("风格硬性约束：\n")
 	if in.AvoidTranslationTone {
@@ -279,6 +280,8 @@ func buildChapterGeneratePrompt(
 	b.WriteString("1) 只输出 JSON，不要输出 Markdown 代码块。\n")
 	b.WriteString("2) body 必须是完整可读正文，不要返回段落数组。\n")
 	b.WriteString("3) outline 与 summary 必须为字符串，不要返回对象。\n")
+	b.WriteString("4) outline 控制在 6-10 条短句；summary 控制在 120-220 字。\n")
+	b.WriteString("5) 若 token 不足，优先压缩 outline/summary，禁止截断 body。\n")
 	return b.String()
 }
 
@@ -286,13 +289,13 @@ func estimateMaxCompletionTokens(targetWordMax int) int {
 	if targetWordMax <= 0 {
 		return 0
 	}
-	// Chinese generation usually lands around 1.5-2 tokens per character.
-	estimated := targetWordMax*2 + 256
-	if estimated < 512 {
-		estimated = 512
+	// Keep large headroom for JSON structure + outline/summary overhead.
+	estimated := targetWordMax*5 + 2000
+	if estimated < 3000 {
+		estimated = 3000
 	}
-	if estimated > 12000 {
-		estimated = 12000
+	if estimated > 32000 {
+		estimated = 32000
 	}
 	return estimated
 }

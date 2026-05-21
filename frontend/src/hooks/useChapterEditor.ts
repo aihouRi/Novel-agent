@@ -528,6 +528,14 @@ export function useChapterEditor({
         setRecentCharacterIDs(merged)
         localStorage.setItem(recentCharacterKey, JSON.stringify(merged))
       }
+      const generatedBodyWordCount = data.body.replace(/\s/g, '').length
+      if (targetWordMin > 0 && generatedBodyWordCount < Math.floor(targetWordMin * 0.85)) {
+        const msg = `生成结果疑似不完整（正文约 ${generatedBodyWordCount} 字，低于目标下限）。请重试，或适当放宽目标字数。`
+        onNotifyError(msg)
+        setLocalError(msg)
+        setCanRetryGenerate(true)
+        return
+      }
       setChapterOutline(data.outline)
       setChapterBody(ensureIndentedBody(data.body))
       setChapterSummary(data.summary)
