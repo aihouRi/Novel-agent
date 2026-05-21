@@ -9,6 +9,17 @@ import { useNovelsChapters } from './useNovelsChapters'
 
 const DEFAULT_LANGUAGE = 'zh-CN'
 const DEFAULT_RECENT_COUNT = 3
+const DEFAULT_OPENAI_BASE_URL = 'https://api.openai.com/v1'
+const DEFAULT_OPENAI_MODEL = 'gpt-4o-mini'
+const AI_MODEL_OPTIONS = [
+  'gpt-4o-mini',
+  'gpt-5.5',
+  'gpt-5.4',
+  'gpt-5.3',
+  'gpt-5.1',
+  'gpt-5',
+  'gpt-5-mini',
+]
 
 export function useNovelsPage(token: string, onLogout: () => void) {
   const [novels, setNovels] = useState<Novel[]>([])
@@ -55,8 +66,8 @@ export function useNovelsPage(token: string, onLogout: () => void) {
   const [aiAPIKeyInput, setAIAPIKeyInput] = useState('')
   const [aiAPIKeyMasked, setAIAPIKeyMasked] = useState('')
   const [aiHasAPIKey, setAIHasAPIKey] = useState(false)
-  const [aiBaseURL, setAIBaseURL] = useState('https://api.openai.com/v1')
-  const [aiModel, setAIModel] = useState('gpt-4o-mini')
+  const [aiBaseURL, setAIBaseURL] = useState(DEFAULT_OPENAI_BASE_URL)
+  const [aiModel, setAIModel] = useState(DEFAULT_OPENAI_MODEL)
 
   const selectedNovel = useMemo(() => novels.find((n) => n.id === selectedNovelId) ?? null, [novels, selectedNovelId])
 
@@ -340,8 +351,8 @@ export function useNovelsPage(token: string, onLogout: () => void) {
       const data = await getMyAISettings(token)
       setAIHasAPIKey(data.setting.has_openai_api_key)
       setAIAPIKeyMasked(data.setting.openai_api_key_masked)
-      setAIBaseURL(data.setting.openai_base_url || 'https://api.openai.com/v1')
-      setAIModel(data.setting.openai_model || 'gpt-4o-mini')
+      setAIBaseURL(data.setting.openai_base_url || DEFAULT_OPENAI_BASE_URL)
+      setAIModel(data.setting.openai_model || DEFAULT_OPENAI_MODEL)
       setAIAPIKeyInput('')
     } catch (e) {
       notifyError(e instanceof Error ? e.message : '加载 AI 设置失败')
@@ -351,12 +362,34 @@ export function useNovelsPage(token: string, onLogout: () => void) {
   }
 
   async function saveAISettings() {
+    const nextBaseURL = aiBaseURL.trim()
+    const nextModel = aiModel.trim()
+    const nextAPIKey = aiAPIKeyInput.trim()
+    if (!aiHasAPIKey && !nextAPIKey) {
+      notifyError('请先填写 OpenAI API Key。')
+      return
+    }
+    if (!nextModel) {
+      notifyError('请选择模型。')
+      return
+    }
+    try {
+      const parsed = new URL(nextBaseURL)
+      if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+        notifyError('Base URL 必须是 http 或 https 地址。')
+        return
+      }
+    } catch {
+      notifyError('Base URL 格式不正确，请输入完整地址。')
+      return
+    }
+
     setAISettingLoading(true)
     try {
       const data = await updateMyAISettings(token, {
-        openai_api_key: aiAPIKeyInput.trim(),
-        openai_base_url: aiBaseURL.trim(),
-        openai_model: aiModel.trim(),
+        openai_api_key: nextAPIKey,
+        openai_base_url: nextBaseURL,
+        openai_model: nextModel,
       })
       setAIHasAPIKey(data.setting.has_openai_api_key)
       setAIAPIKeyMasked(data.setting.openai_api_key_masked)
@@ -369,6 +402,11 @@ export function useNovelsPage(token: string, onLogout: () => void) {
     } finally {
       setAISettingLoading(false)
     }
+  }
+
+  function resetAISettingsDefaults() {
+    setAIBaseURL(DEFAULT_OPENAI_BASE_URL)
+    setAIModel(DEFAULT_OPENAI_MODEL)
   }
 
   return {
@@ -413,6 +451,7 @@ export function useNovelsPage(token: string, onLogout: () => void) {
     aiHasAPIKey,
     aiBaseURL,
     aiModel,
+    aiModelOptions: AI_MODEL_OPTIONS,
     formatNovelMeta,
     setSelectedNovelId,
     setMainTab,
@@ -442,6 +481,7 @@ export function useNovelsPage(token: string, onLogout: () => void) {
     setAIAPIKeyInput,
     setAIBaseURL,
     setAIModel,
+    resetAISettingsDefaults,
     notifySuccess,
     notifyError,
     refreshCharacters,

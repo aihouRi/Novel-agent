@@ -12,6 +12,18 @@ import { getMyAISettings, updateMyAISettings } from '../api/aiSettings'
 import EditorActionButtons from '../components/chapter-editor/EditorActionButtons'
 import { useChapterEditor } from '../hooks/useChapterEditor'
 
+const DEFAULT_OPENAI_BASE_URL = 'https://api.openai.com/v1'
+const DEFAULT_OPENAI_MODEL = 'gpt-4o-mini'
+const AI_MODEL_OPTIONS = [
+  'gpt-4o-mini',
+  'gpt-5.5',
+  'gpt-5.4',
+  'gpt-5.3',
+  'gpt-5.1',
+  'gpt-5',
+  'gpt-5-mini',
+]
+
 type Props = {
   token: string
   novelId: number
@@ -68,13 +80,14 @@ export default function ChapterEditorPage({
     onBack,
   })
   const [pendingHistoryIndex, setPendingHistoryIndex] = useState<number | null>(null)
+  const [confirmGenerateOpen, setConfirmGenerateOpen] = useState(false)
   const [showAISettingsDialog, setShowAISettingsDialog] = useState(false)
   const [aiSettingLoading, setAISettingLoading] = useState(false)
   const [aiAPIKeyInput, setAIAPIKeyInput] = useState('')
   const [aiAPIKeyMasked, setAIAPIKeyMasked] = useState('')
   const [aiHasAPIKey, setAIHasAPIKey] = useState(false)
-  const [aiBaseURL, setAIBaseURL] = useState('https://api.openai.com/v1')
-  const [aiModel, setAIModel] = useState('gpt-4o-mini')
+  const [aiBaseURL, setAIBaseURL] = useState(DEFAULT_OPENAI_BASE_URL)
+  const [aiModel, setAIModel] = useState(DEFAULT_OPENAI_MODEL)
   const pendingHistoryItem = useMemo(
     () => (pendingHistoryIndex === null ? null : editor.generateHistory[pendingHistoryIndex] ?? null),
     [editor.generateHistory, pendingHistoryIndex],
@@ -86,8 +99,8 @@ export default function ChapterEditorPage({
       const data = await getMyAISettings(token)
       setAIHasAPIKey(data.setting.has_openai_api_key)
       setAIAPIKeyMasked(data.setting.openai_api_key_masked)
-      setAIBaseURL(data.setting.openai_base_url || 'https://api.openai.com/v1')
-      setAIModel(data.setting.openai_model || 'gpt-4o-mini')
+      setAIBaseURL(data.setting.openai_base_url || DEFAULT_OPENAI_BASE_URL)
+      setAIModel(data.setting.openai_model || DEFAULT_OPENAI_MODEL)
       setAIAPIKeyInput('')
     } catch (e) {
       const msg = e instanceof Error ? e.message : '加载 AI 设置失败'
@@ -99,12 +112,42 @@ export default function ChapterEditorPage({
   }
 
   async function saveAISettings() {
+    const nextBaseURL = aiBaseURL.trim()
+    const nextModel = aiModel.trim()
+    const nextAPIKey = aiAPIKeyInput.trim()
+    if (!aiHasAPIKey && !nextAPIKey) {
+      const msg = '请先填写 OpenAI API Key。'
+      onNotifyError(msg)
+      editor.setLocalError(msg)
+      return
+    }
+    if (!nextModel) {
+      const msg = '请选择模型。'
+      onNotifyError(msg)
+      editor.setLocalError(msg)
+      return
+    }
+    try {
+      const parsed = new URL(nextBaseURL)
+      if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+        const msg = 'Base URL 必须是 http 或 https 地址。'
+        onNotifyError(msg)
+        editor.setLocalError(msg)
+        return
+      }
+    } catch {
+      const msg = 'Base URL 格式不正确，请输入完整地址。'
+      onNotifyError(msg)
+      editor.setLocalError(msg)
+      return
+    }
+
     setAISettingLoading(true)
     try {
       const data = await updateMyAISettings(token, {
-        openai_api_key: aiAPIKeyInput.trim(),
-        openai_base_url: aiBaseURL.trim(),
-        openai_model: aiModel.trim(),
+        openai_api_key: nextAPIKey,
+        openai_base_url: nextBaseURL,
+        openai_model: nextModel,
       })
       setAIHasAPIKey(data.setting.has_openai_api_key)
       setAIAPIKeyMasked(data.setting.openai_api_key_masked)
@@ -120,6 +163,20 @@ export default function ChapterEditorPage({
     } finally {
       setAISettingLoading(false)
     }
+  }
+
+  function openGenerateConfirm() {
+    setConfirmGenerateOpen(true)
+  }
+
+  async function confirmGenerate() {
+    setConfirmGenerateOpen(false)
+    await editor.handleGenerate()
+  }
+
+  function resetAISettingsDefaults() {
+    setAIBaseURL(DEFAULT_OPENAI_BASE_URL)
+    setAIModel(DEFAULT_OPENAI_MODEL)
   }
 
   return (
@@ -180,7 +237,7 @@ export default function ChapterEditorPage({
                 setShowAISettingsDialog(true)
                 void loadAISettings()
               }}
-              onGenerate={() => void editor.handleGenerate()}
+              onGenerate={openGenerateConfirm}
               onSave={() => void editor.handleSave()}
               generating={editor.generating}
               saving={editor.saving}
@@ -198,7 +255,7 @@ export default function ChapterEditorPage({
               icon={<CircularProgress size={18} />}
               sx={{ mb: 1.5, borderRadius: 2 }}
             >
-              正在生成章节内容，请稍候...
+              正在生成章节内容，请稍候... 已思考 {editor.generatingSeconds} 秒
             </Alert>
           )}
 
@@ -579,7 +636,7 @@ export default function ChapterEditorPage({
               setShowAISettingsDialog(true)
               void loadAISettings()
             }}
-            onGenerate={() => void editor.handleGenerate()}
+            onGenerate={openGenerateConfirm}
             onSave={() => void editor.handleSave()}
             generating={editor.generating}
             saving={editor.saving}
@@ -639,18 +696,60 @@ export default function ChapterEditorPage({
                 onChange={(e) => setAIBaseURL(e.target.value)}
                 fullWidth
               />
-              <TextField
-                label="OpenAI Model"
-                value={aiModel}
-                onChange={(e) => setAIModel(e.target.value)}
-                fullWidth
-              />
+              <FormControl fullWidth>
+                <InputLabel id="chapter-ai-model-select-label">OpenAI Model</InputLabel>
+                <Select
+                  labelId="chapter-ai-model-select-label"
+                  label="OpenAI Model"
+                  value={aiModel}
+                  onChange={(e) => setAIModel(String(e.target.value))}
+                >
+                  {AI_MODEL_OPTIONS.map((model) => (
+                    <MenuItem key={model} value={model}>{model}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
             </Stack>
           </DialogContent>
           <DialogActions>
+            <Button onClick={resetAISettingsDefaults}>恢复默认</Button>
             <Button onClick={() => setShowAISettingsDialog(false)}>取消</Button>
             <Button variant="contained" onClick={() => void saveAISettings()} disabled={aiSettingLoading}>
               保存
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        <Dialog open={confirmGenerateOpen} onClose={() => setConfirmGenerateOpen(false)} fullWidth maxWidth="sm">
+          <DialogTitle>确认 AI 生成</DialogTitle>
+          <DialogContent>
+            <Stack spacing={1} sx={{ mt: 0.5 }}>
+              <Typography variant="body2" color="text.secondary">
+                将基于当前参数生成并回填「正文 / 大纲 / 总结」，会覆盖当前这三项内容。
+              </Typography>
+              <Typography variant="body2">分卷：{volumes.find((v) => v.id === editor.volumeID)?.title ?? '未选择'}</Typography>
+              <Typography variant="body2">章节：第 {editor.chapterNumber} 章 {editor.chapterTitle ? `《${editor.chapterTitle}》` : ''}</Typography>
+              <Typography variant="body2">目标字数：{editor.targetWordMin} - {editor.targetWordMax}</Typography>
+              <Typography variant="body2">
+                指令预览：{editor.chapterInstruction.trim() ? editor.chapterInstruction.trim().slice(0, 80) : '（空）'}
+              </Typography>
+            </Stack>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setConfirmGenerateOpen(false)}>取消</Button>
+            <Button
+              variant="contained"
+              onClick={() => void confirmGenerate()}
+              disabled={
+                editor.generating ||
+                editor.saving ||
+                !editor.chapterInstruction.trim() ||
+                editor.volumeID <= 0 ||
+                editor.chapterNumber <= 0 ||
+                (editor.targetWordMin > 0 && editor.targetWordMax > 0 && editor.targetWordMin > editor.targetWordMax)
+              }
+            >
+              确认生成
             </Button>
           </DialogActions>
         </Dialog>

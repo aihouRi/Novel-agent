@@ -11,6 +11,10 @@ import {
   DialogContent,
   DialogContentText,
   DialogTitle,
+  FormControl,
+  InputLabel,
+  MenuItem,
+  Select,
   Snackbar,
   Stack,
   Tab,
@@ -307,15 +311,23 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
                 onChange={(e) => state.setAIBaseURL(e.target.value)}
                 fullWidth
               />
-              <TextField
-                label="OpenAI Model"
-                value={state.aiModel}
-                onChange={(e) => state.setAIModel(e.target.value)}
-                fullWidth
-              />
+              <FormControl fullWidth>
+                <InputLabel id="ai-model-select-label">OpenAI Model</InputLabel>
+                <Select
+                  labelId="ai-model-select-label"
+                  label="OpenAI Model"
+                  value={state.aiModel}
+                  onChange={(e) => state.setAIModel(String(e.target.value))}
+                >
+                  {state.aiModelOptions.map((model) => (
+                    <MenuItem key={model} value={model}>{model}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
             </Stack>
           </DialogContent>
           <DialogActions>
+            <Button onClick={state.resetAISettingsDefaults}>恢复默认</Button>
             <Button onClick={() => state.setShowAISettingsDialog(false)}>取消</Button>
             <Button variant="contained" onClick={() => void state.saveAISettings()} disabled={state.aiSettingLoading}>
               保存

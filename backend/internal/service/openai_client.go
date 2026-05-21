@@ -48,12 +48,14 @@ type OpenAIClient struct {
 	httpClient *http.Client
 }
 
+const openAIRequestTimeout = 120 * time.Second
+
 func NewOpenAIClient(apiKey, baseURL, model string) *OpenAIClient {
 	return &OpenAIClient{
 		apiKey:     strings.TrimSpace(apiKey),
 		baseURL:    strings.TrimRight(strings.TrimSpace(baseURL), "/"),
 		model:      strings.TrimSpace(model),
-		httpClient: &http.Client{Timeout: 60 * time.Second},
+		httpClient: &http.Client{Timeout: openAIRequestTimeout},
 	}
 }
 

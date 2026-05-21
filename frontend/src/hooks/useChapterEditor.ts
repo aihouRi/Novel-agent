@@ -139,6 +139,7 @@ export function useChapterEditor({
   const [selectedLoreEntryIDs, setSelectedLoreEntryIDs] = useState<number[]>([])
   const [saving, setSaving] = useState(false)
   const [generating, setGenerating] = useState(false)
+  const [generatingSeconds, setGeneratingSeconds] = useState(0)
   const [sidePanel, setSidePanel] = useState<SidePanel>(null)
   const [localSuccess, setLocalSuccess] = useState('')
   const [localError, setLocalError] = useState('')
@@ -269,6 +270,19 @@ export function useChapterEditor({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draftKey, isEdit, latestVolumeID, recentChapterCountDefault, validCharacterIDSet, validLoreEntryIDSet])
+
+  useEffect(() => {
+    if (!generating) {
+      setGeneratingSeconds(0)
+      return
+    }
+    const startedAt = Date.now()
+    setGeneratingSeconds(0)
+    const id = window.setInterval(() => {
+      setGeneratingSeconds(Math.floor((Date.now() - startedAt) / 1000))
+    }, 1000)
+    return () => window.clearInterval(id)
+  }, [generating])
 
   useEffect(() => {
     const id = window.setTimeout(() => {
@@ -583,6 +597,7 @@ export function useChapterEditor({
     selectedLoreEntryIDs,
     saving,
     generating,
+    generatingSeconds,
     sidePanel,
     localSuccess,
     localError,
