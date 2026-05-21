@@ -1,7 +1,9 @@
 package handler
 
 import (
+	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"time"
@@ -43,19 +45,81 @@ type chapterGenerateRequest struct {
 }
 
 func (h *ChapterGenerateHandler) Generate(c echo.Context) error {
+	out, code, err := h.runGenerate(c)
+	if err != nil {
+		return h.writeHTTPError(c, err)
+	}
+	return c.JSON(http.StatusOK, h.toGenerateResponse(out, code))
+}
+
+func (h *ChapterGenerateHandler) GenerateStream(c echo.Context) error {
+	resp := c.Response()
+	reqCtx := c.Request().Context()
+	resp.Header().Set(echo.HeaderContentType, "text/event-stream")
+	resp.Header().Set("Cache-Control", "no-cache")
+	resp.Header().Set("Connection", "keep-alive")
+	resp.WriteHeader(http.StatusOK)
+	resp.Flush()
+
+	type result struct {
+		out  *service.ChapterGenerateResult
+		code int
+		err  error
+	}
+	done := make(chan result, 1)
+	startedAt := time.Now()
+	go func() {
+		out, code, err := h.runGenerate(c)
+		done <- result{out: out, code: code, err: err}
+	}()
+
+	ticker := time.NewTicker(1 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-reqCtx.Done():
+			return nil
+		case <-ticker.C:
+			elapsed := int(time.Since(startedAt).Seconds())
+			if err := writeSSE(resp, "progress", map[string]int{"elapsed_seconds": elapsed}); err != nil {
+				return nil
+			}
+		case r := <-done:
+			if r.err != nil {
+				apiErr := map[string]string{
+					"code":  "AI_REQUEST_FAILED",
+					"error": "ai service request failed",
+				}
+				if ce, ok := r.err.(*echo.HTTPError); ok {
+					if m, ok2 := ce.Message.(chapterGenerateErrorResponse); ok2 {
+						apiErr["code"] = m.Code
+						apiErr["error"] = m.Error
+					}
+				}
+				_ = writeSSE(resp, "error", apiErr)
+				return nil
+			}
+			_ = writeSSE(resp, "done", h.toGenerateResponse(r.out, r.code))
+			return nil
+		}
+	}
+}
+
+func (h *ChapterGenerateHandler) runGenerate(c echo.Context) (*service.ChapterGenerateResult, int, error) {
 	startAt := time.Now()
 	userID, ok := c.Get(middleware.UserIDContextKey).(int64)
 	if !ok {
-		return h.writeErr(c, http.StatusUnauthorized, "AUTH_UNAUTHORIZED", "unauthorized")
+		return nil, 0, h.httpErr(http.StatusUnauthorized, "AUTH_UNAUTHORIZED", "unauthorized")
 	}
 	novelID, err := parseInt64Param(c, "novelId")
 	if err != nil {
-		return h.writeErr(c, http.StatusBadRequest, "NOVEL_ID_INVALID", "invalid novel id")
+		return nil, 0, h.httpErr(http.StatusBadRequest, "NOVEL_ID_INVALID", "invalid novel id")
 	}
 
 	var req chapterGenerateRequest
 	if err := c.Bind(&req); err != nil {
-		return h.writeErr(c, http.StatusBadRequest, "REQUEST_BODY_INVALID", "invalid request body")
+		return nil, 0, h.httpErr(http.StatusBadRequest, "REQUEST_BODY_INVALID", "invalid request body")
 	}
 
 	out, err := h.generate.Generate(c.Request().Context(), userID, novelID, usecase.ChapterGenerateInput{
@@ -77,13 +141,13 @@ func (h *ChapterGenerateHandler) Generate(c echo.Context) error {
 		log.Printf("chapter.generate failed user_id=%d novel_id=%d latency_ms=%d err=%v", userID, novelID, time.Since(startAt).Milliseconds(), err)
 		switch {
 		case errors.Is(err, usecase.ErrNovelNotFound):
-			return h.writeErr(c, http.StatusNotFound, "NOVEL_NOT_FOUND", "novel not found")
+			return nil, 0, h.httpErr(http.StatusNotFound, "NOVEL_NOT_FOUND", "novel not found")
 		case errors.Is(err, usecase.ErrChapterGenerateInvalidOutput):
-			return h.writeErr(c, http.StatusBadGateway, "AI_OUTPUT_INVALID", "ai output parse failed, please retry")
+			return nil, 0, h.httpErr(http.StatusBadGateway, "AI_OUTPUT_INVALID", "ai output parse failed, please retry")
 		case errors.Is(err, service.ErrOpenAIRequestFailed):
-			return h.writeErr(c, http.StatusBadGateway, "AI_REQUEST_FAILED", "ai service request failed")
+			return nil, 0, h.httpErr(http.StatusBadGateway, "AI_REQUEST_FAILED", "ai service request failed")
 		default:
-			return h.writeErr(c, http.StatusBadRequest, "CHAPTER_GENERATE_BAD_REQUEST", err.Error())
+			return nil, 0, h.httpErr(http.StatusBadRequest, "CHAPTER_GENERATE_BAD_REQUEST", err.Error())
 		}
 	}
 	log.Printf(
@@ -97,7 +161,11 @@ func (h *ChapterGenerateHandler) Generate(c echo.Context) error {
 		out.Usage.TotalTokens,
 	)
 
-	return c.JSON(http.StatusOK, map[string]interface{}{
+	return out, http.StatusOK, nil
+}
+
+func (h *ChapterGenerateHandler) toGenerateResponse(out *service.ChapterGenerateResult, _ int) map[string]interface{} {
+	return map[string]interface{}{
 		"outline": out.Outline,
 		"body":    out.Body,
 		"summary": out.Summary,
@@ -107,7 +175,7 @@ func (h *ChapterGenerateHandler) Generate(c echo.Context) error {
 			"completion_tokens": out.Usage.CompletionTokens,
 			"total_tokens":      out.Usage.TotalTokens,
 		},
-	})
+	}
 }
 
 func (h *ChapterGenerateHandler) writeErr(c echo.Context, status int, code, message string) error {
@@ -115,4 +183,38 @@ func (h *ChapterGenerateHandler) writeErr(c echo.Context, status int, code, mess
 		Code:  code,
 		Error: message,
 	})
+}
+
+func (h *ChapterGenerateHandler) httpErr(status int, code, message string) error {
+	return echo.NewHTTPError(status, chapterGenerateErrorResponse{
+		Code:  code,
+		Error: message,
+	})
+}
+
+func (h *ChapterGenerateHandler) writeHTTPError(c echo.Context, err error) error {
+	he, ok := err.(*echo.HTTPError)
+	if !ok {
+		return h.writeErr(c, http.StatusBadRequest, "CHAPTER_GENERATE_BAD_REQUEST", err.Error())
+	}
+	msg, ok := he.Message.(chapterGenerateErrorResponse)
+	if !ok {
+		return h.writeErr(c, he.Code, "CHAPTER_GENERATE_BAD_REQUEST", fmt.Sprint(he.Message))
+	}
+	return h.writeErr(c, he.Code, msg.Code, msg.Error)
+}
+
+func writeSSE(resp *echo.Response, event string, payload interface{}) error {
+	raw, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(resp, "event: %s\n", event); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(resp, "data: %s\n\n", raw); err != nil {
+		return err
+	}
+	resp.Flush()
+	return nil
 }

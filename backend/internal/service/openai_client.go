@@ -23,9 +23,10 @@ type OpenAIUsage struct {
 }
 
 type OpenAIConfig struct {
-	APIKey  string
-	BaseURL string
-	Model   string
+	APIKey              string
+	BaseURL             string
+	Model               string
+	MaxCompletionTokens int
 }
 
 type ChapterGenerateResult struct {
@@ -93,6 +94,9 @@ func (c *OpenAIClient) GenerateChapterWithConfig(ctx context.Context, prompt str
 		"response_format": map[string]string{
 			"type": "json_object",
 		},
+	}
+	if cfg.MaxCompletionTokens > 0 {
+		reqBody["max_completion_tokens"] = cfg.MaxCompletionTokens
 	}
 
 	body, err := json.Marshal(reqBody)

@@ -120,10 +120,13 @@ func (u *ChapterGenerateUsecase) Generate(ctx context.Context, userID, novelID i
 			return nil, err
 		}
 		effectiveCfg = service.OpenAIConfig{
-			APIKey:  firstNonEmpty(resolved.APIKey, u.fallbackCfg.APIKey),
-			BaseURL: firstNonEmpty(resolved.BaseURL, u.fallbackCfg.BaseURL),
-			Model:   firstNonEmpty(resolved.Model, u.fallbackCfg.Model),
+			APIKey:              firstNonEmpty(resolved.APIKey, u.fallbackCfg.APIKey),
+			BaseURL:             firstNonEmpty(resolved.BaseURL, u.fallbackCfg.BaseURL),
+			Model:               firstNonEmpty(resolved.Model, u.fallbackCfg.Model),
+			MaxCompletionTokens: estimateMaxCompletionTokens(in.TargetWordMax),
 		}
+	} else {
+		effectiveCfg.MaxCompletionTokens = estimateMaxCompletionTokens(in.TargetWordMax)
 	}
 	out, err := u.generator.GenerateChapterWithConfig(ctx, prompt, effectiveCfg)
 	if err != nil {
@@ -227,6 +230,7 @@ func buildChapterGeneratePrompt(
 			max = min
 		}
 		b.WriteString(fmt.Sprintf("目标正文长度：%d-%d 字（不含空白字符）\n", min, max))
+		b.WriteString("硬性长度要求：正文必须落在目标范围内；如超出上限必须自行压缩后输出。\n")
 	}
 	b.WriteString("风格硬性约束：\n")
 	if in.AvoidTranslationTone {
@@ -252,6 +256,21 @@ func buildChapterGeneratePrompt(
 	b.WriteString("2) body 必须是完整可读正文，不要返回段落数组。\n")
 	b.WriteString("3) outline 与 summary 必须为字符串，不要返回对象。\n")
 	return b.String()
+}
+
+func estimateMaxCompletionTokens(targetWordMax int) int {
+	if targetWordMax <= 0 {
+		return 0
+	}
+	// Chinese generation usually lands around 1.5-2 tokens per character.
+	estimated := targetWordMax*2 + 256
+	if estimated < 512 {
+		estimated = 512
+	}
+	if estimated > 12000 {
+		estimated = 12000
+	}
+	return estimated
 }
 
 func pickRecentSummaries(chapters []domain.Chapter, count int) []string {

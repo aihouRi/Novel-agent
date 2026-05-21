@@ -152,6 +152,7 @@ func newServer(db *sql.DB, cfg config.AppConfig) *echo.Echo {
 	)
 	chapterGenerateHandler := handler.NewChapterGenerateHandler(chapterGenerateUC)
 	novelChapters.POST("/generate", chapterGenerateHandler.Generate)
+	novelChapters.POST("/generate/stream", chapterGenerateHandler.GenerateStream)
 
 	return e
 }

@@ -1,5 +1,5 @@
 import { ClipboardEvent, KeyboardEvent, useEffect, useMemo, useState } from 'react'
-import { createChapter, generateChapter, type Chapter, updateChapter } from '../api/chapters'
+import { createChapter, generateChapterStream, type Chapter, updateChapter } from '../api/chapters'
 import { APIError } from '../api/http'
 import type { Character } from '../api/characters'
 import type { LoreEntry } from '../api/loreEntries'
@@ -499,7 +499,10 @@ export function useChapterEditor({
     try {
       const safeCharacterIDs = selectedCharacterIDs.filter((id) => validCharacterIDSet.has(id))
       const safeLoreEntryIDs = selectedLoreEntryIDs.filter((id) => validLoreEntryIDSet.has(id))
-      const data = await generateChapter(token, novelId, {
+      const data = await generateChapterStream(
+        token,
+        novelId,
+        {
         volume_id: volumeID,
         chapter_number: chapterNumber,
         title: chapterTitle.trim(),
@@ -513,7 +516,13 @@ export function useChapterEditor({
         keep_pov_consistent: keepPovConsistent,
         keep_tense_consistent: keepTenseConsistent,
         recent_chapter_count: recentChapterCount,
-      })
+        },
+        (event) => {
+          if (event.type === 'progress' && Number.isFinite(event.elapsed_seconds)) {
+            setGeneratingSeconds((prev) => Math.max(prev, event.elapsed_seconds))
+          }
+        },
+      )
       if (safeCharacterIDs.length > 0) {
         const merged = Array.from(new Set([...safeCharacterIDs, ...recentCharacterIDs])).slice(0, 30)
         setRecentCharacterIDs(merged)
