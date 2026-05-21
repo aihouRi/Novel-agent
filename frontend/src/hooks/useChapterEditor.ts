@@ -27,6 +27,12 @@ type GenerateTemplate = {
   keepTenseConsistent: boolean
   instructionSeed: string
 }
+type GenerateFeedbackRating = 'satisfied' | 'neutral' | 'unsatisfied' | ''
+type GenerateFeedback = {
+  rating: GenerateFeedbackRating
+  note: string
+  updatedAt: string
+}
 
 type Params = {
   token: string
@@ -48,6 +54,18 @@ type CharacterOption = Character & { group: string }
 const INDENT = '　　'
 const TEMPLATE_KEY_PREFIX = 'novel_agent_generate_template'
 const GENERATE_TEMPLATES: GenerateTemplate[] = [
+  {
+    id: 'stable-default',
+    label: '稳定输出（推荐）',
+    targetWordMin: 2000,
+    targetWordMax: 2300,
+    recentChapterCount: 2,
+    avoidTranslationTone: true,
+    avoidModernSlang: true,
+    keepPovConsistent: true,
+    keepTenseConsistent: true,
+    instructionSeed: '目标：严格按设定推进剧情，保证人物动机清晰，段落节奏稳定，结尾留轻钩子。',
+  },
   {
     id: 'xianxia-main',
     label: '修仙主线推进',
@@ -147,6 +165,8 @@ export function useChapterEditor({
   const [recentCharacterIDs, setRecentCharacterIDs] = useState<number[]>([])
   const [generateHistory, setGenerateHistory] = useState<GenerateHistoryItem[]>([])
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('')
+  const [generateFeedbackRating, setGenerateFeedbackRating] = useState<GenerateFeedbackRating>('')
+  const [generateFeedbackNote, setGenerateFeedbackNote] = useState('')
 
   const chapterWordCount = useMemo(() => chapterBody.replace(/\s/g, '').length, [chapterBody])
   const isEdit = Boolean(initialChapter)
@@ -156,6 +176,10 @@ export function useChapterEditor({
   const generateHistoryKey = useMemo(() => {
     const chapterKey = initialChapter?.id ?? `new_${chapterNumber}`
     return `novel_agent_generate_history_${novelId}_${chapterKey}`
+  }, [novelId, initialChapter?.id, chapterNumber])
+  const generateFeedbackKey = useMemo(() => {
+    const chapterKey = initialChapter?.id ?? `new_${chapterNumber}`
+    return `novel_agent_generate_feedback_${novelId}_${chapterKey}`
   }, [novelId, initialChapter?.id, chapterNumber])
   const groupedCharacterOptions = useMemo<CharacterOption[]>(
     () =>
@@ -225,6 +249,24 @@ export function useChapterEditor({
       setGenerateHistory([])
     }
   }, [generateHistoryKey])
+
+  useEffect(() => {
+    const raw = localStorage.getItem(generateFeedbackKey)
+    if (!raw) {
+      setGenerateFeedbackRating('')
+      setGenerateFeedbackNote('')
+      return
+    }
+    try {
+      const parsed = JSON.parse(raw) as GenerateFeedback
+      setGenerateFeedbackRating(parsed.rating || '')
+      setGenerateFeedbackNote(parsed.note || '')
+    } catch {
+      localStorage.removeItem(generateFeedbackKey)
+      setGenerateFeedbackRating('')
+      setGenerateFeedbackNote('')
+    }
+  }, [generateFeedbackKey])
 
   useEffect(() => {
     const saved = localStorage.getItem(draftKey)
@@ -499,6 +541,10 @@ export function useChapterEditor({
     try {
       const safeCharacterIDs = selectedCharacterIDs.filter((id) => validCharacterIDSet.has(id))
       const safeLoreEntryIDs = selectedLoreEntryIDs.filter((id) => validLoreEntryIDSet.has(id))
+      const feedbackHint = buildFeedbackHint(generateFeedbackRating, generateFeedbackNote)
+      const generationInstruction = feedbackHint
+        ? `${chapterInstruction.trim()}\n\n【上一轮反馈（请严格修正）】\n${feedbackHint}`
+        : chapterInstruction.trim()
       const data = await generateChapterStream(
         token,
         novelId,
@@ -506,7 +552,7 @@ export function useChapterEditor({
         volume_id: volumeID,
         chapter_number: chapterNumber,
         title: chapterTitle.trim(),
-        generation_instruction: chapterInstruction.trim(),
+        generation_instruction: generationInstruction,
         character_ids: safeCharacterIDs,
         lore_entry_ids: safeLoreEntryIDs,
         target_word_min: targetWordMin,
@@ -569,6 +615,20 @@ export function useChapterEditor({
     }
   }
 
+  function saveGenerateFeedback() {
+    if (!generateFeedbackRating && !generateFeedbackNote.trim()) {
+      onNotifyError('请至少填写评分或备注后再保存反馈。')
+      return
+    }
+    const payload: GenerateFeedback = {
+      rating: generateFeedbackRating,
+      note: generateFeedbackNote.trim(),
+      updatedAt: new Date().toISOString(),
+    }
+    localStorage.setItem(generateFeedbackKey, JSON.stringify(payload))
+    onNotifySuccess('本章生成反馈已保存。下次生成会自动参考。')
+  }
+
   function applyGenerateHistory(index: number) {
     const item = generateHistory[index]
     if (!item) return
@@ -622,6 +682,8 @@ export function useChapterEditor({
     generateHistory,
     generateTemplates: GENERATE_TEMPLATES,
     selectedTemplateId,
+    generateFeedbackRating,
+    generateFeedbackNote,
     chapterWordCount,
     isEdit,
     groupedCharacterOptions,
@@ -647,6 +709,8 @@ export function useChapterEditor({
     setLocalSuccess,
     setLocalError,
     setSelectedTemplateId,
+    setGenerateFeedbackRating,
+    setGenerateFeedbackNote,
     handleBodyKeyDown,
     handleBodyPaste,
     handleBodyCopy,
@@ -656,8 +720,22 @@ export function useChapterEditor({
     retryGenerate: handleGenerate,
     applyGenerateHistory,
     applyTemplate,
+    saveGenerateFeedback,
     ensureIndentedBody,
   }
+}
+
+function buildFeedbackHint(rating: GenerateFeedbackRating, note: string): string {
+  const parts: string[] = []
+  if (rating) {
+    if (rating === 'satisfied') parts.push('评分：满意（保持当前风格与节奏）。')
+    if (rating === 'neutral') parts.push('评分：一般（在结构与表达上继续优化）。')
+    if (rating === 'unsatisfied') parts.push('评分：不满意（需明显修正内容质量与稳定性）。')
+  }
+  if (note.trim()) {
+    parts.push(`备注：${note.trim()}`)
+  }
+  return parts.join('\n')
 }
 
 function mapGenerateErrorMessage(error: unknown): string {

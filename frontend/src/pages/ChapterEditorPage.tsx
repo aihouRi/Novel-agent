@@ -494,6 +494,41 @@ export default function ChapterEditorPage({
                               sx={{ flex: 1 }}
                             />
                           </Stack>
+                          <Card variant="outlined" sx={{ borderRadius: 2, bgcolor: '#f8fafc' }}>
+                            <CardContent sx={{ py: 1.5 }}>
+                              <Stack spacing={1.2}>
+                                <Typography variant="subtitle2">生成反馈（用于下一次自动优化）</Typography>
+                                <FormControl fullWidth size="small">
+                                  <InputLabel id="generate-feedback-rating-label">评分</InputLabel>
+                                  <Select
+                                    labelId="generate-feedback-rating-label"
+                                    label="评分"
+                                    value={editor.generateFeedbackRating}
+                                    onChange={(e) => editor.setGenerateFeedbackRating(String(e.target.value) as '' | 'satisfied' | 'neutral' | 'unsatisfied')}
+                                  >
+                                    <MenuItem value="">未评分</MenuItem>
+                                    <MenuItem value="satisfied">满意</MenuItem>
+                                    <MenuItem value="neutral">一般</MenuItem>
+                                    <MenuItem value="unsatisfied">不满意</MenuItem>
+                                  </Select>
+                                </FormControl>
+                                <TextField
+                                  label="备注（可选）"
+                                  value={editor.generateFeedbackNote}
+                                  onChange={(e) => editor.setGenerateFeedbackNote(e.target.value)}
+                                  multiline
+                                  minRows={2}
+                                  placeholder="例如：减少说教，战斗节奏更快，对话更自然。"
+                                  fullWidth
+                                />
+                                <Stack direction="row" justifyContent="flex-end">
+                                  <Button size="small" variant="outlined" onClick={editor.saveGenerateFeedback}>
+                                    保存反馈
+                                  </Button>
+                                </Stack>
+                              </Stack>
+                            </CardContent>
+                          </Card>
                           <Stack spacing={0}>
                             <FormControlLabel
                               control={<Checkbox checked={editor.avoidTranslationTone} onChange={(e) => editor.setAvoidTranslationTone(e.target.checked)} />}
