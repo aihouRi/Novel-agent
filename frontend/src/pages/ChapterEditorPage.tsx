@@ -308,6 +308,29 @@ export default function ChapterEditorPage({
                           />
                           <TextField label="生成指令" multiline minRows={20} value={editor.chapterInstruction} onChange={(e) => editor.setChapterInstruction(e.target.value)} fullWidth />
                           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.2}>
+                            <FormControl sx={{ minWidth: 200 }}>
+                              <InputLabel id="generate-template-select">生成模板</InputLabel>
+                              <Select
+                                labelId="generate-template-select"
+                                label="生成模板"
+                                value={editor.selectedTemplateId}
+                                onChange={(e) => editor.applyTemplate(String(e.target.value))}
+                              >
+                                <MenuItem value="">不使用模板</MenuItem>
+                                {editor.generateTemplates.map((tpl) => (
+                                  <MenuItem key={tpl.id} value={tpl.id}>{tpl.label}</MenuItem>
+                                ))}
+                              </Select>
+                            </FormControl>
+                            <Button
+                              variant="outlined"
+                              disabled={!editor.selectedTemplateId}
+                              onClick={() => editor.applyTemplate(editor.selectedTemplateId)}
+                            >
+                              重新套用
+                            </Button>
+                          </Stack>
+                          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.2}>
                             <TextField
                               label="最近章节参考数"
                               type="number"

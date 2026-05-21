@@ -236,4 +236,19 @@ describe('useChapterEditor', () => {
     expect(result.current.generateHistory[0].outline).toBe('o4')
     expect(result.current.generateHistory[2].outline).toBe('o2')
   })
+
+  it('应可套用生成模板并写入参数', async () => {
+    const params = createParams()
+    const { result } = renderHook(() => useChapterEditor(params))
+
+    act(() => {
+      result.current.applyTemplate('battle')
+    })
+
+    expect(result.current.targetWordMin).toBe(1800)
+    expect(result.current.targetWordMax).toBe(2600)
+    expect(result.current.recentChapterCount).toBe(3)
+    expect(result.current.selectedTemplateId).toBe('battle')
+    expect(result.current.chapterInstruction.length).toBeGreaterThan(0)
+  })
 })

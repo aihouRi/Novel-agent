@@ -15,6 +15,18 @@ type GenerateHistoryItem = {
   totalTokens?: number
   instructionPreview: string
 }
+type GenerateTemplate = {
+  id: string
+  label: string
+  targetWordMin: number
+  targetWordMax: number
+  recentChapterCount: number
+  avoidTranslationTone: boolean
+  avoidModernSlang: boolean
+  keepPovConsistent: boolean
+  keepTenseConsistent: boolean
+  instructionSeed: string
+}
 
 type Params = {
   token: string
@@ -34,6 +46,57 @@ type Params = {
 type CharacterOption = Character & { group: string }
 
 const INDENT = '　　'
+const TEMPLATE_KEY_PREFIX = 'novel_agent_generate_template'
+const GENERATE_TEMPLATES: GenerateTemplate[] = [
+  {
+    id: 'xianxia-main',
+    label: '修仙主线推进',
+    targetWordMin: 2200,
+    targetWordMax: 3200,
+    recentChapterCount: 4,
+    avoidTranslationTone: true,
+    avoidModernSlang: true,
+    keepPovConsistent: true,
+    keepTenseConsistent: true,
+    instructionSeed: '目标：推进主线冲突并回收一个旧伏笔；结尾保留下一章钩子。',
+  },
+  {
+    id: 'battle',
+    label: '战斗章节',
+    targetWordMin: 1800,
+    targetWordMax: 2600,
+    recentChapterCount: 3,
+    avoidTranslationTone: true,
+    avoidModernSlang: true,
+    keepPovConsistent: true,
+    keepTenseConsistent: true,
+    instructionSeed: '目标：按“试探-爆发-收束”推进战斗，体现战术变化与人物状态变化。',
+  },
+  {
+    id: 'transition',
+    label: '日常过渡',
+    targetWordMin: 1400,
+    targetWordMax: 2200,
+    recentChapterCount: 2,
+    avoidTranslationTone: true,
+    avoidModernSlang: true,
+    keepPovConsistent: true,
+    keepTenseConsistent: true,
+    instructionSeed: '目标：过渡但保持信息增量（关系/资源/线索至少一项变化）。',
+  },
+  {
+    id: 'emotion',
+    label: '情绪与关系',
+    targetWordMin: 1600,
+    targetWordMax: 2400,
+    recentChapterCount: 3,
+    avoidTranslationTone: true,
+    avoidModernSlang: true,
+    keepPovConsistent: true,
+    keepTenseConsistent: true,
+    instructionSeed: '目标：围绕主视角人物推进关系变化，突出行为细节与心理变化对应。',
+  },
+]
 
 export function useChapterEditor({
   token,
@@ -82,11 +145,13 @@ export function useChapterEditor({
   const [canRetryGenerate, setCanRetryGenerate] = useState(false)
   const [recentCharacterIDs, setRecentCharacterIDs] = useState<number[]>([])
   const [generateHistory, setGenerateHistory] = useState<GenerateHistoryItem[]>([])
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>('')
 
   const chapterWordCount = useMemo(() => chapterBody.replace(/\s/g, '').length, [chapterBody])
   const isEdit = Boolean(initialChapter)
   const draftKey = useMemo(() => `novel_agent_chapter_draft_${novelId}_${initialChapter?.id ?? 'new'}`,[novelId, initialChapter?.id])
   const recentCharacterKey = useMemo(() => `novel_agent_recent_characters_${novelId}`, [novelId])
+  const templateKey = useMemo(() => `${TEMPLATE_KEY_PREFIX}_${novelId}`, [novelId])
   const generateHistoryKey = useMemo(() => {
     const chapterKey = initialChapter?.id ?? `new_${chapterNumber}`
     return `novel_agent_generate_history_${novelId}_${chapterKey}`
@@ -137,6 +202,12 @@ export function useChapterEditor({
       localStorage.removeItem(recentCharacterKey)
     }
   }, [recentCharacterKey])
+
+  useEffect(() => {
+    const saved = localStorage.getItem(templateKey)
+    if (!saved) return
+    if (GENERATE_TEMPLATES.some((t) => t.id === saved)) setSelectedTemplateId(saved)
+  }, [templateKey])
 
   useEffect(() => {
     const raw = localStorage.getItem(generateHistoryKey)
@@ -477,6 +548,22 @@ export function useChapterEditor({
     onNotifySuccess('已回填历史生成版本。')
   }
 
+  function applyTemplate(templateId: string) {
+    const template = GENERATE_TEMPLATES.find((t) => t.id === templateId)
+    if (!template) return
+    setSelectedTemplateId(template.id)
+    localStorage.setItem(templateKey, template.id)
+    setTargetWordMin(template.targetWordMin)
+    setTargetWordMax(template.targetWordMax)
+    setRecentChapterCount(template.recentChapterCount)
+    setAvoidTranslationTone(template.avoidTranslationTone)
+    setAvoidModernSlang(template.avoidModernSlang)
+    setKeepPovConsistent(template.keepPovConsistent)
+    setKeepTenseConsistent(template.keepTenseConsistent)
+    if (!chapterInstruction.trim()) setChapterInstruction(template.instructionSeed)
+    onNotifySuccess(`已套用模板：${template.label}`)
+  }
+
   return {
     chapterNumber,
     volumeID,
@@ -501,6 +588,8 @@ export function useChapterEditor({
     localError,
     canRetryGenerate,
     generateHistory,
+    generateTemplates: GENERATE_TEMPLATES,
+    selectedTemplateId,
     chapterWordCount,
     isEdit,
     groupedCharacterOptions,
@@ -525,6 +614,7 @@ export function useChapterEditor({
     setSidePanel,
     setLocalSuccess,
     setLocalError,
+    setSelectedTemplateId,
     handleBodyKeyDown,
     handleBodyPaste,
     handleBodyCopy,
@@ -533,6 +623,7 @@ export function useChapterEditor({
     handleGenerate,
     retryGenerate: handleGenerate,
     applyGenerateHistory,
+    applyTemplate,
     ensureIndentedBody,
   }
 }
