@@ -2,6 +2,7 @@ import { MouseEvent, useEffect, useMemo, useState } from 'react'
 import { createNovel, deleteNovel, listNovels, type Novel, updateNovel } from '../api/novels'
 import { deleteCharacter, listCharacters, type Character } from '../api/characters'
 import { deleteLoreEntry, listLoreEntries, type LoreEntry } from '../api/loreEntries'
+import { getMyAISettings, updateMyAISettings } from '../api/aiSettings'
 import type { Chapter } from '../api/chapters'
 import type { MainTab, MyNovelTab } from '../components/novels/NovelSidebar'
 import { useNovelsChapters } from './useNovelsChapters'
@@ -49,6 +50,13 @@ export function useNovelsPage(token: string, onLogout: () => void) {
   const [successOpen, setSuccessOpen] = useState(false)
   const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null)
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null)
+  const [showAISettingsDialog, setShowAISettingsDialog] = useState(false)
+  const [aiSettingLoading, setAISettingLoading] = useState(false)
+  const [aiAPIKeyInput, setAIAPIKeyInput] = useState('')
+  const [aiAPIKeyMasked, setAIAPIKeyMasked] = useState('')
+  const [aiHasAPIKey, setAIHasAPIKey] = useState(false)
+  const [aiBaseURL, setAIBaseURL] = useState('https://api.openai.com/v1')
+  const [aiModel, setAIModel] = useState('gpt-4o-mini')
 
   const selectedNovel = useMemo(() => novels.find((n) => n.id === selectedNovelId) ?? null, [novels, selectedNovelId])
 
@@ -317,12 +325,50 @@ export function useNovelsPage(token: string, onLogout: () => void) {
 
   function clickSettings() {
     closeMenu()
-    notifySuccess('用户设置将在后续版本开放。')
+    setShowAISettingsDialog(true)
+    void loadAISettings()
   }
 
   function clickLogout() {
     closeMenu()
     onLogout()
+  }
+
+  async function loadAISettings() {
+    setAISettingLoading(true)
+    try {
+      const data = await getMyAISettings(token)
+      setAIHasAPIKey(data.setting.has_openai_api_key)
+      setAIAPIKeyMasked(data.setting.openai_api_key_masked)
+      setAIBaseURL(data.setting.openai_base_url || 'https://api.openai.com/v1')
+      setAIModel(data.setting.openai_model || 'gpt-4o-mini')
+      setAIAPIKeyInput('')
+    } catch (e) {
+      notifyError(e instanceof Error ? e.message : '加载 AI 设置失败')
+    } finally {
+      setAISettingLoading(false)
+    }
+  }
+
+  async function saveAISettings() {
+    setAISettingLoading(true)
+    try {
+      const data = await updateMyAISettings(token, {
+        openai_api_key: aiAPIKeyInput.trim(),
+        openai_base_url: aiBaseURL.trim(),
+        openai_model: aiModel.trim(),
+      })
+      setAIHasAPIKey(data.setting.has_openai_api_key)
+      setAIAPIKeyMasked(data.setting.openai_api_key_masked)
+      setAIAPIKeyInput('')
+      setAIBaseURL(data.setting.openai_base_url)
+      setAIModel(data.setting.openai_model)
+      notifySuccess('AI 设置已保存。')
+    } catch (e) {
+      notifyError(e instanceof Error ? e.message : '保存 AI 设置失败')
+    } finally {
+      setAISettingLoading(false)
+    }
   }
 
   return {
@@ -360,6 +406,13 @@ export function useNovelsPage(token: string, onLogout: () => void) {
     successOpen,
     menuAnchor,
     confirmDeleteId,
+    showAISettingsDialog,
+    aiSettingLoading,
+    aiAPIKeyInput,
+    aiAPIKeyMasked,
+    aiHasAPIKey,
+    aiBaseURL,
+    aiModel,
     formatNovelMeta,
     setSelectedNovelId,
     setMainTab,
@@ -385,6 +438,10 @@ export function useNovelsPage(token: string, onLogout: () => void) {
     setErrorOpen,
     setSuccessOpen,
     setConfirmDeleteId,
+    setShowAISettingsDialog,
+    setAIAPIKeyInput,
+    setAIBaseURL,
+    setAIModel,
     notifySuccess,
     notifyError,
     refreshCharacters,
@@ -399,6 +456,8 @@ export function useNovelsPage(token: string, onLogout: () => void) {
     closeMenu,
     clickSettings,
     clickLogout,
+    loadAISettings,
+    saveAISettings,
     ...chaptersState,
   }
 }

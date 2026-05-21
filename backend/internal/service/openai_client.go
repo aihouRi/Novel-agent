@@ -22,6 +22,12 @@ type OpenAIUsage struct {
 	TotalTokens      int `json:"total_tokens"`
 }
 
+type OpenAIConfig struct {
+	APIKey  string
+	BaseURL string
+	Model   string
+}
+
 type ChapterGenerateResult struct {
 	Outline string `json:"outline"`
 	Body    string `json:"body"`
@@ -32,6 +38,7 @@ type ChapterGenerateResult struct {
 
 type OpenAIChapterGenerator interface {
 	GenerateChapter(ctx context.Context, prompt string) (*ChapterGenerateResult, error)
+	GenerateChapterWithConfig(ctx context.Context, prompt string, cfg OpenAIConfig) (*ChapterGenerateResult, error)
 }
 
 type OpenAIClient struct {
@@ -51,15 +58,26 @@ func NewOpenAIClient(apiKey, baseURL, model string) *OpenAIClient {
 }
 
 func (c *OpenAIClient) GenerateChapter(ctx context.Context, prompt string) (*ChapterGenerateResult, error) {
-	if c.apiKey == "" {
+	return c.GenerateChapterWithConfig(ctx, prompt, OpenAIConfig{
+		APIKey:  c.apiKey,
+		BaseURL: c.baseURL,
+		Model:   c.model,
+	})
+}
+
+func (c *OpenAIClient) GenerateChapterWithConfig(ctx context.Context, prompt string, cfg OpenAIConfig) (*ChapterGenerateResult, error) {
+	apiKey := strings.TrimSpace(cfg.APIKey)
+	baseURL := strings.TrimRight(strings.TrimSpace(cfg.BaseURL), "/")
+	model := strings.TrimSpace(cfg.Model)
+	if apiKey == "" {
 		return nil, errors.New("openai api key is not configured")
 	}
-	if c.baseURL == "" || c.model == "" {
+	if baseURL == "" || model == "" {
 		return nil, errors.New("openai config is incomplete")
 	}
 
 	reqBody := map[string]interface{}{
-		"model": c.model,
+		"model": model,
 		"messages": []map[string]string{
 			{
 				"role":    "system",
@@ -80,11 +98,11 @@ func (c *OpenAIClient) GenerateChapter(ctx context.Context, prompt string) (*Cha
 		return nil, err
 	}
 
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+"/chat/completions", bytes.NewReader(body))
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, baseURL+"/chat/completions", bytes.NewReader(body))
 	if err != nil {
 		return nil, err
 	}
-	httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)
+	httpReq.Header.Set("Authorization", "Bearer "+apiKey)
 	httpReq.Header.Set("Content-Type", "application/json")
 
 	resp, err := c.httpClient.Do(httpReq)
@@ -108,7 +126,11 @@ func (c *OpenAIClient) GenerateChapter(ctx context.Context, prompt string) (*Cha
 	content = normalizeJSONContent(content)
 	out, err := decodeChapterGenerateResult(content)
 	if err != nil {
-		repaired, repairErr := c.repairChapterJSON(ctx, content)
+		repaired, repairErr := c.repairChapterJSON(ctx, content, OpenAIConfig{
+			APIKey:  apiKey,
+			BaseURL: baseURL,
+			Model:   model,
+		})
 		if repairErr != nil {
 			log.Printf("openai parse failed; repair failed; fallback to plain text; content_preview=%q", truncateForLog(content, 600))
 			fallback := fallbackChapterResultFromText(content)
@@ -142,9 +164,12 @@ func (c *OpenAIClient) GenerateChapter(ctx context.Context, prompt string) (*Cha
 	return out, nil
 }
 
-func (c *OpenAIClient) repairChapterJSON(ctx context.Context, rawContent string) (string, error) {
+func (c *OpenAIClient) repairChapterJSON(ctx context.Context, rawContent string, cfg OpenAIConfig) (string, error) {
+	apiKey := strings.TrimSpace(cfg.APIKey)
+	baseURL := strings.TrimRight(strings.TrimSpace(cfg.BaseURL), "/")
+	model := strings.TrimSpace(cfg.Model)
 	reqBody := map[string]interface{}{
-		"model": c.model,
+		"model": model,
 		"messages": []map[string]string{
 			{
 				"role":    "system",
@@ -165,11 +190,11 @@ func (c *OpenAIClient) repairChapterJSON(ctx context.Context, rawContent string)
 	if err != nil {
 		return "", err
 	}
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+"/chat/completions", bytes.NewReader(body))
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, baseURL+"/chat/completions", bytes.NewReader(body))
 	if err != nil {
 		return "", err
 	}
-	httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)
+	httpReq.Header.Set("Authorization", "Bearer "+apiKey)
 	httpReq.Header.Set("Content-Type", "application/json")
 
 	resp, err := c.httpClient.Do(httpReq)

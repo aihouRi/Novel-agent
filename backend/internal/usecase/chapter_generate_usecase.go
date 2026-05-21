@@ -35,6 +35,8 @@ type ChapterGenerateUsecase struct {
 	characters  *CharacterUsecase
 	loreEntries *LoreEntryUsecase
 	generator   service.OpenAIChapterGenerator
+	aiSettings  *UserAISettingUsecase
+	fallbackCfg service.OpenAIConfig
 }
 
 func NewChapterGenerateUsecase(
@@ -43,6 +45,8 @@ func NewChapterGenerateUsecase(
 	characters *CharacterUsecase,
 	loreEntries *LoreEntryUsecase,
 	generator service.OpenAIChapterGenerator,
+	aiSettings *UserAISettingUsecase,
+	fallbackCfg service.OpenAIConfig,
 ) *ChapterGenerateUsecase {
 	return &ChapterGenerateUsecase{
 		novels:      novels,
@@ -50,6 +54,8 @@ func NewChapterGenerateUsecase(
 		characters:  characters,
 		loreEntries: loreEntries,
 		generator:   generator,
+		aiSettings:  aiSettings,
+		fallbackCfg: fallbackCfg,
 	}
 }
 
@@ -107,7 +113,19 @@ func (u *ChapterGenerateUsecase) Generate(ctx context.Context, userID, novelID i
 	}
 
 	prompt := buildChapterGeneratePrompt(novel, characters, loreEntries, chapters, in)
-	out, err := u.generator.GenerateChapter(ctx, prompt)
+	effectiveCfg := u.fallbackCfg
+	if u.aiSettings != nil {
+		resolved, err := u.aiSettings.ResolveEffectiveConfig(ctx, userID, u.fallbackCfg.APIKey)
+		if err != nil {
+			return nil, err
+		}
+		effectiveCfg = service.OpenAIConfig{
+			APIKey:  firstNonEmpty(resolved.APIKey, u.fallbackCfg.APIKey),
+			BaseURL: firstNonEmpty(resolved.BaseURL, u.fallbackCfg.BaseURL),
+			Model:   firstNonEmpty(resolved.Model, u.fallbackCfg.Model),
+		}
+	}
+	out, err := u.generator.GenerateChapterWithConfig(ctx, prompt, effectiveCfg)
 	if err != nil {
 		if errors.Is(err, service.ErrOpenAIInvalidOutput) {
 			return nil, ErrChapterGenerateInvalidOutput
@@ -115,6 +133,13 @@ func (u *ChapterGenerateUsecase) Generate(ctx context.Context, userID, novelID i
 		return nil, err
 	}
 	return out, nil
+}
+
+func firstNonEmpty(v, fallback string) string {
+	if strings.TrimSpace(v) != "" {
+		return strings.TrimSpace(v)
+	}
+	return strings.TrimSpace(fallback)
 }
 
 func buildChapterGeneratePrompt(

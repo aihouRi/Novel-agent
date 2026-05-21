@@ -183,6 +183,18 @@ novel-agent/
 - 设定卡与人物为多对多关系。
 - 允许不绑定人物（空），也允许绑定单人或多人。
 
+### 5.8 user_ai_settings（V1 增量）
+- user_id（PK，FK -> users.id）
+- openai_api_key_encrypted
+- openai_base_url
+- openai_model
+- created_at
+- updated_at
+
+说明：
+- 用户可覆盖默认 OpenAI 配置（Key/Base URL/Model）。
+- API Key 仅加密存储，接口不返回明文，只返回掩码。
+
 ---
 
 ## 6. 认证与权限
@@ -307,6 +319,25 @@ novel-agent/
 规则：
 - `category/name/description` 必填
 - `character_ids` 若提供，必须全部属于当前用户的当前小说人物
+
+### 7.9 用户 AI 设置（V1 增量）
+- `GET /users/me/ai-settings`
+- `PUT /users/me/ai-settings`
+
+响应字段：
+- `has_openai_api_key`
+- `openai_api_key_masked`
+- `openai_base_url`
+- `openai_model`
+
+请求字段（PUT）：
+- `openai_api_key`（可选；空字符串表示保持现有 key 不变）
+- `openai_base_url`（可选；空时回退默认）
+- `openai_model`（可选；空时回退默认）
+
+规则：
+- 写作页发起生成时，后端优先读取用户 AI 设置。
+- 若用户未设置 API Key，则回退到服务端环境变量 `OPENAI_API_KEY`。
 
 ---
 

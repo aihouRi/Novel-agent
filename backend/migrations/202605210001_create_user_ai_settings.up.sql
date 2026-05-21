@@ -1,0 +1,9 @@
+CREATE TABLE IF NOT EXISTS user_ai_settings (
+    user_id BIGINT NOT NULL PRIMARY KEY,
+    openai_api_key_encrypted TEXT NOT NULL,
+    openai_base_url VARCHAR(255) NOT NULL,
+    openai_model VARCHAR(100) NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_user_ai_settings_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);

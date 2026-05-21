@@ -283,6 +283,46 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
           </DialogActions>
         </Dialog>
 
+        <Dialog
+          open={state.showAISettingsDialog}
+          onClose={() => state.setShowAISettingsDialog(false)}
+          fullWidth
+          maxWidth="sm"
+        >
+          <DialogTitle>AI 设置</DialogTitle>
+          <DialogContent>
+            <Stack spacing={1.5} sx={{ mt: 1 }}>
+              <TextField
+                label="OpenAI API Key"
+                type="password"
+                value={state.aiAPIKeyInput}
+                onChange={(e) => state.setAIAPIKeyInput(e.target.value)}
+                placeholder={state.aiHasAPIKey ? `当前：${state.aiAPIKeyMasked}` : 'sk-...'}
+                helperText={state.aiHasAPIKey ? `已保存：${state.aiAPIKeyMasked}（留空则不修改）` : '首次设置请输入完整 Key'}
+                fullWidth
+              />
+              <TextField
+                label="OpenAI Base URL"
+                value={state.aiBaseURL}
+                onChange={(e) => state.setAIBaseURL(e.target.value)}
+                fullWidth
+              />
+              <TextField
+                label="OpenAI Model"
+                value={state.aiModel}
+                onChange={(e) => state.setAIModel(e.target.value)}
+                fullWidth
+              />
+            </Stack>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => state.setShowAISettingsDialog(false)}>取消</Button>
+            <Button variant="contained" onClick={() => void state.saveAISettings()} disabled={state.aiSettingLoading}>
+              保存
+            </Button>
+          </DialogActions>
+        </Dialog>
+
         <ExportDialog
           open={state.exportDialogOpen}
           exporting={state.exportingMarkdown}

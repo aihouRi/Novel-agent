@@ -128,7 +128,28 @@ func newServer(db *sql.DB, cfg config.AppConfig) *echo.Echo {
 	novels.POST("/:novelId/export", exportHandler.ExportNovel)
 
 	openaiClient := service.NewOpenAIClient(cfg.OpenAIAPIKey, cfg.OpenAIBaseURL, cfg.OpenAIModelName)
-	chapterGenerateUC := usecase.NewChapterGenerateUsecase(novelUC, chapterUC, characterUC, loreEntryUC, openaiClient)
+	secretCrypto := service.NewSecretCrypto(cfg.JWTSecret)
+	userAISettingRepo := repository.NewUserAISettingRepository(db)
+	userAISettingUC := usecase.NewUserAISettingUsecase(userAISettingRepo, secretCrypto, cfg.OpenAIBaseURL, cfg.OpenAIModelName)
+	userAISettingHandler := handler.NewUserAISettingHandler(userAISettingUC)
+
+	users := e.Group("/users", appmiddleware.JWTAuth(cfg.JWTSecret))
+	users.GET("/me/ai-settings", userAISettingHandler.Get)
+	users.PUT("/me/ai-settings", userAISettingHandler.Upsert)
+
+	chapterGenerateUC := usecase.NewChapterGenerateUsecase(
+		novelUC,
+		chapterUC,
+		characterUC,
+		loreEntryUC,
+		openaiClient,
+		userAISettingUC,
+		service.OpenAIConfig{
+			APIKey:  cfg.OpenAIAPIKey,
+			BaseURL: cfg.OpenAIBaseURL,
+			Model:   cfg.OpenAIModelName,
+		},
+	)
 	chapterGenerateHandler := handler.NewChapterGenerateHandler(chapterGenerateUC)
 	novelChapters.POST("/generate", chapterGenerateHandler.Generate)
 

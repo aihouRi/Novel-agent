@@ -78,6 +78,10 @@ npm run dev
 - `OPENAI_BASE_URL`（默认 `https://api.openai.com/v1`）
 - `OPENAI_MODEL`（默认 `gpt-4o-mini`）
 
+说明：
+- 也可在前端“用户菜单 -> AI 设置”中保存用户级配置（Key/Base URL/Model）。
+- 用户级配置会优先于环境变量用于章节生成。
+
 ## 环境分层（dev / test / prod）
 
 当前仓库提供以下模板文件：
@@ -198,6 +202,9 @@ INTEGRATION_TEST=1 MYSQL_DSN='novel:novel@tcp(127.0.0.1:3306)/novel_agent_test?p
 - Export:
   - `POST /novels/:novelId/export`
   - `GET /novels/:novelId/export/markdown`（兼容）
+- User AI Settings:
+  - `GET /users/me/ai-settings`
+  - `PUT /users/me/ai-settings`
 
 ## 文档
 
