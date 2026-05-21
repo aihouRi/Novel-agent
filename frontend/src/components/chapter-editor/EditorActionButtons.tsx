@@ -2,6 +2,7 @@ import { Button, Stack } from '@mui/material'
 
 type Props = {
   onBack: () => void
+  onOpenAISettings?: () => void
   onGenerate: () => void
   onSave: () => void
   generating: boolean
@@ -31,6 +32,18 @@ export default function EditorActionButtons(props: Props) {
       >
         返回列表
       </Button>
+      {props.onOpenAISettings && (
+        <Button
+          variant="outlined"
+          onClick={props.onOpenAISettings}
+          sx={{
+            borderRadius: 999,
+            px: props.compact ? 2.25 : 2.2,
+          }}
+        >
+          AI 设置
+        </Button>
+      )}
       <Button
         variant="outlined"
         disabled={props.generating || props.saving || disabled}

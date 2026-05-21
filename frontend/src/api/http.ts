@@ -55,5 +55,9 @@ function mapLegacyError(raw: string): string {
     return '登录状态已失效，请重新登录。'
   }
 
+  if (raw.toLowerCase().includes('openai api key is not configured')) {
+    return '尚未配置 OpenAI API Key。请在写作页右上角点击「AI 设置」后填写 API Key。'
+  }
+
   return raw
 }

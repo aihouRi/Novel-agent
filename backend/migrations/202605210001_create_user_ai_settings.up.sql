@@ -1,5 +1,5 @@
 CREATE TABLE IF NOT EXISTS user_ai_settings (
-    user_id BIGINT NOT NULL PRIMARY KEY,
+    user_id BIGINT UNSIGNED NOT NULL PRIMARY KEY,
     openai_api_key_encrypted TEXT NOT NULL,
     openai_base_url VARCHAR(255) NOT NULL,
     openai_model VARCHAR(100) NOT NULL,

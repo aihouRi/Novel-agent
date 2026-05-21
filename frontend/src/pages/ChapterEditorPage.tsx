@@ -8,6 +8,7 @@ import type { Chapter } from '../api/chapters'
 import type { Character } from '../api/characters'
 import type { LoreEntry } from '../api/loreEntries'
 import type { Volume } from '../api/volumes'
+import { getMyAISettings, updateMyAISettings } from '../api/aiSettings'
 import EditorActionButtons from '../components/chapter-editor/EditorActionButtons'
 import { useChapterEditor } from '../hooks/useChapterEditor'
 
@@ -67,10 +68,59 @@ export default function ChapterEditorPage({
     onBack,
   })
   const [pendingHistoryIndex, setPendingHistoryIndex] = useState<number | null>(null)
+  const [showAISettingsDialog, setShowAISettingsDialog] = useState(false)
+  const [aiSettingLoading, setAISettingLoading] = useState(false)
+  const [aiAPIKeyInput, setAIAPIKeyInput] = useState('')
+  const [aiAPIKeyMasked, setAIAPIKeyMasked] = useState('')
+  const [aiHasAPIKey, setAIHasAPIKey] = useState(false)
+  const [aiBaseURL, setAIBaseURL] = useState('https://api.openai.com/v1')
+  const [aiModel, setAIModel] = useState('gpt-4o-mini')
   const pendingHistoryItem = useMemo(
     () => (pendingHistoryIndex === null ? null : editor.generateHistory[pendingHistoryIndex] ?? null),
     [editor.generateHistory, pendingHistoryIndex],
   )
+
+  async function loadAISettings() {
+    setAISettingLoading(true)
+    try {
+      const data = await getMyAISettings(token)
+      setAIHasAPIKey(data.setting.has_openai_api_key)
+      setAIAPIKeyMasked(data.setting.openai_api_key_masked)
+      setAIBaseURL(data.setting.openai_base_url || 'https://api.openai.com/v1')
+      setAIModel(data.setting.openai_model || 'gpt-4o-mini')
+      setAIAPIKeyInput('')
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : '加载 AI 设置失败'
+      onNotifyError(msg)
+      editor.setLocalError(msg)
+    } finally {
+      setAISettingLoading(false)
+    }
+  }
+
+  async function saveAISettings() {
+    setAISettingLoading(true)
+    try {
+      const data = await updateMyAISettings(token, {
+        openai_api_key: aiAPIKeyInput.trim(),
+        openai_base_url: aiBaseURL.trim(),
+        openai_model: aiModel.trim(),
+      })
+      setAIHasAPIKey(data.setting.has_openai_api_key)
+      setAIAPIKeyMasked(data.setting.openai_api_key_masked)
+      setAIAPIKeyInput('')
+      setAIBaseURL(data.setting.openai_base_url)
+      setAIModel(data.setting.openai_model)
+      onNotifySuccess('AI 设置已保存。')
+      setShowAISettingsDialog(false)
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : '保存 AI 设置失败'
+      onNotifyError(msg)
+      editor.setLocalError(msg)
+    } finally {
+      setAISettingLoading(false)
+    }
+  }
 
   return (
     <Box
@@ -126,6 +176,10 @@ export default function ChapterEditorPage({
 
             <EditorActionButtons
               onBack={onBack}
+              onOpenAISettings={() => {
+                setShowAISettingsDialog(true)
+                void loadAISettings()
+              }}
               onGenerate={() => void editor.handleGenerate()}
               onSave={() => void editor.handleSave()}
               generating={editor.generating}
@@ -521,6 +575,10 @@ export default function ChapterEditorPage({
         >
           <EditorActionButtons
             onBack={onBack}
+            onOpenAISettings={() => {
+              setShowAISettingsDialog(true)
+              void loadAISettings()
+            }}
             onGenerate={() => void editor.handleGenerate()}
             onSave={() => void editor.handleSave()}
             generating={editor.generating}
@@ -556,6 +614,46 @@ export default function ChapterEditorPage({
             {editor.localError}
           </Alert>
         </Snackbar>
+
+        <Dialog
+          open={showAISettingsDialog}
+          onClose={() => setShowAISettingsDialog(false)}
+          fullWidth
+          maxWidth="sm"
+        >
+          <DialogTitle>AI 设置</DialogTitle>
+          <DialogContent>
+            <Stack spacing={1.5} sx={{ mt: 1 }}>
+              <TextField
+                label="OpenAI API Key"
+                type="password"
+                value={aiAPIKeyInput}
+                onChange={(e) => setAIAPIKeyInput(e.target.value)}
+                placeholder={aiHasAPIKey ? `当前：${aiAPIKeyMasked}` : 'sk-...'}
+                helperText={aiHasAPIKey ? `已保存：${aiAPIKeyMasked}（留空则不修改）` : '首次设置请输入完整 Key'}
+                fullWidth
+              />
+              <TextField
+                label="OpenAI Base URL"
+                value={aiBaseURL}
+                onChange={(e) => setAIBaseURL(e.target.value)}
+                fullWidth
+              />
+              <TextField
+                label="OpenAI Model"
+                value={aiModel}
+                onChange={(e) => setAIModel(e.target.value)}
+                fullWidth
+              />
+            </Stack>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setShowAISettingsDialog(false)}>取消</Button>
+            <Button variant="contained" onClick={() => void saveAISettings()} disabled={aiSettingLoading}>
+              保存
+            </Button>
+          </DialogActions>
+        </Dialog>
 
         <Dialog open={pendingHistoryIndex !== null} onClose={() => setPendingHistoryIndex(null)} fullWidth maxWidth="md">
           <DialogTitle>确认回填历史版本</DialogTitle>
