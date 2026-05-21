@@ -128,9 +128,17 @@ func newServer(db *sql.DB, cfg config.AppConfig) *echo.Echo {
 	novels.POST("/:novelId/export", exportHandler.ExportNovel)
 
 	openaiClient := service.NewOpenAIClient(cfg.OpenAIAPIKey, cfg.OpenAIBaseURL, cfg.OpenAIModelName)
+	geminiClient := service.NewGeminiClient(cfg.GeminiAPIKey, cfg.GeminiBaseURL, cfg.GeminiModelName)
 	secretCrypto := service.NewSecretCrypto(cfg.JWTSecret)
 	userAISettingRepo := repository.NewUserAISettingRepository(db)
-	userAISettingUC := usecase.NewUserAISettingUsecase(userAISettingRepo, secretCrypto, cfg.OpenAIBaseURL, cfg.OpenAIModelName)
+	userAISettingUC := usecase.NewUserAISettingUsecase(
+		userAISettingRepo,
+		secretCrypto,
+		cfg.OpenAIBaseURL,
+		cfg.OpenAIModelName,
+		cfg.GeminiBaseURL,
+		cfg.GeminiModelName,
+	)
 	userAISettingHandler := handler.NewUserAISettingHandler(userAISettingUC)
 
 	users := e.Group("/users", appmiddleware.JWTAuth(cfg.JWTSecret))
@@ -143,11 +151,17 @@ func newServer(db *sql.DB, cfg config.AppConfig) *echo.Echo {
 		characterUC,
 		loreEntryUC,
 		openaiClient,
+		geminiClient,
 		userAISettingUC,
 		service.OpenAIConfig{
 			APIKey:  cfg.OpenAIAPIKey,
 			BaseURL: cfg.OpenAIBaseURL,
 			Model:   cfg.OpenAIModelName,
+		},
+		service.GeminiConfig{
+			APIKey:  cfg.GeminiAPIKey,
+			BaseURL: cfg.GeminiBaseURL,
+			Model:   cfg.GeminiModelName,
 		},
 	)
 	chapterGenerateHandler := handler.NewChapterGenerateHandler(chapterGenerateUC)

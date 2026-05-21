@@ -14,15 +14,18 @@ import { useChapterEditor } from '../hooks/useChapterEditor'
 
 const DEFAULT_OPENAI_BASE_URL = 'https://api.openai.com/v1'
 const DEFAULT_OPENAI_MODEL = 'gpt-4o-mini'
+const DEFAULT_GEMINI_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta'
+const DEFAULT_GEMINI_MODEL = 'gemini-2.5-flash'
+const DEFAULT_PROVIDER: 'openai' | 'gemini' = 'openai'
 const AI_MODEL_OPTIONS = [
   'gpt-4o-mini',
   'gpt-5.5',
   'gpt-5.4',
-  'gpt-5.3',
   'gpt-5.1',
   'gpt-5',
   'gpt-5-mini',
 ]
+const GEMINI_MODEL_OPTIONS = ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-2.0-flash']
 
 type Props = {
   token: string
@@ -83,11 +86,17 @@ export default function ChapterEditorPage({
   const [confirmGenerateOpen, setConfirmGenerateOpen] = useState(false)
   const [showAISettingsDialog, setShowAISettingsDialog] = useState(false)
   const [aiSettingLoading, setAISettingLoading] = useState(false)
-  const [aiAPIKeyInput, setAIAPIKeyInput] = useState('')
-  const [aiAPIKeyMasked, setAIAPIKeyMasked] = useState('')
-  const [aiHasAPIKey, setAIHasAPIKey] = useState(false)
-  const [aiBaseURL, setAIBaseURL] = useState(DEFAULT_OPENAI_BASE_URL)
-  const [aiModel, setAIModel] = useState(DEFAULT_OPENAI_MODEL)
+  const [aiProvider, setAIProvider] = useState<'openai' | 'gemini'>(DEFAULT_PROVIDER)
+  const [openaiAPIKeyInput, setOpenAIAPIKeyInput] = useState('')
+  const [openaiAPIKeyMasked, setOpenAIAPIKeyMasked] = useState('')
+  const [openaiHasAPIKey, setOpenAIHasAPIKey] = useState(false)
+  const [openaiBaseURL, setOpenAIBaseURL] = useState(DEFAULT_OPENAI_BASE_URL)
+  const [openaiModel, setOpenAIModel] = useState(DEFAULT_OPENAI_MODEL)
+  const [geminiAPIKeyInput, setGeminiAPIKeyInput] = useState('')
+  const [geminiAPIKeyMasked, setGeminiAPIKeyMasked] = useState('')
+  const [geminiHasAPIKey, setGeminiHasAPIKey] = useState(false)
+  const [geminiBaseURL, setGeminiBaseURL] = useState(DEFAULT_GEMINI_BASE_URL)
+  const [geminiModel, setGeminiModel] = useState(DEFAULT_GEMINI_MODEL)
   const pendingHistoryItem = useMemo(
     () => (pendingHistoryIndex === null ? null : editor.generateHistory[pendingHistoryIndex] ?? null),
     [editor.generateHistory, pendingHistoryIndex],
@@ -97,11 +106,17 @@ export default function ChapterEditorPage({
     setAISettingLoading(true)
     try {
       const data = await getMyAISettings(token)
-      setAIHasAPIKey(data.setting.has_openai_api_key)
-      setAIAPIKeyMasked(data.setting.openai_api_key_masked)
-      setAIBaseURL(data.setting.openai_base_url || DEFAULT_OPENAI_BASE_URL)
-      setAIModel(data.setting.openai_model || DEFAULT_OPENAI_MODEL)
-      setAIAPIKeyInput('')
+      setAIProvider(data.setting.provider || DEFAULT_PROVIDER)
+      setOpenAIHasAPIKey(data.setting.has_openai_api_key)
+      setOpenAIAPIKeyMasked(data.setting.openai_api_key_masked)
+      setOpenAIBaseURL(data.setting.openai_base_url || DEFAULT_OPENAI_BASE_URL)
+      setOpenAIModel(data.setting.openai_model || DEFAULT_OPENAI_MODEL)
+      setGeminiHasAPIKey(data.setting.has_gemini_api_key)
+      setGeminiAPIKeyMasked(data.setting.gemini_api_key_masked)
+      setGeminiBaseURL(data.setting.gemini_base_url || DEFAULT_GEMINI_BASE_URL)
+      setGeminiModel(data.setting.gemini_model || DEFAULT_GEMINI_MODEL)
+      setOpenAIAPIKeyInput('')
+      setGeminiAPIKeyInput('')
     } catch (e) {
       const msg = e instanceof Error ? e.message : '加载 AI 设置失败'
       onNotifyError(msg)
@@ -112,11 +127,13 @@ export default function ChapterEditorPage({
   }
 
   async function saveAISettings() {
-    const nextBaseURL = aiBaseURL.trim()
-    const nextModel = aiModel.trim()
-    const nextAPIKey = aiAPIKeyInput.trim()
-    if (!aiHasAPIKey && !nextAPIKey) {
-      const msg = '请先填写 OpenAI API Key。'
+    const isOpenAI = aiProvider === 'openai'
+    const nextBaseURL = (isOpenAI ? openaiBaseURL : geminiBaseURL).trim()
+    const nextModel = (isOpenAI ? openaiModel : geminiModel).trim()
+    const nextAPIKey = (isOpenAI ? openaiAPIKeyInput : geminiAPIKeyInput).trim()
+    const hasSaved = isOpenAI ? openaiHasAPIKey : geminiHasAPIKey
+    if (!hasSaved && !nextAPIKey) {
+      const msg = isOpenAI ? '请先填写 OpenAI API Key。' : '请先填写 Gemini API Key。'
       onNotifyError(msg)
       editor.setLocalError(msg)
       return
@@ -145,15 +162,25 @@ export default function ChapterEditorPage({
     setAISettingLoading(true)
     try {
       const data = await updateMyAISettings(token, {
-        openai_api_key: nextAPIKey,
-        openai_base_url: nextBaseURL,
-        openai_model: nextModel,
+        provider: aiProvider,
+        openai_api_key: openaiAPIKeyInput.trim(),
+        openai_base_url: openaiBaseURL.trim(),
+        openai_model: openaiModel.trim(),
+        gemini_api_key: geminiAPIKeyInput.trim(),
+        gemini_base_url: geminiBaseURL.trim(),
+        gemini_model: geminiModel.trim(),
       })
-      setAIHasAPIKey(data.setting.has_openai_api_key)
-      setAIAPIKeyMasked(data.setting.openai_api_key_masked)
-      setAIAPIKeyInput('')
-      setAIBaseURL(data.setting.openai_base_url)
-      setAIModel(data.setting.openai_model)
+      setAIProvider(data.setting.provider || DEFAULT_PROVIDER)
+      setOpenAIHasAPIKey(data.setting.has_openai_api_key)
+      setOpenAIAPIKeyMasked(data.setting.openai_api_key_masked)
+      setOpenAIBaseURL(data.setting.openai_base_url || DEFAULT_OPENAI_BASE_URL)
+      setOpenAIModel(data.setting.openai_model || DEFAULT_OPENAI_MODEL)
+      setGeminiHasAPIKey(data.setting.has_gemini_api_key)
+      setGeminiAPIKeyMasked(data.setting.gemini_api_key_masked)
+      setGeminiBaseURL(data.setting.gemini_base_url || DEFAULT_GEMINI_BASE_URL)
+      setGeminiModel(data.setting.gemini_model || DEFAULT_GEMINI_MODEL)
+      setOpenAIAPIKeyInput('')
+      setGeminiAPIKeyInput('')
       onNotifySuccess('AI 设置已保存。')
       setShowAISettingsDialog(false)
     } catch (e) {
@@ -175,8 +202,10 @@ export default function ChapterEditorPage({
   }
 
   function resetAISettingsDefaults() {
-    setAIBaseURL(DEFAULT_OPENAI_BASE_URL)
-    setAIModel(DEFAULT_OPENAI_MODEL)
+    setOpenAIBaseURL(DEFAULT_OPENAI_BASE_URL)
+    setOpenAIModel(DEFAULT_OPENAI_MODEL)
+    setGeminiBaseURL(DEFAULT_GEMINI_BASE_URL)
+    setGeminiModel(DEFAULT_GEMINI_MODEL)
   }
 
   return (
@@ -681,30 +710,46 @@ export default function ChapterEditorPage({
           <DialogTitle>AI 设置</DialogTitle>
           <DialogContent>
             <Stack spacing={1.5} sx={{ mt: 1 }}>
+              <FormControl fullWidth>
+                <InputLabel id="chapter-ai-provider-select-label">AI Provider</InputLabel>
+                <Select
+                  labelId="chapter-ai-provider-select-label"
+                  label="AI Provider"
+                  value={aiProvider}
+                  onChange={(e) => setAIProvider(String(e.target.value) as 'openai' | 'gemini')}
+                >
+                  <MenuItem value="openai">OpenAI</MenuItem>
+                  <MenuItem value="gemini">Gemini</MenuItem>
+                </Select>
+              </FormControl>
               <TextField
-                label="OpenAI API Key"
+                label={aiProvider === 'openai' ? 'OpenAI API Key' : 'Gemini API Key'}
                 type="password"
-                value={aiAPIKeyInput}
-                onChange={(e) => setAIAPIKeyInput(e.target.value)}
-                placeholder={aiHasAPIKey ? `当前：${aiAPIKeyMasked}` : 'sk-...'}
-                helperText={aiHasAPIKey ? `已保存：${aiAPIKeyMasked}（留空则不修改）` : '首次设置请输入完整 Key'}
+                value={aiProvider === 'openai' ? openaiAPIKeyInput : geminiAPIKeyInput}
+                onChange={(e) => aiProvider === 'openai' ? setOpenAIAPIKeyInput(e.target.value) : setGeminiAPIKeyInput(e.target.value)}
+                placeholder={aiProvider === 'openai'
+                  ? (openaiHasAPIKey ? `当前：${openaiAPIKeyMasked}` : 'sk-...')
+                  : (geminiHasAPIKey ? `当前：${geminiAPIKeyMasked}` : 'AIza...')}
+                helperText={aiProvider === 'openai'
+                  ? (openaiHasAPIKey ? `已保存：${openaiAPIKeyMasked}（留空则不修改）` : '首次设置请输入完整 Key')
+                  : (geminiHasAPIKey ? `已保存：${geminiAPIKeyMasked}（留空则不修改）` : '首次设置请输入完整 Key')}
                 fullWidth
               />
               <TextField
-                label="OpenAI Base URL"
-                value={aiBaseURL}
-                onChange={(e) => setAIBaseURL(e.target.value)}
+                label={aiProvider === 'openai' ? 'OpenAI Base URL' : 'Gemini Base URL'}
+                value={aiProvider === 'openai' ? openaiBaseURL : geminiBaseURL}
+                onChange={(e) => aiProvider === 'openai' ? setOpenAIBaseURL(e.target.value) : setGeminiBaseURL(e.target.value)}
                 fullWidth
               />
               <FormControl fullWidth>
-                <InputLabel id="chapter-ai-model-select-label">OpenAI Model</InputLabel>
+                <InputLabel id="chapter-ai-model-select-label">{aiProvider === 'openai' ? 'OpenAI Model' : 'Gemini Model'}</InputLabel>
                 <Select
                   labelId="chapter-ai-model-select-label"
-                  label="OpenAI Model"
-                  value={aiModel}
-                  onChange={(e) => setAIModel(String(e.target.value))}
+                  label={aiProvider === 'openai' ? 'OpenAI Model' : 'Gemini Model'}
+                  value={aiProvider === 'openai' ? openaiModel : geminiModel}
+                  onChange={(e) => aiProvider === 'openai' ? setOpenAIModel(String(e.target.value)) : setGeminiModel(String(e.target.value))}
                 >
-                  {AI_MODEL_OPTIONS.map((model) => (
+                  {(aiProvider === 'openai' ? AI_MODEL_OPTIONS : GEMINI_MODEL_OPTIONS).map((model) => (
                     <MenuItem key={model} value={model}>{model}</MenuItem>
                   ))}
                 </Select>

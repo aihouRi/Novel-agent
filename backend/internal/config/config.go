@@ -10,6 +10,9 @@ type AppConfig struct {
 	OpenAIAPIKey    string
 	OpenAIBaseURL   string
 	OpenAIModelName string
+	GeminiAPIKey    string
+	GeminiBaseURL   string
+	GeminiModelName string
 }
 
 func Load() AppConfig {
@@ -20,6 +23,9 @@ func Load() AppConfig {
 		OpenAIAPIKey:    getenv("OPENAI_API_KEY", ""),
 		OpenAIBaseURL:   getenv("OPENAI_BASE_URL", "https://api.openai.com/v1"),
 		OpenAIModelName: getenv("OPENAI_MODEL", "gpt-4o-mini"),
+		GeminiAPIKey:    getenv("GEMINI_API_KEY", ""),
+		GeminiBaseURL:   getenv("GEMINI_BASE_URL", "https://generativelanguage.googleapis.com/v1beta"),
+		GeminiModelName: getenv("GEMINI_MODEL", "gemini-2.5-flash"),
 	}
 
 	return cfg

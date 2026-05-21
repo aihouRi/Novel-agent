@@ -146,6 +146,8 @@ func (h *ChapterGenerateHandler) runGenerate(c echo.Context) (*service.ChapterGe
 			return nil, 0, h.httpErr(http.StatusBadGateway, "AI_OUTPUT_INVALID", "ai output parse failed, please retry")
 		case errors.Is(err, service.ErrOpenAIRequestFailed):
 			return nil, 0, h.httpErr(http.StatusBadGateway, "AI_REQUEST_FAILED", "ai service request failed")
+		case errors.Is(err, service.ErrGeminiRequestFailed):
+			return nil, 0, h.httpErr(http.StatusBadGateway, "AI_REQUEST_FAILED", "ai service request failed")
 		default:
 			return nil, 0, h.httpErr(http.StatusBadRequest, "CHAPTER_GENERATE_BAD_REQUEST", err.Error())
 		}

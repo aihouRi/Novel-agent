@@ -185,14 +185,18 @@ novel-agent/
 
 ### 5.8 user_ai_settings（V1 增量）
 - user_id（PK，FK -> users.id）
+- provider（`openai` | `gemini`）
 - openai_api_key_encrypted
 - openai_base_url
 - openai_model
+- gemini_api_key_encrypted
+- gemini_base_url
+- gemini_model
 - created_at
 - updated_at
 
 说明：
-- 用户可覆盖默认 OpenAI 配置（Key/Base URL/Model）。
+- 用户可覆盖默认 AI 配置（Provider + Key/Base URL/Model）。
 - API Key 仅加密存储，接口不返回明文，只返回掩码。
 
 ---
@@ -325,19 +329,28 @@ novel-agent/
 - `PUT /users/me/ai-settings`
 
 响应字段：
+- `provider`
 - `has_openai_api_key`
 - `openai_api_key_masked`
 - `openai_base_url`
 - `openai_model`
+- `has_gemini_api_key`
+- `gemini_api_key_masked`
+- `gemini_base_url`
+- `gemini_model`
 
 请求字段（PUT）：
+- `provider`（`openai` | `gemini`）
 - `openai_api_key`（可选；空字符串表示保持现有 key 不变）
 - `openai_base_url`（可选；空时回退默认）
 - `openai_model`（可选；空时回退默认）
+- `gemini_api_key`（可选；空字符串表示保持现有 key 不变）
+- `gemini_base_url`（可选；空时回退默认）
+- `gemini_model`（可选；空时回退默认）
 
 规则：
-- 写作页发起生成时，后端优先读取用户 AI 设置。
-- 若用户未设置 API Key，则回退到服务端环境变量 `OPENAI_API_KEY`。
+- 写作页发起生成时，后端优先读取用户 AI 设置并按 `provider` 选择生成通道。
+- 若当前 provider 未设置 API Key，则回退到服务端对应环境变量（`OPENAI_API_KEY` / `GEMINI_API_KEY`）。
 
 ---
 

@@ -9,16 +9,23 @@ import { useNovelsChapters } from './useNovelsChapters'
 
 const DEFAULT_LANGUAGE = 'zh-CN'
 const DEFAULT_RECENT_COUNT = 3
+const DEFAULT_PROVIDER: 'openai' | 'gemini' = 'openai'
 const DEFAULT_OPENAI_BASE_URL = 'https://api.openai.com/v1'
 const DEFAULT_OPENAI_MODEL = 'gpt-4o-mini'
-const AI_MODEL_OPTIONS = [
+const DEFAULT_GEMINI_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta'
+const DEFAULT_GEMINI_MODEL = 'gemini-2.5-flash'
+const OPENAI_MODEL_OPTIONS = [
   'gpt-4o-mini',
   'gpt-5.5',
   'gpt-5.4',
-  'gpt-5.3',
   'gpt-5.1',
   'gpt-5',
   'gpt-5-mini',
+]
+const GEMINI_MODEL_OPTIONS = [
+  'gemini-2.5-flash',
+  'gemini-2.5-pro',
+  'gemini-2.0-flash',
 ]
 
 export function useNovelsPage(token: string, onLogout: () => void) {
@@ -63,11 +70,17 @@ export function useNovelsPage(token: string, onLogout: () => void) {
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null)
   const [showAISettingsDialog, setShowAISettingsDialog] = useState(false)
   const [aiSettingLoading, setAISettingLoading] = useState(false)
-  const [aiAPIKeyInput, setAIAPIKeyInput] = useState('')
-  const [aiAPIKeyMasked, setAIAPIKeyMasked] = useState('')
-  const [aiHasAPIKey, setAIHasAPIKey] = useState(false)
-  const [aiBaseURL, setAIBaseURL] = useState(DEFAULT_OPENAI_BASE_URL)
-  const [aiModel, setAIModel] = useState(DEFAULT_OPENAI_MODEL)
+  const [aiProvider, setAIProvider] = useState<'openai' | 'gemini'>(DEFAULT_PROVIDER)
+  const [openaiAPIKeyInput, setOpenAIAPIKeyInput] = useState('')
+  const [openaiAPIKeyMasked, setOpenAIAPIKeyMasked] = useState('')
+  const [openaiHasAPIKey, setOpenAIHasAPIKey] = useState(false)
+  const [openaiBaseURL, setOpenAIBaseURL] = useState(DEFAULT_OPENAI_BASE_URL)
+  const [openaiModel, setOpenAIModel] = useState(DEFAULT_OPENAI_MODEL)
+  const [geminiAPIKeyInput, setGeminiAPIKeyInput] = useState('')
+  const [geminiAPIKeyMasked, setGeminiAPIKeyMasked] = useState('')
+  const [geminiHasAPIKey, setGeminiHasAPIKey] = useState(false)
+  const [geminiBaseURL, setGeminiBaseURL] = useState(DEFAULT_GEMINI_BASE_URL)
+  const [geminiModel, setGeminiModel] = useState(DEFAULT_GEMINI_MODEL)
 
   const selectedNovel = useMemo(() => novels.find((n) => n.id === selectedNovelId) ?? null, [novels, selectedNovelId])
 
@@ -349,11 +362,17 @@ export function useNovelsPage(token: string, onLogout: () => void) {
     setAISettingLoading(true)
     try {
       const data = await getMyAISettings(token)
-      setAIHasAPIKey(data.setting.has_openai_api_key)
-      setAIAPIKeyMasked(data.setting.openai_api_key_masked)
-      setAIBaseURL(data.setting.openai_base_url || DEFAULT_OPENAI_BASE_URL)
-      setAIModel(data.setting.openai_model || DEFAULT_OPENAI_MODEL)
-      setAIAPIKeyInput('')
+      setAIProvider(data.setting.provider || DEFAULT_PROVIDER)
+      setOpenAIHasAPIKey(data.setting.has_openai_api_key)
+      setOpenAIAPIKeyMasked(data.setting.openai_api_key_masked)
+      setOpenAIBaseURL(data.setting.openai_base_url || DEFAULT_OPENAI_BASE_URL)
+      setOpenAIModel(data.setting.openai_model || DEFAULT_OPENAI_MODEL)
+      setGeminiHasAPIKey(data.setting.has_gemini_api_key)
+      setGeminiAPIKeyMasked(data.setting.gemini_api_key_masked)
+      setGeminiBaseURL(data.setting.gemini_base_url || DEFAULT_GEMINI_BASE_URL)
+      setGeminiModel(data.setting.gemini_model || DEFAULT_GEMINI_MODEL)
+      setOpenAIAPIKeyInput('')
+      setGeminiAPIKeyInput('')
     } catch (e) {
       notifyError(e instanceof Error ? e.message : '加载 AI 设置失败')
     } finally {
@@ -362,11 +381,13 @@ export function useNovelsPage(token: string, onLogout: () => void) {
   }
 
   async function saveAISettings() {
-    const nextBaseURL = aiBaseURL.trim()
-    const nextModel = aiModel.trim()
-    const nextAPIKey = aiAPIKeyInput.trim()
-    if (!aiHasAPIKey && !nextAPIKey) {
-      notifyError('请先填写 OpenAI API Key。')
+    const isOpenAI = aiProvider === 'openai'
+    const nextBaseURL = (isOpenAI ? openaiBaseURL : geminiBaseURL).trim()
+    const nextModel = (isOpenAI ? openaiModel : geminiModel).trim()
+    const nextAPIKey = (isOpenAI ? openaiAPIKeyInput : geminiAPIKeyInput).trim()
+    const hasSaved = isOpenAI ? openaiHasAPIKey : geminiHasAPIKey
+    if (!hasSaved && !nextAPIKey) {
+      notifyError(isOpenAI ? '请先填写 OpenAI API Key。' : '请先填写 Gemini API Key。')
       return
     }
     if (!nextModel) {
@@ -387,15 +408,25 @@ export function useNovelsPage(token: string, onLogout: () => void) {
     setAISettingLoading(true)
     try {
       const data = await updateMyAISettings(token, {
-        openai_api_key: nextAPIKey,
-        openai_base_url: nextBaseURL,
-        openai_model: nextModel,
+        provider: aiProvider,
+        openai_api_key: openaiAPIKeyInput.trim(),
+        openai_base_url: openaiBaseURL.trim(),
+        openai_model: openaiModel.trim(),
+        gemini_api_key: geminiAPIKeyInput.trim(),
+        gemini_base_url: geminiBaseURL.trim(),
+        gemini_model: geminiModel.trim(),
       })
-      setAIHasAPIKey(data.setting.has_openai_api_key)
-      setAIAPIKeyMasked(data.setting.openai_api_key_masked)
-      setAIAPIKeyInput('')
-      setAIBaseURL(data.setting.openai_base_url)
-      setAIModel(data.setting.openai_model)
+      setAIProvider(data.setting.provider || DEFAULT_PROVIDER)
+      setOpenAIHasAPIKey(data.setting.has_openai_api_key)
+      setOpenAIAPIKeyMasked(data.setting.openai_api_key_masked)
+      setOpenAIBaseURL(data.setting.openai_base_url || DEFAULT_OPENAI_BASE_URL)
+      setOpenAIModel(data.setting.openai_model || DEFAULT_OPENAI_MODEL)
+      setGeminiHasAPIKey(data.setting.has_gemini_api_key)
+      setGeminiAPIKeyMasked(data.setting.gemini_api_key_masked)
+      setGeminiBaseURL(data.setting.gemini_base_url || DEFAULT_GEMINI_BASE_URL)
+      setGeminiModel(data.setting.gemini_model || DEFAULT_GEMINI_MODEL)
+      setOpenAIAPIKeyInput('')
+      setGeminiAPIKeyInput('')
       notifySuccess('AI 设置已保存。')
     } catch (e) {
       notifyError(e instanceof Error ? e.message : '保存 AI 设置失败')
@@ -405,8 +436,10 @@ export function useNovelsPage(token: string, onLogout: () => void) {
   }
 
   function resetAISettingsDefaults() {
-    setAIBaseURL(DEFAULT_OPENAI_BASE_URL)
-    setAIModel(DEFAULT_OPENAI_MODEL)
+    setOpenAIBaseURL(DEFAULT_OPENAI_BASE_URL)
+    setOpenAIModel(DEFAULT_OPENAI_MODEL)
+    setGeminiBaseURL(DEFAULT_GEMINI_BASE_URL)
+    setGeminiModel(DEFAULT_GEMINI_MODEL)
   }
 
   return {
@@ -446,12 +479,19 @@ export function useNovelsPage(token: string, onLogout: () => void) {
     confirmDeleteId,
     showAISettingsDialog,
     aiSettingLoading,
-    aiAPIKeyInput,
-    aiAPIKeyMasked,
-    aiHasAPIKey,
-    aiBaseURL,
-    aiModel,
-    aiModelOptions: AI_MODEL_OPTIONS,
+    aiProvider,
+    openaiAPIKeyInput,
+    openaiAPIKeyMasked,
+    openaiHasAPIKey,
+    openaiBaseURL,
+    openaiModel,
+    geminiAPIKeyInput,
+    geminiAPIKeyMasked,
+    geminiHasAPIKey,
+    geminiBaseURL,
+    geminiModel,
+    openaiModelOptions: OPENAI_MODEL_OPTIONS,
+    geminiModelOptions: GEMINI_MODEL_OPTIONS,
     formatNovelMeta,
     setSelectedNovelId,
     setMainTab,
@@ -478,9 +518,13 @@ export function useNovelsPage(token: string, onLogout: () => void) {
     setSuccessOpen,
     setConfirmDeleteId,
     setShowAISettingsDialog,
-    setAIAPIKeyInput,
-    setAIBaseURL,
-    setAIModel,
+    setAIProvider,
+    setOpenAIAPIKeyInput,
+    setOpenAIBaseURL,
+    setOpenAIModel,
+    setGeminiAPIKeyInput,
+    setGeminiBaseURL,
+    setGeminiModel,
     resetAISettingsDefaults,
     notifySuccess,
     notifyError,

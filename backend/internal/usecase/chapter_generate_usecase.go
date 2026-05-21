@@ -30,13 +30,15 @@ type ChapterGenerateInput struct {
 }
 
 type ChapterGenerateUsecase struct {
-	novels      *NovelUsecase
-	chapters    *ChapterUsecase
-	characters  *CharacterUsecase
-	loreEntries *LoreEntryUsecase
-	generator   service.OpenAIChapterGenerator
-	aiSettings  *UserAISettingUsecase
-	fallbackCfg service.OpenAIConfig
+	novels         *NovelUsecase
+	chapters       *ChapterUsecase
+	characters     *CharacterUsecase
+	loreEntries    *LoreEntryUsecase
+	openai         service.OpenAIChapterGenerator
+	gemini         service.GeminiChapterGenerator
+	aiSettings     *UserAISettingUsecase
+	fallbackOpenAI service.OpenAIConfig
+	fallbackGemini service.GeminiConfig
 }
 
 func NewChapterGenerateUsecase(
@@ -44,18 +46,22 @@ func NewChapterGenerateUsecase(
 	chapters *ChapterUsecase,
 	characters *CharacterUsecase,
 	loreEntries *LoreEntryUsecase,
-	generator service.OpenAIChapterGenerator,
+	openai service.OpenAIChapterGenerator,
+	gemini service.GeminiChapterGenerator,
 	aiSettings *UserAISettingUsecase,
-	fallbackCfg service.OpenAIConfig,
+	fallbackOpenAI service.OpenAIConfig,
+	fallbackGemini service.GeminiConfig,
 ) *ChapterGenerateUsecase {
 	return &ChapterGenerateUsecase{
-		novels:      novels,
-		chapters:    chapters,
-		characters:  characters,
-		loreEntries: loreEntries,
-		generator:   generator,
-		aiSettings:  aiSettings,
-		fallbackCfg: fallbackCfg,
+		novels:         novels,
+		chapters:       chapters,
+		characters:     characters,
+		loreEntries:    loreEntries,
+		openai:         openai,
+		gemini:         gemini,
+		aiSettings:     aiSettings,
+		fallbackOpenAI: fallbackOpenAI,
+		fallbackGemini: fallbackGemini,
 	}
 }
 
@@ -113,22 +119,40 @@ func (u *ChapterGenerateUsecase) Generate(ctx context.Context, userID, novelID i
 	}
 
 	prompt := buildChapterGeneratePrompt(novel, characters, loreEntries, chapters, in)
-	effectiveCfg := u.fallbackCfg
+	maxTokens := estimateMaxCompletionTokens(in.TargetWordMax)
+	openAICfg := u.fallbackOpenAI
+	openAICfg.MaxCompletionTokens = maxTokens
+	geminiCfg := u.fallbackGemini
+	geminiCfg.MaxOutputTokens = maxTokens
 	if u.aiSettings != nil {
-		resolved, err := u.aiSettings.ResolveEffectiveConfig(ctx, userID, u.fallbackCfg.APIKey)
+		resolved, err := u.aiSettings.ResolveEffectiveConfig(ctx, userID, u.fallbackOpenAI.APIKey, u.fallbackGemini.APIKey)
 		if err != nil {
 			return nil, err
 		}
-		effectiveCfg = service.OpenAIConfig{
-			APIKey:              firstNonEmpty(resolved.APIKey, u.fallbackCfg.APIKey),
-			BaseURL:             firstNonEmpty(resolved.BaseURL, u.fallbackCfg.BaseURL),
-			Model:               firstNonEmpty(resolved.Model, u.fallbackCfg.Model),
-			MaxCompletionTokens: estimateMaxCompletionTokens(in.TargetWordMax),
+		if resolved.Provider == AIProviderGemini {
+			geminiCfg = service.GeminiConfig{
+				APIKey:          firstNonEmpty(resolved.APIKey, u.fallbackGemini.APIKey),
+				BaseURL:         firstNonEmpty(resolved.BaseURL, u.fallbackGemini.BaseURL),
+				Model:           firstNonEmpty(resolved.Model, u.fallbackGemini.Model),
+				MaxOutputTokens: maxTokens,
+			}
+			out, err := u.gemini.GenerateChapterWithConfig(ctx, prompt, geminiCfg)
+			if err != nil {
+				if errors.Is(err, service.ErrGeminiInvalidOutput) {
+					return nil, ErrChapterGenerateInvalidOutput
+				}
+				return nil, err
+			}
+			return out, nil
 		}
-	} else {
-		effectiveCfg.MaxCompletionTokens = estimateMaxCompletionTokens(in.TargetWordMax)
+		openAICfg = service.OpenAIConfig{
+			APIKey:              firstNonEmpty(resolved.APIKey, u.fallbackOpenAI.APIKey),
+			BaseURL:             firstNonEmpty(resolved.BaseURL, u.fallbackOpenAI.BaseURL),
+			Model:               firstNonEmpty(resolved.Model, u.fallbackOpenAI.Model),
+			MaxCompletionTokens: maxTokens,
+		}
 	}
-	out, err := u.generator.GenerateChapterWithConfig(ctx, prompt, effectiveCfg)
+	out, err := u.openai.GenerateChapterWithConfig(ctx, prompt, openAICfg)
 	if err != nil {
 		if errors.Is(err, service.ErrOpenAIInvalidOutput) {
 			return nil, ErrChapterGenerateInvalidOutput

@@ -2,16 +2,25 @@ import { extractError } from './http'
 
 export type UserAISetting = {
   user_id: number
+  provider: 'openai' | 'gemini'
   openai_api_key_masked: string
   has_openai_api_key: boolean
   openai_base_url: string
   openai_model: string
+  gemini_api_key_masked: string
+  has_gemini_api_key: boolean
+  gemini_base_url: string
+  gemini_model: string
 }
 
 export type UpsertUserAISettingPayload = {
+  provider: 'openai' | 'gemini'
   openai_api_key: string
   openai_base_url: string
   openai_model: string
+  gemini_api_key: string
+  gemini_base_url: string
+  gemini_model: string
 }
 
 const JSON_HEADERS = {

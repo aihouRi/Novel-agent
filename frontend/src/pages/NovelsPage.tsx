@@ -296,30 +296,46 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
           <DialogTitle>AI 设置</DialogTitle>
           <DialogContent>
             <Stack spacing={1.5} sx={{ mt: 1 }}>
+              <FormControl fullWidth>
+                <InputLabel id="ai-provider-select-label">AI Provider</InputLabel>
+                <Select
+                  labelId="ai-provider-select-label"
+                  label="AI Provider"
+                  value={state.aiProvider}
+                  onChange={(e) => state.setAIProvider(String(e.target.value) as 'openai' | 'gemini')}
+                >
+                  <MenuItem value="openai">OpenAI</MenuItem>
+                  <MenuItem value="gemini">Gemini</MenuItem>
+                </Select>
+              </FormControl>
               <TextField
-                label="OpenAI API Key"
+                label={state.aiProvider === 'openai' ? 'OpenAI API Key' : 'Gemini API Key'}
                 type="password"
-                value={state.aiAPIKeyInput}
-                onChange={(e) => state.setAIAPIKeyInput(e.target.value)}
-                placeholder={state.aiHasAPIKey ? `当前：${state.aiAPIKeyMasked}` : 'sk-...'}
-                helperText={state.aiHasAPIKey ? `已保存：${state.aiAPIKeyMasked}（留空则不修改）` : '首次设置请输入完整 Key'}
+                value={state.aiProvider === 'openai' ? state.openaiAPIKeyInput : state.geminiAPIKeyInput}
+                onChange={(e) => state.aiProvider === 'openai' ? state.setOpenAIAPIKeyInput(e.target.value) : state.setGeminiAPIKeyInput(e.target.value)}
+                placeholder={state.aiProvider === 'openai'
+                  ? (state.openaiHasAPIKey ? `当前：${state.openaiAPIKeyMasked}` : 'sk-...')
+                  : (state.geminiHasAPIKey ? `当前：${state.geminiAPIKeyMasked}` : 'AIza...')}
+                helperText={state.aiProvider === 'openai'
+                  ? (state.openaiHasAPIKey ? `已保存：${state.openaiAPIKeyMasked}（留空则不修改）` : '首次设置请输入完整 Key')
+                  : (state.geminiHasAPIKey ? `已保存：${state.geminiAPIKeyMasked}（留空则不修改）` : '首次设置请输入完整 Key')}
                 fullWidth
               />
               <TextField
-                label="OpenAI Base URL"
-                value={state.aiBaseURL}
-                onChange={(e) => state.setAIBaseURL(e.target.value)}
+                label={state.aiProvider === 'openai' ? 'OpenAI Base URL' : 'Gemini Base URL'}
+                value={state.aiProvider === 'openai' ? state.openaiBaseURL : state.geminiBaseURL}
+                onChange={(e) => state.aiProvider === 'openai' ? state.setOpenAIBaseURL(e.target.value) : state.setGeminiBaseURL(e.target.value)}
                 fullWidth
               />
               <FormControl fullWidth>
-                <InputLabel id="ai-model-select-label">OpenAI Model</InputLabel>
+                <InputLabel id="ai-model-select-label">{state.aiProvider === 'openai' ? 'OpenAI Model' : 'Gemini Model'}</InputLabel>
                 <Select
                   labelId="ai-model-select-label"
-                  label="OpenAI Model"
-                  value={state.aiModel}
-                  onChange={(e) => state.setAIModel(String(e.target.value))}
+                  label={state.aiProvider === 'openai' ? 'OpenAI Model' : 'Gemini Model'}
+                  value={state.aiProvider === 'openai' ? state.openaiModel : state.geminiModel}
+                  onChange={(e) => state.aiProvider === 'openai' ? state.setOpenAIModel(String(e.target.value)) : state.setGeminiModel(String(e.target.value))}
                 >
-                  {state.aiModelOptions.map((model) => (
+                  {(state.aiProvider === 'openai' ? state.openaiModelOptions : state.geminiModelOptions).map((model) => (
                     <MenuItem key={model} value={model}>{model}</MenuItem>
                   ))}
                 </Select>

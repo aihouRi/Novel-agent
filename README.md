@@ -19,7 +19,7 @@ Novel Agent 是一个面向长篇中文小说创作的 MVP Web App。
 - Frontend: React + TypeScript + Vite + MUI
 - Database: MySQL
 - Auth: JWT
-- AI: OpenAI API
+- AI: OpenAI API / Gemini API
 
 ## 项目结构
 
@@ -77,9 +77,12 @@ npm run dev
 - `OPENAI_API_KEY`（启用 AI 生成必填）
 - `OPENAI_BASE_URL`（默认 `https://api.openai.com/v1`）
 - `OPENAI_MODEL`（默认 `gpt-4o-mini`）
+- `GEMINI_API_KEY`（使用 Gemini 生成时可填）
+- `GEMINI_BASE_URL`（默认 `https://generativelanguage.googleapis.com/v1beta`）
+- `GEMINI_MODEL`（默认 `gemini-2.5-flash`）
 
 说明：
-- 也可在前端“用户菜单 -> AI 设置”中保存用户级配置（Key/Base URL/Model）。
+- 也可在前端“用户菜单 -> AI 设置”中保存用户级配置（Provider/Key/Base URL/Model）。
 - 用户级配置会优先于环境变量用于章节生成。
 
 ## 环境分层（dev / test / prod）

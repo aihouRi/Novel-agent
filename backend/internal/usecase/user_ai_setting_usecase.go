@@ -10,34 +10,50 @@ import (
 	"novel-agent/backend/internal/service"
 )
 
+const (
+	AIProviderOpenAI = "openai"
+	AIProviderGemini = "gemini"
+)
+
 type UserAISettingUsecase struct {
-	repo           *repository.UserAISettingRepository
-	crypto         *service.SecretCrypto
-	defaultBaseURL string
-	defaultModel   string
+	repo               *repository.UserAISettingRepository
+	crypto             *service.SecretCrypto
+	defaultOpenAIBase  string
+	defaultOpenAIModel string
+	defaultGeminiBase  string
+	defaultGeminiModel string
 }
 
 func NewUserAISettingUsecase(
 	repo *repository.UserAISettingRepository,
 	crypto *service.SecretCrypto,
-	defaultBaseURL string,
-	defaultModel string,
+	defaultOpenAIBase string,
+	defaultOpenAIModel string,
+	defaultGeminiBase string,
+	defaultGeminiModel string,
 ) *UserAISettingUsecase {
 	return &UserAISettingUsecase{
-		repo:           repo,
-		crypto:         crypto,
-		defaultBaseURL: strings.TrimSpace(defaultBaseURL),
-		defaultModel:   strings.TrimSpace(defaultModel),
+		repo:               repo,
+		crypto:             crypto,
+		defaultOpenAIBase:  strings.TrimSpace(defaultOpenAIBase),
+		defaultOpenAIModel: strings.TrimSpace(defaultOpenAIModel),
+		defaultGeminiBase:  strings.TrimSpace(defaultGeminiBase),
+		defaultGeminiModel: strings.TrimSpace(defaultGeminiModel),
 	}
 }
 
 type UpsertUserAISettingInput struct {
+	Provider      string
 	OpenAIAPIKey  string
 	OpenAIBaseURL string
 	OpenAIModel   string
+	GeminiAPIKey  string
+	GeminiBaseURL string
+	GeminiModel   string
 }
 
-type EffectiveOpenAIConfig struct {
+type EffectiveAIConfig struct {
+	Provider string
 	APIKey   string
 	BaseURL  string
 	Model    string
@@ -49,104 +65,158 @@ func (u *UserAISettingUsecase) Get(ctx context.Context, userID int64) (*domain.U
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return &domain.UserAISetting{
-				UserID:             userID,
-				OpenAIAPIKeyMasked: "",
-				HasOpenAIAPIKey:    false,
-				OpenAIBaseURL:      u.defaultBaseURL,
-				OpenAIModel:        u.defaultModel,
+				UserID:        userID,
+				Provider:      AIProviderOpenAI,
+				OpenAIBaseURL: u.defaultOpenAIBase,
+				OpenAIModel:   u.defaultOpenAIModel,
+				GeminiBaseURL: u.defaultGeminiBase,
+				GeminiModel:   u.defaultGeminiModel,
 			}, nil
 		}
 		return nil, err
 	}
-
-	key, err := u.crypto.Decrypt(row.OpenAIAPIKeyEncrypted)
+	openAIKey, err := u.crypto.Decrypt(row.OpenAIAPIKeyEncrypted)
 	if err != nil {
 		return nil, err
 	}
-
+	geminiKey, err := u.crypto.Decrypt(row.GeminiAPIKeyEncrypted)
+	if err != nil {
+		return nil, err
+	}
+	provider := normalizeProvider(row.Provider)
 	return &domain.UserAISetting{
 		UserID:             userID,
-		OpenAIAPIKeyMasked: maskAPIKey(key),
-		HasOpenAIAPIKey:    strings.TrimSpace(key) != "",
-		OpenAIBaseURL:      row.OpenAIBaseURL,
-		OpenAIModel:        row.OpenAIModel,
+		Provider:           provider,
+		OpenAIAPIKeyMasked: maskAPIKey(openAIKey),
+		HasOpenAIAPIKey:    strings.TrimSpace(openAIKey) != "",
+		OpenAIBaseURL:      pickNonEmpty(row.OpenAIBaseURL, u.defaultOpenAIBase),
+		OpenAIModel:        pickNonEmpty(row.OpenAIModel, u.defaultOpenAIModel),
+		GeminiAPIKeyMasked: maskAPIKey(geminiKey),
+		HasGeminiAPIKey:    strings.TrimSpace(geminiKey) != "",
+		GeminiBaseURL:      pickNonEmpty(row.GeminiBaseURL, u.defaultGeminiBase),
+		GeminiModel:        pickNonEmpty(row.GeminiModel, u.defaultGeminiModel),
 	}, nil
 }
 
 func (u *UserAISettingUsecase) Upsert(ctx context.Context, userID int64, in UpsertUserAISettingInput) (*domain.UserAISetting, error) {
-	baseURL := strings.TrimSpace(in.OpenAIBaseURL)
-	model := strings.TrimSpace(in.OpenAIModel)
-	apiKey := strings.TrimSpace(in.OpenAIAPIKey)
-	hasAPIKey := apiKey != ""
+	provider := normalizeProvider(in.Provider)
+	openAIBase := pickNonEmpty(strings.TrimSpace(in.OpenAIBaseURL), u.defaultOpenAIBase)
+	openAIModel := pickNonEmpty(strings.TrimSpace(in.OpenAIModel), u.defaultOpenAIModel)
+	geminiBase := pickNonEmpty(strings.TrimSpace(in.GeminiBaseURL), u.defaultGeminiBase)
+	geminiModel := pickNonEmpty(strings.TrimSpace(in.GeminiModel), u.defaultGeminiModel)
 
-	if baseURL == "" {
-		baseURL = u.defaultBaseURL
+	openAIKey := strings.TrimSpace(in.OpenAIAPIKey)
+	geminiKey := strings.TrimSpace(in.GeminiAPIKey)
+
+	existing, err := u.repo.GetByUserID(ctx, userID)
+	if err != nil && err != sql.ErrNoRows {
+		return nil, err
 	}
-	if model == "" {
-		model = u.defaultModel
-	}
-	if !hasAPIKey {
-		existing, err := u.repo.GetByUserID(ctx, userID)
-		if err == nil {
+	if existing != nil {
+		if openAIKey == "" {
 			if decrypted, decErr := u.crypto.Decrypt(existing.OpenAIAPIKeyEncrypted); decErr == nil {
-				apiKey = strings.TrimSpace(decrypted)
-				hasAPIKey = apiKey != ""
+				openAIKey = strings.TrimSpace(decrypted)
+			}
+		}
+		if geminiKey == "" {
+			if decrypted, decErr := u.crypto.Decrypt(existing.GeminiAPIKeyEncrypted); decErr == nil {
+				geminiKey = strings.TrimSpace(decrypted)
 			}
 		}
 	}
 
-	encrypted, err := u.crypto.Encrypt(apiKey)
+	openAIEncrypted, err := u.crypto.Encrypt(openAIKey)
+	if err != nil {
+		return nil, err
+	}
+	geminiEncrypted, err := u.crypto.Encrypt(geminiKey)
 	if err != nil {
 		return nil, err
 	}
 
 	if err := u.repo.Upsert(ctx, repository.UserAISettingRow{
 		UserID:                userID,
-		OpenAIAPIKeyEncrypted: encrypted,
-		OpenAIBaseURL:         baseURL,
-		OpenAIModel:           model,
+		Provider:              provider,
+		OpenAIAPIKeyEncrypted: openAIEncrypted,
+		OpenAIBaseURL:         openAIBase,
+		OpenAIModel:           openAIModel,
+		GeminiAPIKeyEncrypted: geminiEncrypted,
+		GeminiBaseURL:         geminiBase,
+		GeminiModel:           geminiModel,
 	}); err != nil {
 		return nil, err
 	}
 
 	return &domain.UserAISetting{
 		UserID:             userID,
-		OpenAIAPIKeyMasked: maskAPIKey(apiKey),
-		HasOpenAIAPIKey:    hasAPIKey,
-		OpenAIBaseURL:      baseURL,
-		OpenAIModel:        model,
+		Provider:           provider,
+		OpenAIAPIKeyMasked: maskAPIKey(openAIKey),
+		HasOpenAIAPIKey:    openAIKey != "",
+		OpenAIBaseURL:      openAIBase,
+		OpenAIModel:        openAIModel,
+		GeminiAPIKeyMasked: maskAPIKey(geminiKey),
+		HasGeminiAPIKey:    geminiKey != "",
+		GeminiBaseURL:      geminiBase,
+		GeminiModel:        geminiModel,
 	}, nil
 }
 
-func (u *UserAISettingUsecase) ResolveEffectiveConfig(ctx context.Context, userID int64, fallbackAPIKey string) (EffectiveOpenAIConfig, error) {
+func (u *UserAISettingUsecase) ResolveEffectiveConfig(
+	ctx context.Context,
+	userID int64,
+	fallbackOpenAIAPIKey string,
+	fallbackGeminiAPIKey string,
+) (EffectiveAIConfig, error) {
 	row, err := u.repo.GetByUserID(ctx, userID)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return EffectiveOpenAIConfig{
-				APIKey:   strings.TrimSpace(fallbackAPIKey),
-				BaseURL:  u.defaultBaseURL,
-				Model:    u.defaultModel,
+			return EffectiveAIConfig{
+				Provider: AIProviderOpenAI,
+				APIKey:   strings.TrimSpace(fallbackOpenAIAPIKey),
+				BaseURL:  u.defaultOpenAIBase,
+				Model:    u.defaultOpenAIModel,
 				FromUser: false,
 			}, nil
 		}
-		return EffectiveOpenAIConfig{}, err
+		return EffectiveAIConfig{}, err
 	}
-
-	key, err := u.crypto.Decrypt(row.OpenAIAPIKeyEncrypted)
+	provider := normalizeProvider(row.Provider)
+	openAIKey, err := u.crypto.Decrypt(row.OpenAIAPIKeyEncrypted)
 	if err != nil {
-		return EffectiveOpenAIConfig{}, err
+		return EffectiveAIConfig{}, err
 	}
-	key = strings.TrimSpace(key)
-	if key == "" {
-		key = strings.TrimSpace(fallbackAPIKey)
+	geminiKey, err := u.crypto.Decrypt(row.GeminiAPIKeyEncrypted)
+	if err != nil {
+		return EffectiveAIConfig{}, err
+	}
+	if provider == AIProviderGemini {
+		key := pickNonEmpty(strings.TrimSpace(geminiKey), strings.TrimSpace(fallbackGeminiAPIKey))
+		return EffectiveAIConfig{
+			Provider: AIProviderGemini,
+			APIKey:   key,
+			BaseURL:  pickNonEmpty(row.GeminiBaseURL, u.defaultGeminiBase),
+			Model:    pickNonEmpty(row.GeminiModel, u.defaultGeminiModel),
+			FromUser: true,
+		}, nil
 	}
 
-	return EffectiveOpenAIConfig{
+	key := pickNonEmpty(strings.TrimSpace(openAIKey), strings.TrimSpace(fallbackOpenAIAPIKey))
+	return EffectiveAIConfig{
+		Provider: AIProviderOpenAI,
 		APIKey:   key,
-		BaseURL:  strings.TrimSpace(row.OpenAIBaseURL),
-		Model:    strings.TrimSpace(row.OpenAIModel),
+		BaseURL:  pickNonEmpty(row.OpenAIBaseURL, u.defaultOpenAIBase),
+		Model:    pickNonEmpty(row.OpenAIModel, u.defaultOpenAIModel),
 		FromUser: true,
 	}, nil
+}
+
+func normalizeProvider(v string) string {
+	switch strings.ToLower(strings.TrimSpace(v)) {
+	case AIProviderGemini:
+		return AIProviderGemini
+	default:
+		return AIProviderOpenAI
+	}
 }
 
 func maskAPIKey(key string) string {
@@ -158,4 +228,11 @@ func maskAPIKey(key string) string {
 		return "****"
 	}
 	return k[:4] + "****" + k[len(k)-4:]
+}
+
+func pickNonEmpty(v, fallback string) string {
+	if strings.TrimSpace(v) != "" {
+		return strings.TrimSpace(v)
+	}
+	return strings.TrimSpace(fallback)
 }

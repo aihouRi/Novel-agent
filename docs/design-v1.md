@@ -102,6 +102,10 @@
   - API Key 仅回显掩码，不回显明文。
   - 后端新增用户级配置表，并以加密形式存储 API Key。
   - 章节生成调用时优先读取用户级配置，未配置时回退到服务端环境变量。
+- V1-8.6 已完成：多 Provider（OpenAI / Gemini）接入
+  - AI 设置新增 `provider` 切换与 Gemini 配置项。
+  - 后端生成链路支持按 provider 动态选择 OpenAI 或 Gemini 客户端。
+  - 生成失败提示补充 Gemini Key 未配置场景。
 - V1-2（后端部分）已完成：失败路径测试增量补强
   - 新增 `chapters/generate` 失败场景集成测试
   - 覆盖 `generation_instruction` 缺失、非法 `character_ids`、非法 `lore_entry_ids`、跨用户越权访问
