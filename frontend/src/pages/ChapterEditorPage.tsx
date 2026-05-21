@@ -84,6 +84,7 @@ export default function ChapterEditorPage({
   })
   const [pendingHistoryIndex, setPendingHistoryIndex] = useState<number | null>(null)
   const [confirmGenerateOpen, setConfirmGenerateOpen] = useState(false)
+  const [highCostAcknowledged, setHighCostAcknowledged] = useState(false)
   const [showAISettingsDialog, setShowAISettingsDialog] = useState(false)
   const [aiSettingLoading, setAISettingLoading] = useState(false)
   const [aiProvider, setAIProvider] = useState<'openai' | 'gemini'>(DEFAULT_PROVIDER)
@@ -193,12 +194,80 @@ export default function ChapterEditorPage({
   }
 
   function openGenerateConfirm() {
+    setHighCostAcknowledged(false)
     setConfirmGenerateOpen(true)
   }
 
   async function confirmGenerate() {
     setConfirmGenerateOpen(false)
     await editor.handleGenerate()
+  }
+
+  function estimateTokenAndCost() {
+    const model = aiProvider === 'openai' ? openaiModel : geminiModel
+    const target = Math.max(editor.targetWordMax || editor.targetWordMin || 0, 0)
+    const ctx = Math.max(editor.recentChapterCount || 1, 1)
+    const inputTokens = Math.max(800, Math.round(900 + target*0.6 + ctx*350 + editor.selectedCharacterIDs.length*60 + editor.selectedLoreEntryIDs.length*90))
+    const outputTokens = Math.max(500, Math.round(target*1.9))
+
+    // Heuristic prices per 1M tokens in USD (for guidance, not billing-accurate).
+    const priceTable: Record<string, { in: number; out: number }> = {
+      'gpt-5.5': { in: 8, out: 24 },
+      'gpt-5.4': { in: 5, out: 15 },
+      'gpt-5.1': { in: 3, out: 9 },
+      'gpt-5': { in: 2.5, out: 7.5 },
+      'gpt-5-mini': { in: 0.8, out: 2.4 },
+      'gpt-4o-mini': { in: 0.15, out: 0.6 },
+      'gemini-3.5-flash': { in: 0.1, out: 0.4 },
+      'gemini-2.5-flash': { in: 0.1, out: 0.4 },
+      'gemini-2.5-pro': { in: 1.25, out: 5 },
+      'gemini-2.0-flash': { in: 0.08, out: 0.32 },
+    }
+    const key = model.toLowerCase()
+    const matched = Object.keys(priceTable).find((k) => key.includes(k))
+    const p = matched ? priceTable[matched] : { in: 1, out: 3 }
+    const usd = inputTokens/1_000_000*p.in + outputTokens/1_000_000*p.out
+    const low = Math.max(0, usd*0.75)
+    const high = usd*1.35
+    return { inputTokens, outputTokens, low, high }
+  }
+
+  function getGenerateCostProfile() {
+    const model = aiProvider === 'openai' ? openaiModel : geminiModel
+    const target = Math.max(editor.targetWordMax || editor.targetWordMin || 0, 0)
+    const ctx = Math.max(editor.recentChapterCount || 1, 1)
+    const modelLower = model.toLowerCase()
+
+    let score = 0
+    if (target >= 2600) score += 2
+    else if (target >= 2200) score += 1
+    if (ctx >= 4) score += 2
+    else if (ctx >= 3) score += 1
+
+    if (modelLower.includes('gpt-5.5') || modelLower.includes('pro')) score += 3
+    else if (modelLower.includes('gpt-5.4') || modelLower.includes('gpt-5.1') || modelLower === 'gpt-5') score += 2
+    else if (modelLower.includes('gpt-5-mini') || modelLower.includes('gpt-4o-mini') || modelLower.includes('gemini-3.5-flash') || modelLower.includes('gemini-2.5-flash')) score += 0
+    else score += 1
+
+    if (score >= 5) {
+      return {
+        level: '高',
+        isHigh: true,
+        hint: '本次可能较慢且成本较高。若先打草稿，建议改用 gemini-3.5-flash / gpt-4o-mini。',
+      }
+    }
+    if (score >= 3) {
+      return {
+        level: '中',
+        isHigh: false,
+        hint: '本次成本中等。可先生成草稿，再用高阶模型精修。',
+      }
+    }
+    return {
+      level: '低',
+      isHigh: false,
+      hint: '本次成本较低，适合频繁试写与重试。',
+    }
   }
 
   function resetAISettingsDefaults() {
@@ -560,6 +629,29 @@ export default function ChapterEditorPage({
                           >
                             重试生成
                           </Button>
+                          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+                            <Button
+                              variant="outlined"
+                              onClick={() => void editor.handleQuickRevise('polish')}
+                              disabled={editor.generating || !editor.chapterBody.trim()}
+                            >
+                              快速润色
+                            </Button>
+                            <Button
+                              variant="outlined"
+                              onClick={() => void editor.handleQuickRevise('compress')}
+                              disabled={editor.generating || !editor.chapterBody.trim()}
+                            >
+                              快速压缩
+                            </Button>
+                            <Button
+                              variant="outlined"
+                              onClick={() => void editor.handleQuickRevise('reflow')}
+                              disabled={editor.generating || !editor.chapterBody.trim()}
+                            >
+                              重排段落
+                            </Button>
+                          </Stack>
                         </Stack>
                       )}
                       {editor.sidePanel === 'history' && (
@@ -804,15 +896,35 @@ export default function ChapterEditorPage({
           <DialogTitle>确认 AI 生成</DialogTitle>
           <DialogContent>
             <Stack spacing={1} sx={{ mt: 0.5 }}>
+              <Typography variant="body2">
+                成本档位：<Box component="span" sx={{ fontWeight: 700 }}>{getGenerateCostProfile().level}</Box>
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                预计 tokens：输入约 {estimateTokenAndCost().inputTokens} / 输出约 {estimateTokenAndCost().outputTokens}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                预计费用：${estimateTokenAndCost().low.toFixed(3)} - ${estimateTokenAndCost().high.toFixed(3)}（USD，估算）
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                {getGenerateCostProfile().hint}
+              </Typography>
               <Typography variant="body2" color="text.secondary">
                 将基于当前参数生成并回填「正文 / 大纲 / 总结」，会覆盖当前这三项内容。
               </Typography>
+              <Typography variant="body2">Provider：{aiProvider === 'openai' ? 'OpenAI' : 'Gemini'}</Typography>
+              <Typography variant="body2">模型：{aiProvider === 'openai' ? openaiModel : geminiModel}</Typography>
               <Typography variant="body2">分卷：{volumes.find((v) => v.id === editor.volumeID)?.title ?? '未选择'}</Typography>
               <Typography variant="body2">章节：第 {editor.chapterNumber} 章 {editor.chapterTitle ? `《${editor.chapterTitle}》` : ''}</Typography>
               <Typography variant="body2">目标字数：{editor.targetWordMin} - {editor.targetWordMax}</Typography>
               <Typography variant="body2">
                 指令预览：{editor.chapterInstruction.trim() ? editor.chapterInstruction.trim().slice(0, 80) : '（空）'}
               </Typography>
+              {getGenerateCostProfile().isHigh && (
+                <FormControlLabel
+                  control={<Checkbox checked={highCostAcknowledged} onChange={(e) => setHighCostAcknowledged(e.target.checked)} />}
+                  label="我已知晓本次是高成本生成，仍继续。"
+                />
+              )}
             </Stack>
           </DialogContent>
           <DialogActions>
@@ -821,6 +933,7 @@ export default function ChapterEditorPage({
               variant="contained"
               onClick={() => void confirmGenerate()}
               disabled={
+                (getGenerateCostProfile().isHigh && !highCostAcknowledged) ||
                 editor.generating ||
                 editor.saving ||
                 !editor.chapterInstruction.trim() ||

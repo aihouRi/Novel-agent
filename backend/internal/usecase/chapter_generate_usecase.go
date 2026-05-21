@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -143,6 +144,7 @@ func (u *ChapterGenerateUsecase) Generate(ctx context.Context, userID, novelID i
 				}
 				return nil, err
 			}
+			out.Body = normalizeChapterBodyParagraphs(out.Body)
 			return out, nil
 		}
 		openAICfg = service.OpenAIConfig{
@@ -159,6 +161,7 @@ func (u *ChapterGenerateUsecase) Generate(ctx context.Context, userID, novelID i
 		}
 		return nil, err
 	}
+	out.Body = normalizeChapterBodyParagraphs(out.Body)
 	return out, nil
 }
 
@@ -282,6 +285,7 @@ func buildChapterGeneratePrompt(
 	b.WriteString("3) outline 与 summary 必须为字符串，不要返回对象。\n")
 	b.WriteString("4) outline 控制在 6-10 条短句；summary 控制在 120-220 字。\n")
 	b.WriteString("5) 若 token 不足，优先压缩 outline/summary，禁止截断 body。\n")
+	b.WriteString("6) body 必须自然分段，禁止整章单段输出；平均每段 80-180 字。\n")
 	return b.String()
 }
 
@@ -384,4 +388,43 @@ func filterLoreEntriesBySelectedIDs(all []domain.LoreEntry, selectedIDs []int64)
 	}
 	sort.Slice(filtered, func(i, j int) bool { return filtered[i].ID < filtered[j].ID })
 	return filtered, nil
+}
+
+var sentenceBreakRe = regexp.MustCompile(`([。！？!?])`)
+
+func normalizeChapterBodyParagraphs(body string) string {
+	text := strings.TrimSpace(body)
+	if text == "" {
+		return body
+	}
+	// Keep model paragraphs when they're already reasonably segmented.
+	if strings.Count(text, "\n") >= 2 {
+		return text
+	}
+	parts := sentenceBreakRe.Split(text, -1)
+	marks := sentenceBreakRe.FindAllString(text, -1)
+	if len(parts) <= 1 || len(marks) == 0 {
+		return text
+	}
+	var lines []string
+	var current strings.Builder
+	for i := 0; i < len(marks); i++ {
+		current.WriteString(strings.TrimSpace(parts[i]))
+		current.WriteString(marks[i])
+		seg := strings.TrimSpace(current.String())
+		if len([]rune(seg)) >= 120 || strings.Count(seg, "。")+strings.Count(seg, "！")+strings.Count(seg, "？") >= 2 {
+			lines = append(lines, seg)
+			current.Reset()
+		}
+	}
+	if len(parts) > len(marks) {
+		current.WriteString(strings.TrimSpace(parts[len(parts)-1]))
+	}
+	if strings.TrimSpace(current.String()) != "" {
+		lines = append(lines, strings.TrimSpace(current.String()))
+	}
+	if len(lines) == 0 {
+		return text
+	}
+	return strings.Join(lines, "\n\n")
 }

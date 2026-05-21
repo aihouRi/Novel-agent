@@ -33,6 +33,7 @@ type GenerateFeedback = {
   note: string
   updatedAt: string
 }
+type QuickReviseAction = 'polish' | 'compress' | 'reflow'
 
 type Params = {
   token: string
@@ -508,7 +509,23 @@ export function useChapterEditor({
     }
   }
 
-  async function handleGenerate() {
+  function buildQuickReviseInstruction(action: QuickReviseAction): string {
+    const body = chapterBody.trim()
+    if (!body) return ''
+    const base = chapterInstruction.trim()
+    const actionPromptMap: Record<QuickReviseAction, string> = {
+      polish:
+        '请在不改变剧情事实与人物关系的前提下润色正文：减少翻译腔，优化句式与节奏，保留中文网文可读性。',
+      compress:
+        '请在不改变核心剧情与人物动机的前提下压缩正文至更紧凑版本：删冗句、减重复、保留关键转折和情绪。',
+      reflow:
+        '请重排正文段落与节奏：加强分段与停顿，让阅读更顺滑；不要改动剧情事实与主要信息。',
+    }
+    const suffix = `【快速修订任务】\n${actionPromptMap[action]}\n\n【待修订正文】\n${body}`
+    return base ? `${base}\n\n${suffix}` : suffix
+  }
+
+  async function runGenerateWithInstruction(instructionInput: string) {
     if (chapterNumber <= 0) {
       const msg = '章节编号必须大于 0。'
       onNotifyError(msg)
@@ -521,7 +538,7 @@ export function useChapterEditor({
       setLocalError(msg)
       return
     }
-    if (!chapterInstruction.trim()) {
+    if (!instructionInput.trim()) {
       const msg = '请先填写生成指令。'
       onNotifyError(msg)
       setLocalError(msg)
@@ -543,8 +560,8 @@ export function useChapterEditor({
       const safeLoreEntryIDs = selectedLoreEntryIDs.filter((id) => validLoreEntryIDSet.has(id))
       const feedbackHint = buildFeedbackHint(generateFeedbackRating, generateFeedbackNote)
       const generationInstruction = feedbackHint
-        ? `${chapterInstruction.trim()}\n\n【上一轮反馈（请严格修正）】\n${feedbackHint}`
-        : chapterInstruction.trim()
+        ? `${instructionInput.trim()}\n\n【上一轮反馈（请严格修正）】\n${feedbackHint}`
+        : instructionInput.trim()
       const data = await generateChapterStream(
         token,
         novelId,
@@ -598,7 +615,7 @@ export function useChapterEditor({
           summary: data.summary,
           model: data.model,
           totalTokens: totalTokens > 0 ? totalTokens : undefined,
-          instructionPreview: chapterInstruction.trim().slice(0, 80),
+          instructionPreview: instructionInput.trim().slice(0, 80),
         },
         ...generateHistory,
       ].slice(0, 3)
@@ -613,6 +630,21 @@ export function useChapterEditor({
     } finally {
       setGenerating(false)
     }
+  }
+
+  async function handleGenerate() {
+    await runGenerateWithInstruction(chapterInstruction)
+  }
+
+  async function handleQuickRevise(action: QuickReviseAction) {
+    const instruction = buildQuickReviseInstruction(action)
+    if (!instruction) {
+      const msg = '请先填写或生成正文，再使用快速修订。'
+      onNotifyError(msg)
+      setLocalError(msg)
+      return
+    }
+    await runGenerateWithInstruction(instruction)
   }
 
   function saveGenerateFeedback() {
@@ -718,6 +750,7 @@ export function useChapterEditor({
     handleSave,
     handleGenerate,
     retryGenerate: handleGenerate,
+    handleQuickRevise,
     applyGenerateHistory,
     applyTemplate,
     saveGenerateFeedback,
