@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { deleteChapter, exportNovel, listChapters, type Chapter, type ExportScope, updateChapter } from '../api/chapters'
+import type { Character } from '../api/characters'
 import { createVolume, listVolumes, type Volume, updateVolume } from '../api/volumes'
 
 const DEFAULT_EXPORT_FROM = 1
@@ -10,6 +11,7 @@ type Notify = (text: string) => void
 type Params = {
   token: string
   selectedNovelId: number | null
+  characters: Character[]
   onNotifySuccess: Notify
   onNotifyError: Notify
   onRefreshNovels: () => Promise<void>
@@ -19,6 +21,7 @@ type Params = {
 export function useNovelsChapters({
   token,
   selectedNovelId,
+  characters,
   onNotifySuccess,
   onNotifyError,
   onRefreshNovels,
@@ -32,6 +35,8 @@ export function useNovelsChapters({
   const [confirmDeleteChapterId, setConfirmDeleteChapterId] = useState<number | null>(null)
   const [chapterSearch, setChapterSearch] = useState('')
   const [chapterSort, setChapterSort] = useState<'number_asc' | 'number_desc' | 'updated_desc'>('number_desc')
+  const [chapterVolumeFilter, setChapterVolumeFilter] = useState<number>(0)
+  const [chapterCharacterFilter, setChapterCharacterFilter] = useState<number>(0)
   const [movingChapterId, setMovingChapterId] = useState<number | null>(null)
   const [exportingMarkdown, setExportingMarkdown] = useState(false)
   const [exportDialogOpen, setExportDialogOpen] = useState(false)
@@ -48,16 +53,37 @@ export function useNovelsChapters({
 
   const chapterToDelete = useMemo(() => chapters.find((c) => c.id === confirmDeleteChapterId) ?? null, [chapters, confirmDeleteChapterId])
   const nextChapterNumber = useMemo(() => (chapters.length === 0 ? 1 : Math.max(...chapters.map((c) => c.chapter_number)) + 1), [chapters])
+  const chapterCharacterOptions = useMemo(
+    () => [...characters].sort((a, b) => a.name.localeCompare(b.name, 'zh-Hans-CN')),
+    [characters],
+  )
   const visibleChapters = useMemo(() => {
     const keyword = chapterSearch.trim().toLowerCase()
+    const selectedCharacter = chapterCharacterOptions.find((c) => c.id === chapterCharacterFilter) ?? null
+    const characterTokens = selectedCharacter
+      ? [
+          selectedCharacter.name,
+          ...selectedCharacter.aliases
+            .split(/[，,、\s]+/)
+            .map((s) => s.trim())
+            .filter(Boolean),
+        ]
+      : []
     const filtered = chapters.filter((c) => {
-      if (!keyword) return true
-      return c.title.toLowerCase().includes(keyword) || c.chapter_number.toString().includes(keyword)
+      if (chapterVolumeFilter > 0 && c.volume_id !== chapterVolumeFilter) return false
+      const chapterText = `${c.title} ${c.summary} ${c.body}`.toLowerCase()
+      const keywordMatched =
+        !keyword ||
+        chapterText.includes(keyword) ||
+        c.chapter_number.toString().includes(keyword)
+      if (!keywordMatched) return false
+      if (characterTokens.length === 0) return true
+      return characterTokens.some((token) => token && chapterText.includes(token.toLowerCase()))
     })
     if (chapterSort === 'number_asc') return filtered.sort((a, b) => a.chapter_number - b.chapter_number)
     if (chapterSort === 'number_desc') return filtered.sort((a, b) => b.chapter_number - a.chapter_number)
     return filtered.sort((a, b) => Date.parse(b.updated_at) - Date.parse(a.updated_at))
-  }, [chapters, chapterSearch, chapterSort])
+  }, [chapters, chapterSearch, chapterSort, chapterVolumeFilter, chapterCharacterFilter, chapterCharacterOptions])
 
   const groupedChapters = useMemo(() => {
     const byVolume = new Map<number, Chapter[]>()
@@ -258,6 +284,9 @@ export function useNovelsChapters({
     confirmDeleteChapterId,
     chapterSearch,
     chapterSort,
+    chapterVolumeFilter,
+    chapterCharacterFilter,
+    chapterCharacterOptions,
     movingChapterId,
     exportingMarkdown,
     exportDialogOpen,
@@ -281,6 +310,8 @@ export function useNovelsChapters({
     setConfirmDeleteChapterId,
     setChapterSearch,
     setChapterSort,
+    setChapterVolumeFilter,
+    setChapterCharacterFilter,
     setExportDialogOpen,
     setExportScope,
     setExportVolumeID,

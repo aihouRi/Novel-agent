@@ -3,6 +3,7 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined'
 import type { Novel } from '../../api/novels'
 import type { Chapter, ExportScope } from '../../api/chapters'
+import type { Character } from '../../api/characters'
 import type { Volume } from '../../api/volumes'
 
 type SortType = 'number_asc' | 'number_desc' | 'updated_desc'
@@ -20,6 +21,9 @@ type Props = {
   newVolumeTitle: string
   chapterSearch: string
   chapterSort: SortType
+  chapterVolumeFilter: number
+  chapterCharacterFilter: number
+  chapterCharacterOptions: Character[]
   chapterLoading: boolean
   visibleChapters: Chapter[]
   groupedChapters: GroupedChapter[]
@@ -29,6 +33,8 @@ type Props = {
   onCreateVolume: () => void
   onChapterSearchChange: (value: string) => void
   onChapterSortChange: (value: SortType) => void
+  onChapterVolumeFilterChange: (value: number) => void
+  onChapterCharacterFilterChange: (value: number) => void
   onMoveChapterVolume: (chapter: Chapter, nextVolumeID: number) => void
   onEditChapter: (chapter: Chapter) => void
   onDeleteChapter: (id: number) => void
@@ -44,6 +50,9 @@ export default function NovelChaptersSection({
   newVolumeTitle,
   chapterSearch,
   chapterSort,
+  chapterVolumeFilter,
+  chapterCharacterFilter,
+  chapterCharacterOptions,
   chapterLoading,
   visibleChapters,
   groupedChapters,
@@ -53,6 +62,8 @@ export default function NovelChaptersSection({
   onCreateVolume,
   onChapterSearchChange,
   onChapterSortChange,
+  onChapterVolumeFilterChange,
+  onChapterCharacterFilterChange,
   onMoveChapterVolume,
   onEditChapter,
   onDeleteChapter,
@@ -87,13 +98,43 @@ export default function NovelChaptersSection({
         </Stack>
 
         <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} sx={{ mb: 2 }}>
-          <TextField label="搜索章节（编号/标题）" value={chapterSearch} onChange={(e) => onChapterSearchChange(e.target.value)} fullWidth />
+          <TextField label="搜索章节（编号/标题/正文）" value={chapterSearch} onChange={(e) => onChapterSearchChange(e.target.value)} fullWidth />
           <FormControl sx={{ minWidth: { xs: '100%', md: 220 } }}>
             <InputLabel id="chapter-sort-select">排序</InputLabel>
             <Select labelId="chapter-sort-select" label="排序" value={chapterSort} onChange={(e) => onChapterSortChange(e.target.value as SortType)}>
               <MenuItem value="number_desc">章节号（新到旧）</MenuItem>
               <MenuItem value="number_asc">章节号（旧到新）</MenuItem>
               <MenuItem value="updated_desc">最近更新</MenuItem>
+            </Select>
+          </FormControl>
+        </Stack>
+        <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} sx={{ mb: 2 }}>
+          <FormControl sx={{ minWidth: { xs: '100%', md: 220 } }}>
+            <InputLabel id="chapter-volume-filter-select">筛选分卷</InputLabel>
+            <Select
+              labelId="chapter-volume-filter-select"
+              label="筛选分卷"
+              value={chapterVolumeFilter}
+              onChange={(e) => onChapterVolumeFilterChange(Number(e.target.value))}
+            >
+              <MenuItem value={0}>全部分卷</MenuItem>
+              {volumes.map((v) => (
+                <MenuItem key={v.id} value={v.id}>第{v.volume_number}卷：{v.title}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          <FormControl sx={{ minWidth: { xs: '100%', md: 240 } }}>
+            <InputLabel id="chapter-character-filter-select">筛选角色</InputLabel>
+            <Select
+              labelId="chapter-character-filter-select"
+              label="筛选角色"
+              value={chapterCharacterFilter}
+              onChange={(e) => onChapterCharacterFilterChange(Number(e.target.value))}
+            >
+              <MenuItem value={0}>全部角色</MenuItem>
+              {chapterCharacterOptions.map((c) => (
+                <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>
+              ))}
             </Select>
           </FormControl>
         </Stack>

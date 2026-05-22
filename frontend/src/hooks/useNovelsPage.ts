@@ -114,6 +114,7 @@ export function useNovelsPage(token: string, onLogout: () => void) {
   const chaptersState = useNovelsChapters({
     token,
     selectedNovelId,
+    characters,
     onNotifySuccess: notifySuccess,
     onNotifyError: notifyError,
     onRefreshNovels: refreshNovels,
