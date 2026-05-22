@@ -21,6 +21,7 @@ type Props = {
   open: boolean
   exporting: boolean
   scope: ExportScope
+  status: 'all' | 'draft' | 'review' | 'final'
   volumeId: number
   fromChapter: number
   toChapter: number
@@ -30,6 +31,7 @@ type Props = {
   volumes: Volume[]
   onClose: () => void
   onScopeChange: (scope: ExportScope) => void
+  onStatusChange: (status: 'all' | 'draft' | 'review' | 'final') => void
   onVolumeIdChange: (id: number) => void
   onFromChapterChange: (v: number) => void
   onToChapterChange: (v: number) => void
@@ -63,6 +65,21 @@ export default function ExportDialog(props: Props) {
               <MenuItem value="all">全部章节</MenuItem>
               <MenuItem value="volume">按分卷</MenuItem>
               <MenuItem value="chapter_range">按章节区间</MenuItem>
+            </Select>
+          </FormControl>
+
+          <FormControl fullWidth>
+            <InputLabel id="export-status-select">章节状态</InputLabel>
+            <Select
+              labelId="export-status-select"
+              label="章节状态"
+              value={props.status}
+              onChange={(e) => props.onStatusChange(e.target.value as 'all' | 'draft' | 'review' | 'final')}
+            >
+              <MenuItem value="all">全部状态</MenuItem>
+              <MenuItem value="draft">仅草稿</MenuItem>
+              <MenuItem value="review">仅待审</MenuItem>
+              <MenuItem value="final">仅定稿</MenuItem>
             </Select>
           </FormControl>
 

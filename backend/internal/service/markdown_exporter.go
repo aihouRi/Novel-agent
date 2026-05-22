@@ -18,6 +18,7 @@ type ExportOptions struct {
 	IncludeBody    bool
 	IncludeSummary bool
 	IncludeOutline bool
+	MetaLines      []string
 }
 
 func (e *MarkdownExporter) BuildNovelMarkdown(novel *domain.Novel, volumes []domain.Volume, chapters []domain.Chapter, opts ExportOptions) string {
@@ -30,6 +31,17 @@ func (e *MarkdownExporter) BuildNovelMarkdown(novel *domain.Novel, volumes []dom
 	b.WriteString("# ")
 	b.WriteString(title)
 	b.WriteString("\n\n")
+	if len(opts.MetaLines) > 0 {
+		for _, line := range opts.MetaLines {
+			if strings.TrimSpace(line) == "" {
+				continue
+			}
+			b.WriteString("> ")
+			b.WriteString(strings.TrimSpace(line))
+			b.WriteString("\n")
+		}
+		b.WriteString("\n")
+	}
 
 	byVolume := make(map[int64][]domain.Chapter, len(volumes))
 	for _, c := range chapters {

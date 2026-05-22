@@ -363,6 +363,7 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
           open={state.exportDialogOpen}
           exporting={state.exportingMarkdown}
           scope={state.exportScope}
+          status={state.exportStatus}
           volumeId={state.exportVolumeID}
           fromChapter={state.exportFromChapter}
           toChapter={state.exportToChapter}
@@ -372,6 +373,7 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
           volumes={state.volumes}
           onClose={() => state.setExportDialogOpen(false)}
           onScopeChange={state.setExportScope}
+          onStatusChange={state.setExportStatus}
           onVolumeIdChange={state.setExportVolumeID}
           onFromChapterChange={state.setExportFromChapter}
           onToChapterChange={state.setExportToChapter}

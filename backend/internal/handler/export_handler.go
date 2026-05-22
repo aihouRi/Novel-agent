@@ -35,6 +35,7 @@ const (
 type exportRequest struct {
 	Format         string `json:"format"`
 	Scope          string `json:"scope"`
+	Status         string `json:"status"`
 	VolumeID       int64  `json:"volume_id"`
 	FromChapter    int    `json:"from_chapter"`
 	ToChapter      int    `json:"to_chapter"`
@@ -61,6 +62,7 @@ func (h *ExportHandler) ExportNovelMarkdown(c echo.Context) error {
 	req := exportRequest{
 		Format:         "markdown",
 		Scope:          string(exportScopeAll),
+		Status:         "all",
 		IncludeBody:    true,
 		IncludeSummary: true,
 		IncludeOutline: true,
@@ -78,6 +80,9 @@ func (h *ExportHandler) ExportNovel(c echo.Context) error {
 	}
 	if strings.TrimSpace(req.Scope) == "" {
 		req.Scope = string(exportScopeAll)
+	}
+	if strings.TrimSpace(req.Status) == "" {
+		req.Status = "all"
 	}
 	if !req.IncludeBody && !req.IncludeSummary && !req.IncludeOutline {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "at least one export content option is required"})
@@ -125,6 +130,7 @@ func (h *ExportHandler) exportNovel(c echo.Context, req exportRequest) error {
 		IncludeBody:    req.IncludeBody,
 		IncludeSummary: req.IncludeSummary,
 		IncludeOutline: req.IncludeOutline,
+		MetaLines:      buildExportMetaLines(req),
 	})
 	filename := buildMarkdownFilename(novel.Title)
 	escaped := url.PathEscape(filename)
@@ -138,6 +144,21 @@ func (h *ExportHandler) exportNovel(c echo.Context, req exportRequest) error {
 }
 
 func filterExportData(volumes []domain.Volume, chapters []domain.Chapter, req exportRequest) ([]domain.Volume, []domain.Chapter, error) {
+	status := strings.ToLower(strings.TrimSpace(req.Status))
+	if status != "" && status != "all" && status != "draft" && status != "review" && status != "final" {
+		return nil, nil, errors.New("unsupported status")
+	}
+
+	filteredByStatus := chapters
+	if status != "" && status != "all" {
+		filteredByStatus = make([]domain.Chapter, 0, len(chapters))
+		for _, c := range chapters {
+			if c.Status == status {
+				filteredByStatus = append(filteredByStatus, c)
+			}
+		}
+	}
+
 	scope := exportScope(strings.ToLower(strings.TrimSpace(req.Scope)))
 	volumeSet := make(map[int64]domain.Volume, len(volumes))
 	for _, v := range volumes {
@@ -146,7 +167,17 @@ func filterExportData(volumes []domain.Volume, chapters []domain.Chapter, req ex
 
 	switch scope {
 	case exportScopeAll:
-		return volumes, chapters, nil
+		usedVolumes := make(map[int64]bool)
+		for _, c := range filteredByStatus {
+			usedVolumes[c.VolumeID] = true
+		}
+		filteredVolumes := make([]domain.Volume, 0, len(volumes))
+		for _, v := range volumes {
+			if usedVolumes[v.ID] {
+				filteredVolumes = append(filteredVolumes, v)
+			}
+		}
+		return filteredVolumes, filteredByStatus, nil
 	case exportScopeVolume:
 		if req.VolumeID <= 0 {
 			return nil, nil, errors.New("volume_id is required for volume scope")
@@ -156,7 +187,7 @@ func filterExportData(volumes []domain.Volume, chapters []domain.Chapter, req ex
 			return nil, nil, errors.New("volume not found")
 		}
 		filtered := make([]domain.Chapter, 0)
-		for _, c := range chapters {
+		for _, c := range filteredByStatus {
 			if c.VolumeID == req.VolumeID {
 				filtered = append(filtered, c)
 			}
@@ -171,7 +202,7 @@ func filterExportData(volumes []domain.Volume, chapters []domain.Chapter, req ex
 		}
 		filteredChapters := make([]domain.Chapter, 0)
 		usedVolumes := make(map[int64]bool)
-		for _, c := range chapters {
+		for _, c := range filteredByStatus {
 			if c.ChapterNumber >= req.FromChapter && c.ChapterNumber <= req.ToChapter {
 				filteredChapters = append(filteredChapters, c)
 				usedVolumes[c.VolumeID] = true
@@ -192,6 +223,30 @@ func filterExportData(volumes []domain.Volume, chapters []domain.Chapter, req ex
 		return filteredVolumes, filteredChapters, nil
 	default:
 		return nil, nil, errors.New("unsupported scope")
+	}
+}
+
+func buildExportMetaLines(req exportRequest) []string {
+	scopeLabel := "全部章节"
+	switch exportScope(strings.ToLower(strings.TrimSpace(req.Scope))) {
+	case exportScopeVolume:
+		scopeLabel = "按分卷"
+	case exportScopeChapterRange:
+		scopeLabel = "按章节区间"
+	}
+
+	statusLabel := "全部状态"
+	switch strings.ToLower(strings.TrimSpace(req.Status)) {
+	case "draft":
+		statusLabel = "草稿"
+	case "review":
+		statusLabel = "待审"
+	case "final":
+		statusLabel = "定稿"
+	}
+	return []string{
+		fmt.Sprintf("导出范围：%s", scopeLabel),
+		fmt.Sprintf("状态过滤：%s", statusLabel),
 	}
 }
 

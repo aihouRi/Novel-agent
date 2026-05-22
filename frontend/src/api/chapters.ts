@@ -219,6 +219,7 @@ export type ExportScope = 'all' | 'volume' | 'chapter_range'
 export type ExportNovelPayload = {
   format: 'markdown'
   scope: ExportScope
+  status: 'all' | 'draft' | 'review' | 'final'
   volume_id?: number
   from_chapter?: number
   to_chapter?: number

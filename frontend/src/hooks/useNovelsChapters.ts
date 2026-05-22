@@ -42,6 +42,7 @@ export function useNovelsChapters({
   const [exportingMarkdown, setExportingMarkdown] = useState(false)
   const [exportDialogOpen, setExportDialogOpen] = useState(false)
   const [exportScope, setExportScope] = useState<ExportScope>('all')
+  const [exportStatus, setExportStatus] = useState<'all' | 'draft' | 'review' | 'final'>('all')
   const [exportVolumeID, setExportVolumeID] = useState<number>(0)
   const [exportFromChapter, setExportFromChapter] = useState<number>(DEFAULT_EXPORT_FROM)
   const [exportToChapter, setExportToChapter] = useState<number>(DEFAULT_EXPORT_TO)
@@ -278,6 +279,7 @@ export function useNovelsChapters({
       const { blob, filename } = await exportNovel(token, selectedNovelId, {
         format: 'markdown',
         scope: exportScope,
+        status: exportStatus,
         volume_id: exportScope === 'volume' ? exportVolumeID : undefined,
         from_chapter: exportScope === 'chapter_range' ? exportFromChapter : undefined,
         to_chapter: exportScope === 'chapter_range' ? exportToChapter : undefined,
@@ -319,6 +321,7 @@ export function useNovelsChapters({
     exportingMarkdown,
     exportDialogOpen,
     exportScope,
+    exportStatus,
     exportVolumeID,
     exportFromChapter,
     exportToChapter,
@@ -343,6 +346,7 @@ export function useNovelsChapters({
     setChapterStatusFilter,
     setExportDialogOpen,
     setExportScope,
+    setExportStatus,
     setExportVolumeID,
     setExportFromChapter,
     setExportToChapter,
