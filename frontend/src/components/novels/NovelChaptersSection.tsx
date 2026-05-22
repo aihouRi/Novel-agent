@@ -23,6 +23,7 @@ type Props = {
   chapterSort: SortType
   chapterVolumeFilter: number
   chapterCharacterFilter: number
+  chapterStatusFilter: 'all' | 'draft' | 'review' | 'final'
   chapterCharacterOptions: Character[]
   chapterLoading: boolean
   visibleChapters: Chapter[]
@@ -35,7 +36,9 @@ type Props = {
   onChapterSortChange: (value: SortType) => void
   onChapterVolumeFilterChange: (value: number) => void
   onChapterCharacterFilterChange: (value: number) => void
+  onChapterStatusFilterChange: (value: 'all' | 'draft' | 'review' | 'final') => void
   onMoveChapterVolume: (chapter: Chapter, nextVolumeID: number) => void
+  onUpdateChapterStatus: (chapter: Chapter, status: 'draft' | 'review' | 'final') => void
   onEditChapter: (chapter: Chapter) => void
   onDeleteChapter: (id: number) => void
   onCreateChapter: () => void
@@ -52,6 +55,7 @@ export default function NovelChaptersSection({
   chapterSort,
   chapterVolumeFilter,
   chapterCharacterFilter,
+  chapterStatusFilter,
   chapterCharacterOptions,
   chapterLoading,
   visibleChapters,
@@ -64,7 +68,9 @@ export default function NovelChaptersSection({
   onChapterSortChange,
   onChapterVolumeFilterChange,
   onChapterCharacterFilterChange,
+  onChapterStatusFilterChange,
   onMoveChapterVolume,
+  onUpdateChapterStatus,
   onEditChapter,
   onDeleteChapter,
   onCreateChapter,
@@ -137,6 +143,20 @@ export default function NovelChaptersSection({
               ))}
             </Select>
           </FormControl>
+          <FormControl sx={{ minWidth: { xs: '100%', md: 180 } }}>
+            <InputLabel id="chapter-status-filter-select">筛选状态</InputLabel>
+            <Select
+              labelId="chapter-status-filter-select"
+              label="筛选状态"
+              value={chapterStatusFilter}
+              onChange={(e) => onChapterStatusFilterChange(e.target.value as 'all' | 'draft' | 'review' | 'final')}
+            >
+              <MenuItem value="all">全部状态</MenuItem>
+              <MenuItem value="draft">草稿</MenuItem>
+              <MenuItem value="review">待审</MenuItem>
+              <MenuItem value="final">定稿</MenuItem>
+            </Select>
+          </FormControl>
         </Stack>
 
         {chapterLoading ? (
@@ -162,9 +182,16 @@ export default function NovelChaptersSection({
                           <Box key={c.id} sx={{ border: '1px solid #e2e8f0', borderRadius: 2, p: 1.2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <Box>
                               <Typography sx={{ fontWeight: 600 }}>第 {c.chapter_number} 章 · {c.title || '未命名'}</Typography>
-                              <Typography variant="body2" color="text.secondary">{c.word_count} 字 · {c.summary.trim() ? '有总结' : '无总结'} · 更新于 {new Date(c.updated_at).toLocaleString()}</Typography>
+                              <Typography variant="body2" color="text.secondary">{c.word_count} 字 · {c.summary.trim() ? '有总结' : '无总结'} · 状态：{formatStatusLabel(c.status)} · 更新于 {new Date(c.updated_at).toLocaleString()}</Typography>
                             </Box>
                             <Stack direction="row" spacing={0.5}>
+                              <FormControl size="small" sx={{ minWidth: 110 }}>
+                                <Select value={c.status} onChange={(e) => onUpdateChapterStatus(c, e.target.value as 'draft' | 'review' | 'final')} disabled={movingChapterId === c.id}>
+                                  <MenuItem value="draft">草稿</MenuItem>
+                                  <MenuItem value="review">待审</MenuItem>
+                                  <MenuItem value="final">定稿</MenuItem>
+                                </Select>
+                              </FormControl>
                               <FormControl size="small" sx={{ minWidth: 150 }}>
                                 <Select value={c.volume_id} onChange={(e) => onMoveChapterVolume(c, Number(e.target.value))} disabled={movingChapterId === c.id}>
                                   {volumes.map((v) => (
@@ -193,4 +220,10 @@ export default function NovelChaptersSection({
       </CardContent>
     </Card>
   )
+}
+
+function formatStatusLabel(status: 'draft' | 'review' | 'final') {
+  if (status === 'review') return '待审'
+  if (status === 'final') return '定稿'
+  return '草稿'
 }

@@ -153,6 +153,7 @@ export function useChapterEditor({
   const [chapterBody, setChapterBody] = useState(ensureIndentedBody(initialChapter?.body ?? INDENT))
   const [chapterSummary, setChapterSummary] = useState(initialChapter?.summary ?? '')
   const [chapterOutline, setChapterOutline] = useState(initialChapter?.outline ?? '')
+  const [chapterStatus, setChapterStatus] = useState<'draft' | 'review' | 'final'>(initialChapter?.status ?? 'draft')
   const [chapterInstruction, setChapterInstruction] = useState(initialChapter?.generation_instruction ?? '')
   const [recentChapterCount, setRecentChapterCount] = useState(Math.max(1, recentChapterCountDefault || 3))
   const [targetWordMin, setTargetWordMin] = useState(1800)
@@ -290,6 +291,7 @@ export function useChapterEditor({
         chapterBody: string
         chapterSummary: string
         chapterOutline: string
+        chapterStatus?: 'draft' | 'review' | 'final'
         chapterInstruction: string
         selectedCharacterIDs?: number[]
         selectedLoreEntryIDs?: number[]
@@ -308,6 +310,7 @@ export function useChapterEditor({
       setChapterBody(ensureIndentedBody(draft.chapterBody ?? ''))
       setChapterSummary(draft.chapterSummary ?? '')
       setChapterOutline(draft.chapterOutline ?? '')
+      setChapterStatus(draft.chapterStatus ?? 'draft')
       setChapterInstruction(draft.chapterInstruction ?? '')
       setSelectedCharacterIDs(Array.isArray(draft.selectedCharacterIDs) ? draft.selectedCharacterIDs.filter((id) => validCharacterIDSet.has(id)) : [])
       setSelectedLoreEntryIDs(Array.isArray(draft.selectedLoreEntryIDs) ? draft.selectedLoreEntryIDs.filter((id) => validLoreEntryIDSet.has(id)) : [])
@@ -346,6 +349,7 @@ export function useChapterEditor({
         chapterBody,
         chapterSummary,
         chapterOutline,
+        chapterStatus,
         chapterInstruction,
         selectedCharacterIDs,
         selectedLoreEntryIDs,
@@ -360,7 +364,7 @@ export function useChapterEditor({
       localStorage.setItem(draftKey, JSON.stringify(draft))
     }, 500)
     return () => window.clearTimeout(id)
-  }, [draftKey, volumeID, chapterNumber, chapterTitle, chapterBody, chapterSummary, chapterOutline, chapterInstruction, selectedCharacterIDs, selectedLoreEntryIDs, targetWordMin, targetWordMax, avoidTranslationTone, avoidModernSlang, keepPovConsistent, keepTenseConsistent, recentChapterCount])
+  }, [draftKey, volumeID, chapterNumber, chapterTitle, chapterBody, chapterSummary, chapterOutline, chapterStatus, chapterInstruction, selectedCharacterIDs, selectedLoreEntryIDs, targetWordMin, targetWordMax, avoidTranslationTone, avoidModernSlang, keepPovConsistent, keepTenseConsistent, recentChapterCount])
 
   function handleBodyKeyDown(e: KeyboardEvent<HTMLDivElement>) {
     const target = e.target as HTMLTextAreaElement
@@ -516,6 +520,7 @@ export function useChapterEditor({
         generation_instruction: chapterInstruction,
         outline: chapterOutline,
         summary: chapterSummary,
+        status: chapterStatus,
       }
 
       if (isEdit && initialChapter) {
@@ -830,6 +835,7 @@ export function useChapterEditor({
     chapterBody,
     chapterSummary,
     chapterOutline,
+    chapterStatus,
     chapterInstruction,
     targetWordMin,
     targetWordMax,
@@ -867,6 +873,7 @@ export function useChapterEditor({
     setChapterBody,
     setChapterSummary,
     setChapterOutline,
+    setChapterStatus,
     setChapterInstruction,
     setTargetWordMin,
     setTargetWordMax,

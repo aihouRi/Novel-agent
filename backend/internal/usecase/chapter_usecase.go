@@ -28,6 +28,7 @@ func (u *ChapterUsecase) Create(ctx context.Context, userID, novelID int64, in *
 	in.Outline = strings.TrimSpace(in.Outline)
 	in.Body = strings.TrimSpace(in.Body)
 	in.Summary = strings.TrimSpace(in.Summary)
+	in.Status = normalizeChapterStatus(in.Status)
 
 	if in.ChapterNumber <= 0 {
 		return nil, errors.New("chapter_number must be greater than 0")
@@ -68,6 +69,7 @@ func (u *ChapterUsecase) Update(ctx context.Context, userID, novelID, id int64, 
 	in.Outline = strings.TrimSpace(in.Outline)
 	in.Body = strings.TrimSpace(in.Body)
 	in.Summary = strings.TrimSpace(in.Summary)
+	in.Status = normalizeChapterStatus(in.Status)
 
 	if in.ChapterNumber <= 0 {
 		return nil, errors.New("chapter_number must be greater than 0")
@@ -106,4 +108,15 @@ func countNonSpaceChars(s string) int {
 		}
 	}
 	return count
+}
+
+func normalizeChapterStatus(in string) string {
+	switch strings.ToLower(strings.TrimSpace(in)) {
+	case "review":
+		return "review"
+	case "final":
+		return "final"
+	default:
+		return "draft"
+	}
 }

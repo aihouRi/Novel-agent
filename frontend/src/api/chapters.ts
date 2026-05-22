@@ -10,6 +10,7 @@ export type Chapter = {
   generation_instruction: string
   outline: string
   summary: string
+  status: 'draft' | 'review' | 'final'
   created_at: string
   updated_at: string
 }
@@ -23,6 +24,7 @@ export type UpsertChapterPayload = {
   generation_instruction: string
   outline: string
   summary: string
+  status: 'draft' | 'review' | 'final'
 }
 
 export type GenerateChapterPayload = {

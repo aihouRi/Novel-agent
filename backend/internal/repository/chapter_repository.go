@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"strings"
 
 	"novel-agent/backend/internal/domain"
 )
@@ -16,15 +17,16 @@ func NewChapterRepository(db *sql.DB) *ChapterRepository {
 }
 
 func (r *ChapterRepository) Create(ctx context.Context, userID int64, c *domain.Chapter) (*domain.Chapter, error) {
+	status := normalizeChapterStatus(c.Status)
 	res, err := r.db.ExecContext(ctx, `
 		INSERT INTO chapters (
-			novel_id, volume_id, chapter_number, title, body, word_count, generation_instruction, outline, summary
+			novel_id, volume_id, chapter_number, title, body, word_count, generation_instruction, outline, summary, status
 		)
-		SELECT ?, v.id, ?, ?, ?, ?, ?, ?, ?
+		SELECT ?, v.id, ?, ?, ?, ?, ?, ?, ?, ?
 		FROM novels
 		JOIN volumes v ON v.id = ? AND v.novel_id = novels.id
 		WHERE novels.id = ? AND novels.user_id = ?
-	`, c.NovelID, c.ChapterNumber, c.Title, c.Body, c.WordCount, c.GenerationInstruction, c.Outline, c.Summary, c.VolumeID, c.NovelID, userID)
+	`, c.NovelID, c.ChapterNumber, c.Title, c.Body, c.WordCount, c.GenerationInstruction, c.Outline, c.Summary, status, c.VolumeID, c.NovelID, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -48,7 +50,7 @@ func (r *ChapterRepository) Create(ctx context.Context, userID int64, c *domain.
 func (r *ChapterRepository) ListByNovel(ctx context.Context, userID, novelID int64) ([]domain.Chapter, error) {
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT c.id, c.novel_id, c.volume_id, c.chapter_number, c.title, c.body, c.word_count,
-			c.generation_instruction, c.outline, c.summary, c.created_at, c.updated_at
+			c.generation_instruction, c.outline, c.summary, c.status, c.created_at, c.updated_at
 		FROM chapters c
 		JOIN novels n ON n.id = c.novel_id
 		WHERE c.novel_id = ? AND n.user_id = ?
@@ -64,7 +66,7 @@ func (r *ChapterRepository) ListByNovel(ctx context.Context, userID, novelID int
 		var c domain.Chapter
 		if err := rows.Scan(
 			&c.ID, &c.NovelID, &c.VolumeID, &c.ChapterNumber, &c.Title, &c.Body, &c.WordCount,
-			&c.GenerationInstruction, &c.Outline, &c.Summary, &c.CreatedAt, &c.UpdatedAt,
+			&c.GenerationInstruction, &c.Outline, &c.Summary, &c.Status, &c.CreatedAt, &c.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -78,13 +80,13 @@ func (r *ChapterRepository) GetByID(ctx context.Context, userID, novelID, id int
 	var c domain.Chapter
 	err := r.db.QueryRowContext(ctx, `
 		SELECT c.id, c.novel_id, c.volume_id, c.chapter_number, c.title, c.body, c.word_count,
-			c.generation_instruction, c.outline, c.summary, c.created_at, c.updated_at
+			c.generation_instruction, c.outline, c.summary, c.status, c.created_at, c.updated_at
 		FROM chapters c
 		JOIN novels n ON n.id = c.novel_id
 		WHERE c.id = ? AND c.novel_id = ? AND n.user_id = ?
 	`, id, novelID, userID).Scan(
 		&c.ID, &c.NovelID, &c.VolumeID, &c.ChapterNumber, &c.Title, &c.Body, &c.WordCount,
-		&c.GenerationInstruction, &c.Outline, &c.Summary, &c.CreatedAt, &c.UpdatedAt,
+		&c.GenerationInstruction, &c.Outline, &c.Summary, &c.Status, &c.CreatedAt, &c.UpdatedAt,
 	)
 	if err != nil {
 		return nil, err
@@ -94,14 +96,15 @@ func (r *ChapterRepository) GetByID(ctx context.Context, userID, novelID, id int
 }
 
 func (r *ChapterRepository) Update(ctx context.Context, userID, novelID, id int64, c *domain.Chapter) (*domain.Chapter, error) {
+	status := normalizeChapterStatus(c.Status)
 	res, err := r.db.ExecContext(ctx, `
 		UPDATE chapters c
 		JOIN novels n ON n.id = c.novel_id
 		JOIN volumes v ON v.id = ? AND v.novel_id = c.novel_id
 		SET c.volume_id = ?, c.chapter_number = ?, c.title = ?, c.body = ?, c.word_count = ?,
-			c.generation_instruction = ?, c.outline = ?, c.summary = ?
+			c.generation_instruction = ?, c.outline = ?, c.summary = ?, c.status = ?
 		WHERE c.id = ? AND c.novel_id = ? AND n.user_id = ?
-	`, c.VolumeID, c.VolumeID, c.ChapterNumber, c.Title, c.Body, c.WordCount, c.GenerationInstruction, c.Outline, c.Summary, id, novelID, userID)
+	`, c.VolumeID, c.VolumeID, c.ChapterNumber, c.Title, c.Body, c.WordCount, c.GenerationInstruction, c.Outline, c.Summary, status, id, novelID, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -135,4 +138,15 @@ func (r *ChapterRepository) Delete(ctx context.Context, userID, novelID, id int6
 		return sql.ErrNoRows
 	}
 	return nil
+}
+
+func normalizeChapterStatus(in string) string {
+	switch strings.ToLower(strings.TrimSpace(in)) {
+	case "review":
+		return "review"
+	case "final":
+		return "final"
+	default:
+		return "draft"
+	}
 }

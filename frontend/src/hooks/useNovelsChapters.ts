@@ -37,6 +37,7 @@ export function useNovelsChapters({
   const [chapterSort, setChapterSort] = useState<'number_asc' | 'number_desc' | 'updated_desc'>('number_desc')
   const [chapterVolumeFilter, setChapterVolumeFilter] = useState<number>(0)
   const [chapterCharacterFilter, setChapterCharacterFilter] = useState<number>(0)
+  const [chapterStatusFilter, setChapterStatusFilter] = useState<'all' | 'draft' | 'review' | 'final'>('all')
   const [movingChapterId, setMovingChapterId] = useState<number | null>(null)
   const [exportingMarkdown, setExportingMarkdown] = useState(false)
   const [exportDialogOpen, setExportDialogOpen] = useState(false)
@@ -71,6 +72,7 @@ export function useNovelsChapters({
       : []
     const filtered = chapters.filter((c) => {
       if (chapterVolumeFilter > 0 && c.volume_id !== chapterVolumeFilter) return false
+      if (chapterStatusFilter !== 'all' && c.status !== chapterStatusFilter) return false
       const chapterText = `${c.title} ${c.summary} ${c.body}`.toLowerCase()
       const keywordMatched =
         !keyword ||
@@ -83,7 +85,7 @@ export function useNovelsChapters({
     if (chapterSort === 'number_asc') return filtered.sort((a, b) => a.chapter_number - b.chapter_number)
     if (chapterSort === 'number_desc') return filtered.sort((a, b) => b.chapter_number - a.chapter_number)
     return filtered.sort((a, b) => Date.parse(b.updated_at) - Date.parse(a.updated_at))
-  }, [chapters, chapterSearch, chapterSort, chapterVolumeFilter, chapterCharacterFilter, chapterCharacterOptions])
+  }, [chapters, chapterSearch, chapterSort, chapterVolumeFilter, chapterCharacterFilter, chapterCharacterOptions, chapterStatusFilter])
 
   const groupedChapters = useMemo(() => {
     const byVolume = new Map<number, Chapter[]>()
@@ -204,6 +206,7 @@ export function useNovelsChapters({
         generation_instruction: chapter.generation_instruction,
         outline: chapter.outline,
         summary: chapter.summary,
+        status: chapter.status,
       })
       await refreshChapters(selectedNovelId)
       onNotifySuccess('章节分卷已更新。')
@@ -228,6 +231,30 @@ export function useNovelsChapters({
       onNotifyError(e instanceof Error ? e.message : '删除章节失败')
     } finally {
       setChapterLoading(false)
+    }
+  }
+
+  async function handleUpdateChapterStatus(chapter: Chapter, status: 'draft' | 'review' | 'final') {
+    if (!selectedNovelId || chapter.status === status) return
+    setMovingChapterId(chapter.id)
+    try {
+      await updateChapter(token, selectedNovelId, chapter.id, {
+        volume_id: chapter.volume_id,
+        chapter_number: chapter.chapter_number,
+        title: chapter.title,
+        body: chapter.body,
+        word_count: chapter.word_count,
+        generation_instruction: chapter.generation_instruction,
+        outline: chapter.outline,
+        summary: chapter.summary,
+        status,
+      })
+      await refreshChapters(selectedNovelId)
+      onNotifySuccess('章节状态已更新。')
+    } catch (e) {
+      onNotifyError(e instanceof Error ? e.message : '更新章节状态失败')
+    } finally {
+      setMovingChapterId(null)
     }
   }
 
@@ -286,6 +313,7 @@ export function useNovelsChapters({
     chapterSort,
     chapterVolumeFilter,
     chapterCharacterFilter,
+    chapterStatusFilter,
     chapterCharacterOptions,
     movingChapterId,
     exportingMarkdown,
@@ -312,6 +340,7 @@ export function useNovelsChapters({
     setChapterSort,
     setChapterVolumeFilter,
     setChapterCharacterFilter,
+    setChapterStatusFilter,
     setExportDialogOpen,
     setExportScope,
     setExportVolumeID,
@@ -331,6 +360,7 @@ export function useNovelsChapters({
     closeEditVolume,
     handleUpdateVolume,
     handleMoveChapterVolume,
+    handleUpdateChapterStatus,
     confirmDeleteChapter,
     handleExportMarkdown,
   }

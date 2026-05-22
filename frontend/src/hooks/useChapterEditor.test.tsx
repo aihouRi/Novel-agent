@@ -183,6 +183,7 @@ describe('useChapterEditor', () => {
         generation_instruction: '',
         outline: '',
         summary: '',
+        status: 'draft',
         created_at: '',
         updated_at: '',
       },
@@ -200,6 +201,7 @@ describe('useChapterEditor', () => {
       generation_instruction: '',
       outline: '',
       summary: '',
+      status: 'draft',
       created_at: '',
       updated_at: '',
     }

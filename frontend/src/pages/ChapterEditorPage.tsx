@@ -443,6 +443,19 @@ export default function ChapterEditorPage({
                             InputProps={{ readOnly: true }}
                             sx={{ width: { xs: '100%', sm: 180 } }}
                           />
+                          <FormControl sx={{ width: { xs: '100%', sm: 180 } }}>
+                            <InputLabel id="chapter-status-select">状态</InputLabel>
+                            <Select
+                              labelId="chapter-status-select"
+                              label="状态"
+                              value={editor.chapterStatus}
+                              onChange={(e) => editor.setChapterStatus(e.target.value as 'draft' | 'review' | 'final')}
+                            >
+                              <MenuItem value="draft">草稿</MenuItem>
+                              <MenuItem value="review">待审</MenuItem>
+                              <MenuItem value="final">定稿</MenuItem>
+                            </Select>
+                          </FormControl>
                         </Stack>
 
                         <Card variant="outlined" sx={{ borderRadius: 2 }}>

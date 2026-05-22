@@ -28,6 +28,7 @@ type chapterUpsertRequest struct {
 	GenerationInstruction string `json:"generation_instruction"`
 	Outline               string `json:"outline"`
 	Summary               string `json:"summary"`
+	Status                string `json:"status"`
 }
 
 func (h *ChapterHandler) Create(c echo.Context) error {
@@ -171,5 +172,6 @@ func mapChapterReq(req chapterUpsertRequest) *domain.Chapter {
 		GenerationInstruction: req.GenerationInstruction,
 		Outline:               req.Outline,
 		Summary:               req.Summary,
+		Status:                req.Status,
 	}
 }

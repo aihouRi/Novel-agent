@@ -230,6 +230,7 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
                 chapterSort={state.chapterSort}
                 chapterVolumeFilter={state.chapterVolumeFilter}
                 chapterCharacterFilter={state.chapterCharacterFilter}
+                chapterStatusFilter={state.chapterStatusFilter}
                 chapterCharacterOptions={state.chapterCharacterOptions}
                 chapterLoading={state.chapterLoading}
                 visibleChapters={state.visibleChapters}
@@ -242,7 +243,9 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
                 onChapterSortChange={state.setChapterSort}
                 onChapterVolumeFilterChange={state.setChapterVolumeFilter}
                 onChapterCharacterFilterChange={state.setChapterCharacterFilter}
+                onChapterStatusFilterChange={state.setChapterStatusFilter}
                 onMoveChapterVolume={(chapter, nextVolumeID) => void state.handleMoveChapterVolume(chapter, nextVolumeID)}
+                onUpdateChapterStatus={(chapter, status) => void state.handleUpdateChapterStatus(chapter, status)}
                 onEditChapter={(chapter) => { state.setChapterEditorTarget(chapter); state.setChapterEditorOpen(true) }}
                 onDeleteChapter={state.setConfirmDeleteChapterId}
                 onCreateChapter={() => { state.setChapterEditorTarget(null); state.setChapterEditorOpen(true) }}
