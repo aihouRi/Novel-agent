@@ -1,6 +1,6 @@
 # Novel Agent V1 设计书
 
-更新时间：2026-05-21
+更新时间：2026-05-22
 
 ## 1. 文档目的
 本设计书用于定义 V1 的目标、范围与约束，作为 MVP 之后的迭代基线。
@@ -148,6 +148,30 @@
   - 覆盖生成失败提示与重试状态
   - 覆盖保存失败不触发生成重试
   - 覆盖生成请求携带 `character_ids + lore_entry_ids`
+- V1-3 已完成：前端结构重构第二轮（不改功能）
+  - `ChapterEditorPage` 再拆分，降低单文件复杂度：
+    - `AISettingsDialog`（AI 配置弹窗）
+    - `GenerateConfirmDialog`（生成确认弹窗）
+    - `generateCost`（成本估算与档位计算工具）
+  - 保持现有交互与功能不变，提升后续维护与迭代效率。
+- V1-3（增量）已完成：前端结构重构第三轮（不改功能）
+  - 抽离 `useChapterAISettings`，统一管理 AI 设置状态与保存/加载逻辑。
+  - 抽离 `ChapterEditorHeader`，解耦页头展示与主操作按钮。
+  - 抽离 `ChapterEditorSidePanelButtons`，复用侧栏按钮样式与切换逻辑。
+- V1-3（增量）已完成：前端结构重构第四轮（不改功能）
+  - 抽离 `ChapterEditorWorkspace`，集中承载章节主编辑区与侧栏内容区。
+  - `ChapterEditorPage` 进一步收敛为编排层，减少单文件密度与维护难度。
+- V1-3（增量）已完成：前端结构重构第五轮（不改功能）
+  - 抽离页面级弹窗与提示条：
+    - `HistoryFillDialog`
+    - `RewriteInputDialog`
+    - `RewritePreviewDialog`
+    - `EditorSnackbars`
+  - `ChapterEditorPage` 继续聚焦“状态编排 + 事件路由”职责。
+- V1-3（增量）已完成：前端结构重构第六轮（不改功能）
+  - 抽离 `ChapterEditorFloatingActions` 组件，统一底部悬浮操作区渲染。
+  - 抽离 `useChapterEditorDialogs` hook，集中管理页面弹窗与局部重写流程状态。
+  - 修复指令侧栏面板在窄宽布局下的溢出问题（按钮尺寸与侧栏约束优化）。
 
 ## 6. V1 非目标
 - RAG / 向量数据库

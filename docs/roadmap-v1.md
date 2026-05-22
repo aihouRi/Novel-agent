@@ -37,7 +37,7 @@
 - 已完成后端 `chapters/generate` 失败路径集成测试补强。
 - 已完成前端关键交互最小测试（生成失败提示、重试状态、请求参数携带）。
 
-## V1-3 前端结构重构增量（不改功能）
+## V1-3 前端结构重构增量（不改功能）（已完成）
 - 目标：进一步降低页面复杂度和重复逻辑。
 - 交付物：
   - 剩余重页面拆分为 hooks/components。
@@ -45,6 +45,29 @@
 - 验收：
   - 关键页面行为不变。
   - `npm run build` 通过。
+
+完成情况：
+- 已完成章节写作页（`ChapterEditorPage`）第二轮拆分：
+  - 抽离 `AISettingsDialog` 组件，承载 Provider/Key/Base URL/Model 配置 UI。
+  - 抽离 `GenerateConfirmDialog` 组件，承载生成前确认与高成本二次确认 UI。
+  - 抽离 `generateCost` 工具，集中管理生成 token/费用估算与成本档位判断逻辑。
+- 已完成章节写作页（`ChapterEditorPage`）第三轮拆分：
+  - 抽离 `useChapterAISettings` hook，集中管理 AI 设置状态与读写逻辑。
+  - 抽离 `ChapterEditorHeader` 组件（页头 + 顶部主操作区）。
+  - 抽离 `ChapterEditorSidePanelButtons` 组件（右侧功能切换按钮组）。
+- 已完成章节写作页（`ChapterEditorPage`）第四轮拆分：
+  - 抽离 `ChapterEditorWorkspace` 组件，承载“主编辑表单区 + 侧栏内容区”。
+  - 页面主体转为编排层（状态组合 + 弹窗组织），核心编辑 UI 与交互细节迁移至独立组件。
+- 已完成章节写作页（`ChapterEditorPage`）第五轮拆分：
+  - 抽离 `HistoryFillDialog`（历史回填确认弹窗）。
+  - 抽离 `RewriteInputDialog`（局部重写输入弹窗）。
+  - 抽离 `RewritePreviewDialog`（局部重写预览弹窗）。
+  - 抽离 `EditorSnackbars`（成功/失败提示条）。
+- 已完成章节写作页（`ChapterEditorPage`）第六轮拆分：
+  - 抽离 `ChapterEditorFloatingActions`（底部悬浮操作区）。
+  - 抽离 `useChapterEditorDialogs`（页面弹窗与局部重写相关状态编排）。
+  - 修复指令侧栏面板在窄宽布局下的横向溢出（按钮缩小 + 容器最小宽度约束 + 指令区表单防撑宽）。
+- 页面功能与交互保持不变，仅减少页面文件体积并降低后续维护复杂度。
 
 ## V1-4 世界观知识卡前端与生成联动（已完成）
 - 目标：支持修仙等题材中的“法器/丹药/阵法”等复杂设定管理。
