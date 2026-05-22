@@ -523,6 +523,7 @@ export default function ChapterEditorPage({
                           {editor.sidePanel === 'outline' && '章节大纲'}
                           {editor.sidePanel === 'instruction' && '生成指令'}
                           {editor.sidePanel === 'history' && '生成历史'}
+                          {editor.sidePanel === 'snapshot' && '章节快照'}
                         </Typography>
                         <IconButton size="small" onClick={() => editor.setSidePanel(null)}>
                           <CloseIcon fontSize="small" />
@@ -754,6 +755,39 @@ export default function ChapterEditorPage({
                           ))}
                         </Stack>
                       )}
+                      {editor.sidePanel === 'snapshot' && (
+                        <Stack spacing={1}>
+                          <Stack direction="row" justifyContent="flex-end">
+                            <Button size="small" variant="outlined" onClick={editor.saveChapterSnapshot}>
+                              保存当前快照
+                            </Button>
+                          </Stack>
+                          {editor.chapterSnapshots.length === 0 && (
+                            <Typography variant="body2" color="text.secondary">暂无章节快照。</Typography>
+                          )}
+                          {editor.chapterSnapshots.map((item, idx) => (
+                            <Card key={`${item.createdAt}_${idx}`} variant="outlined" sx={{ borderRadius: 2 }}>
+                              <CardContent sx={{ py: 1.5 }}>
+                                <Stack spacing={1}>
+                                  <Typography variant="caption" color="text.secondary">
+                                    {new Date(item.createdAt).toLocaleString('zh-CN')} · 状态：
+                                    {item.chapterStatus === 'draft' ? '草稿' : item.chapterStatus === 'review' ? '待审' : '定稿'}
+                                  </Typography>
+                                  <Typography variant="body2" sx={{ color: '#475569' }}>
+                                    标题：{item.chapterTitle || '（未命名）'}
+                                  </Typography>
+                                  <Typography variant="body2" color="text.secondary">
+                                    正文预览：{item.body.slice(0, 80) || '（空）'}
+                                  </Typography>
+                                  <Button size="small" variant="outlined" onClick={() => editor.applyChapterSnapshot(idx)}>
+                                    回填此快照
+                                  </Button>
+                                </Stack>
+                              </CardContent>
+                            </Card>
+                          ))}
+                        </Stack>
+                      )}
                     </CardContent>
                   </Card>
                 )}
@@ -840,6 +874,24 @@ export default function ChapterEditorPage({
                 }}
               >
                 历史
+              </Button>
+              <Button
+                variant={editor.sidePanel === 'snapshot' ? 'contained' : 'outlined'}
+                onClick={() => editor.setSidePanel((p) => (p === 'snapshot' ? null : 'snapshot'))}
+                sx={{
+                  borderRadius: 3,
+                  py: 1,
+                  fontWeight: 700,
+                  color: editor.sidePanel === 'snapshot' ? '#ffffff' : '#374151',
+                  bgcolor: editor.sidePanel === 'snapshot' ? '#0f766e' : '#f8fafc',
+                  borderColor: editor.sidePanel === 'snapshot' ? '#0f766e' : '#d1d5db',
+                  '&:hover': {
+                    bgcolor: editor.sidePanel === 'snapshot' ? '#0d9488' : '#eef2f7',
+                    borderColor: editor.sidePanel === 'snapshot' ? '#0d9488' : '#9ca3af',
+                  },
+                }}
+              >
+                快照
               </Button>
             </Stack>
           </Stack>

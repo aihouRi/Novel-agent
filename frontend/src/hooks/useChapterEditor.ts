@@ -5,7 +5,7 @@ import type { Character } from '../api/characters'
 import type { LoreEntry } from '../api/loreEntries'
 import type { Volume } from '../api/volumes'
 
-type SidePanel = 'summary' | 'outline' | 'instruction' | 'history' | null
+type SidePanel = 'summary' | 'outline' | 'instruction' | 'history' | 'snapshot' | null
 type GenerateHistoryItem = {
   createdAt: string
   outline: string
@@ -40,6 +40,14 @@ type PendingRewrite = {
   end: number
   original: string
   rewritten: string
+}
+type ChapterSnapshotItem = {
+  createdAt: string
+  chapterTitle: string
+  chapterStatus: 'draft' | 'review' | 'final'
+  body: string
+  outline: string
+  summary: string
 }
 
 type Params = {
@@ -179,6 +187,7 @@ export function useChapterEditor({
   const [bodySelection, setBodySelection] = useState<SelectionRange>({ start: 0, end: 0 })
   const [bodyFocused, setBodyFocused] = useState(false)
   const [pendingRewrite, setPendingRewrite] = useState<PendingRewrite | null>(null)
+  const [chapterSnapshots, setChapterSnapshots] = useState<ChapterSnapshotItem[]>([])
 
   const chapterWordCount = useMemo(() => chapterBody.replace(/\s/g, '').length, [chapterBody])
   const isEdit = Boolean(initialChapter)
@@ -192,6 +201,10 @@ export function useChapterEditor({
   const generateFeedbackKey = useMemo(() => {
     const chapterKey = initialChapter?.id ?? `new_${chapterNumber}`
     return `novel_agent_generate_feedback_${novelId}_${chapterKey}`
+  }, [novelId, initialChapter?.id, chapterNumber])
+  const chapterSnapshotKey = useMemo(() => {
+    const chapterKey = initialChapter?.id ?? `new_${chapterNumber}`
+    return `novel_agent_chapter_snapshots_${novelId}_${chapterKey}`
   }, [novelId, initialChapter?.id, chapterNumber])
   const groupedCharacterOptions = useMemo<CharacterOption[]>(
     () =>
@@ -279,6 +292,22 @@ export function useChapterEditor({
       setGenerateFeedbackNote('')
     }
   }, [generateFeedbackKey])
+
+  useEffect(() => {
+    const raw = localStorage.getItem(chapterSnapshotKey)
+    if (!raw) {
+      setChapterSnapshots([])
+      return
+    }
+    try {
+      const parsed = JSON.parse(raw) as ChapterSnapshotItem[]
+      if (Array.isArray(parsed)) setChapterSnapshots(parsed.slice(0, 10))
+      else setChapterSnapshots([])
+    } catch {
+      localStorage.removeItem(chapterSnapshotKey)
+      setChapterSnapshots([])
+    }
+  }, [chapterSnapshotKey])
 
   useEffect(() => {
     const saved = localStorage.getItem(draftKey)
@@ -828,6 +857,33 @@ export function useChapterEditor({
     onNotifySuccess(`已套用模板：${template.label}`)
   }
 
+  function saveChapterSnapshot() {
+    const item: ChapterSnapshotItem = {
+      createdAt: new Date().toISOString(),
+      chapterTitle: chapterTitle.trim(),
+      chapterStatus,
+      body: chapterBody,
+      outline: chapterOutline,
+      summary: chapterSummary,
+    }
+    const next = [item, ...chapterSnapshots].slice(0, 10)
+    setChapterSnapshots(next)
+    localStorage.setItem(chapterSnapshotKey, JSON.stringify(next))
+    onNotifySuccess('章节快照已保存。')
+  }
+
+  function applyChapterSnapshot(index: number) {
+    const item = chapterSnapshots[index]
+    if (!item) return
+    setChapterTitle(item.chapterTitle)
+    setChapterStatus(item.chapterStatus)
+    setChapterBody(ensureIndentedBody(item.body))
+    setChapterOutline(item.outline)
+    setChapterSummary(item.summary)
+    onNotifySuccess('已回填章节快照。')
+    setSidePanel('snapshot')
+  }
+
   return {
     chapterNumber,
     volumeID,
@@ -854,6 +910,7 @@ export function useChapterEditor({
     localError,
     canRetryGenerate,
     generateHistory,
+    chapterSnapshots,
     generateTemplates: GENERATE_TEMPLATES,
     selectedTemplateId,
     generateFeedbackRating,
@@ -905,6 +962,8 @@ export function useChapterEditor({
     applyPendingRewrite,
     discardPendingRewrite,
     applyGenerateHistory,
+    saveChapterSnapshot,
+    applyChapterSnapshot,
     applyTemplate,
     saveGenerateFeedback,
     ensureIndentedBody,
