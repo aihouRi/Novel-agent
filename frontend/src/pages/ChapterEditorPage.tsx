@@ -428,22 +428,22 @@ export default function ChapterEditorPage({
                             type="number"
                             value={editor.chapterNumber}
                             onChange={(e) => editor.setChapterNumber(Number(e.target.value) || 0)}
-                            sx={{ width: { xs: '100%', sm: 180 } }}
+                            sx={{ width: { xs: '100%', sm: 120 } }}
                           />
                           <TextField
                             label="章节标题"
                             value={editor.chapterTitle}
                             onChange={(e) => editor.setChapterTitle(e.target.value)}
-                            sx={{ flex: 1 }}
+                            sx={{ flex: 1, minWidth: { xs: '100%', sm: 340 } }}
                           />
                           <TextField
                             label="字数（自动）"
                             type="number"
                             value={editor.chapterWordCount}
                             InputProps={{ readOnly: true }}
-                            sx={{ width: { xs: '100%', sm: 180 } }}
+                            sx={{ width: { xs: '100%', sm: 130 } }}
                           />
-                          <FormControl sx={{ width: { xs: '100%', sm: 180 } }}>
+                          <FormControl sx={{ width: { xs: '100%', sm: 130 } }}>
                             <InputLabel id="chapter-status-select">状态</InputLabel>
                             <Select
                               labelId="chapter-status-select"
