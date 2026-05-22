@@ -3,6 +3,7 @@ import { Button, Stack } from '@mui/material'
 type Props = {
   onBack: () => void
   onOpenAISettings?: () => void
+  onRewrite?: () => void
   onGenerate: () => void
   onSave: () => void
   generating: boolean
@@ -10,6 +11,7 @@ type Props = {
   chapterNumber: number
   volumeID: number
   isEdit: boolean
+  rewriteDisabled?: boolean
   compact?: boolean
 }
 
@@ -42,6 +44,27 @@ export default function EditorActionButtons(props: Props) {
           }}
         >
           AI 设置
+        </Button>
+      )}
+      {props.onRewrite && (
+        <Button
+          variant="outlined"
+          disabled={props.rewriteDisabled}
+          onClick={props.onRewrite}
+          data-keep-body-selection="true"
+          sx={{
+            borderRadius: 999,
+            px: props.compact ? 2.25 : 2.2,
+            color: props.rewriteDisabled ? '#9ca3af' : '#ea580c',
+            borderColor: props.rewriteDisabled ? '#e5e7eb' : '#ea580c',
+            bgcolor: props.rewriteDisabled ? '#f8fafc' : '#fff7ed',
+            '&:hover': props.rewriteDisabled
+              ? { bgcolor: '#f8fafc', borderColor: '#e5e7eb' }
+              : { bgcolor: '#ea580c', color: '#ffffff', borderColor: '#ea580c' },
+            '&.Mui-disabled': { color: '#9ca3af', borderColor: '#e5e7eb', bgcolor: '#f8fafc' },
+          }}
+        >
+          局部重写
         </Button>
       )}
       <Button

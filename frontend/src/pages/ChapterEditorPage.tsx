@@ -3,7 +3,7 @@ import CloseIcon from '@mui/icons-material/Close'
 import ArrowBackIosNewRoundedIcon from '@mui/icons-material/ArrowBackIosNewRounded'
 import HistoryRoundedIcon from '@mui/icons-material/HistoryRounded'
 import TaskAltRoundedIcon from '@mui/icons-material/TaskAltRounded'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Chapter } from '../api/chapters'
 import type { Character } from '../api/characters'
 import type { LoreEntry } from '../api/loreEntries'
@@ -82,10 +82,14 @@ export default function ChapterEditorPage({
     onSaved,
     onBack,
   })
+  const canRewrite = editor.bodySelection.end > editor.bodySelection.start
   const [pendingHistoryIndex, setPendingHistoryIndex] = useState<number | null>(null)
   const [confirmGenerateOpen, setConfirmGenerateOpen] = useState(false)
   const [highCostAcknowledged, setHighCostAcknowledged] = useState(false)
   const [showAISettingsDialog, setShowAISettingsDialog] = useState(false)
+  const [showRewriteDialog, setShowRewriteDialog] = useState(false)
+  const [rewritePrompt, setRewritePrompt] = useState('')
+  const [rewriteSelection, setRewriteSelection] = useState<{ start: number; end: number } | null>(null)
   const [aiSettingLoading, setAISettingLoading] = useState(false)
   const [aiProvider, setAIProvider] = useState<'openai' | 'gemini'>(DEFAULT_PROVIDER)
   const [openaiAPIKeyInput, setOpenAIAPIKeyInput] = useState('')
@@ -102,6 +106,32 @@ export default function ChapterEditorPage({
     () => (pendingHistoryIndex === null ? null : editor.generateHistory[pendingHistoryIndex] ?? null),
     [editor.generateHistory, pendingHistoryIndex],
   )
+  const chapterBodyInputRef = useRef<HTMLTextAreaElement | null>(null)
+
+  useEffect(() => {
+    if (!editor.pendingRewrite || !chapterBodyInputRef.current) return
+    chapterBodyInputRef.current.focus()
+    chapterBodyInputRef.current.setSelectionRange(editor.pendingRewrite.start, editor.pendingRewrite.end)
+  }, [editor.pendingRewrite])
+
+  useEffect(() => {
+    function handlePointerDown(event: MouseEvent | TouchEvent) {
+      if (!editor.bodyFocused) return
+      const textarea = chapterBodyInputRef.current
+      if (!textarea) return
+      const target = event.target as Node | null
+      if (target instanceof Element && target.closest('[data-keep-body-selection="true"]')) return
+      if (target && textarea.contains(target)) return
+      editor.handleBodyBlur()
+    }
+
+    document.addEventListener('mousedown', handlePointerDown, true)
+    document.addEventListener('touchstart', handlePointerDown, true)
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown, true)
+      document.removeEventListener('touchstart', handlePointerDown, true)
+    }
+  }, [editor])
 
   async function loadAISettings() {
     setAISettingLoading(true)
@@ -335,6 +365,11 @@ export default function ChapterEditorPage({
                 setShowAISettingsDialog(true)
                 void loadAISettings()
               }}
+              onRewrite={() => {
+                setRewriteSelection({ start: editor.bodySelection.start, end: editor.bodySelection.end })
+                setShowRewriteDialog(true)
+              }}
+              rewriteDisabled={editor.generating || !canRewrite}
               onGenerate={openGenerateConfirm}
               onSave={() => void editor.handleSave()}
               generating={editor.generating}
@@ -418,13 +453,39 @@ export default function ChapterEditorPage({
                               minRows={26}
                               value={editor.chapterBody}
                               onChange={(e) => editor.setChapterBody(e.target.value)}
+                              inputRef={chapterBodyInputRef}
+                              onSelect={(e) => {
+                                const target = e.target as HTMLTextAreaElement
+                                editor.handleBodySelect(target.selectionStart ?? 0, target.selectionEnd ?? 0)
+                              }}
+                              onFocus={editor.handleBodyFocus}
                               onKeyDown={editor.handleBodyKeyDown}
                               onPaste={editor.handleBodyPaste}
                               onCopy={editor.handleBodyCopy}
                               onCut={editor.handleBodyCut}
-                              onBlur={() => editor.setChapterBody((prev) => editor.ensureIndentedBody(prev))}
+                              onBlur={(e) => {
+                                editor.setChapterBody((prev) => editor.ensureIndentedBody(prev))
+                                const next = e.relatedTarget as Element | null
+                                if (next && next.closest('[data-keep-body-selection="true"]')) {
+                                  return
+                                }
+                                editor.handleBodyBlur()
+                              }}
                               fullWidth
+                              sx={{
+                                '& textarea::selection': {
+                                  backgroundColor: '#fb923c',
+                                  color: '#111827',
+                                },
+                                '& textarea::-moz-selection': {
+                                  backgroundColor: '#fb923c',
+                                  color: '#111827',
+                                },
+                              }}
                             />
+                            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                              已选中 {Math.max(0, editor.bodySelection.end - editor.bodySelection.start)} 字
+                            </Typography>
                           </CardContent>
                         </Card>
                       </Stack>
@@ -788,10 +849,11 @@ export default function ChapterEditorPage({
         >
           <EditorActionButtons
             onBack={onBack}
-            onOpenAISettings={() => {
-              setShowAISettingsDialog(true)
-              void loadAISettings()
+            onRewrite={() => {
+              setRewriteSelection({ start: editor.bodySelection.start, end: editor.bodySelection.end })
+              setShowRewriteDialog(true)
             }}
+            rewriteDisabled={editor.generating || !canRewrite}
             onGenerate={openGenerateConfirm}
             onSave={() => void editor.handleSave()}
             generating={editor.generating}
@@ -997,6 +1059,102 @@ export default function ChapterEditorPage({
               }}
             >
               确认回填
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        <Dialog open={showRewriteDialog} onClose={() => setShowRewriteDialog(false)} fullWidth maxWidth="sm">
+          <DialogTitle>局部重写</DialogTitle>
+          <DialogContent>
+            <Stack spacing={1.2} sx={{ mt: 0.5 }}>
+              <Typography variant="body2" color="text.secondary">
+                仅替换当前选中的正文内容，其他正文保持不变。
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                当前选中：{Math.max(0, (rewriteSelection?.end ?? 0) - (rewriteSelection?.start ?? 0))} 字
+              </Typography>
+              <TextField
+                label="本段额外提示词（可选）"
+                value={rewritePrompt}
+                onChange={(e) => setRewritePrompt(e.target.value)}
+                multiline
+                minRows={3}
+                placeholder="例如：更克制冷静；减少解释；强调动作与细节。"
+                fullWidth
+              />
+            </Stack>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setShowRewriteDialog(false)}>取消</Button>
+            <Button
+              variant="contained"
+              data-keep-body-selection="true"
+              disabled={editor.generating || !rewriteSelection || rewriteSelection.end <= rewriteSelection.start}
+              onClick={() => {
+                const prompt = rewritePrompt
+                setShowRewriteDialog(false)
+                setRewritePrompt('')
+                const selectedRange = rewriteSelection
+                setRewriteSelection(null)
+                void editor.handleRewriteSelectedBody(prompt, selectedRange ?? undefined)
+              }}
+            >
+              开始重写
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        <Dialog
+          open={Boolean(editor.pendingRewrite)}
+          onClose={editor.discardPendingRewrite}
+          fullWidth
+          maxWidth="sm"
+          sx={{
+            '& .MuiDialog-container': {
+              justifyContent: 'flex-end',
+              alignItems: 'center',
+              pr: { xs: 1, md: 2 },
+            },
+            '& .MuiDialog-paper': {
+              m: 0,
+              width: { xs: '96vw', sm: 560 },
+              maxHeight: '78vh',
+              borderRadius: 2,
+            },
+          }}
+        >
+          <DialogTitle>局部重写预览</DialogTitle>
+          <DialogContent>
+            <Stack spacing={1.2} sx={{ mt: 0.5 }}>
+              <Typography variant="body2" color="text.secondary">
+                请先确认重写内容，再决定是否替换。
+              </Typography>
+              <TextField
+                label="原文（选中段落）"
+                value={editor.pendingRewrite?.original ?? ''}
+                multiline
+                minRows={5}
+                fullWidth
+                InputProps={{ readOnly: true }}
+              />
+              <TextField
+                label="重写结果"
+                value={editor.pendingRewrite?.rewritten ?? ''}
+                multiline
+                minRows={7}
+                fullWidth
+                InputProps={{ readOnly: true }}
+              />
+            </Stack>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={editor.discardPendingRewrite}>放弃替换</Button>
+            <Button
+              variant="contained"
+              onClick={editor.applyPendingRewrite}
+              sx={{ bgcolor: '#ea580c', '&:hover': { bgcolor: '#c2410c' } }}
+            >
+              应用替换
             </Button>
           </DialogActions>
         </Dialog>

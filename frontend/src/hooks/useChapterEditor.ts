@@ -34,6 +34,13 @@ type GenerateFeedback = {
   updatedAt: string
 }
 type QuickReviseAction = 'polish' | 'compress' | 'reflow'
+type SelectionRange = { start: number; end: number }
+type PendingRewrite = {
+  start: number
+  end: number
+  original: string
+  rewritten: string
+}
 
 type Params = {
   token: string
@@ -168,6 +175,9 @@ export function useChapterEditor({
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('')
   const [generateFeedbackRating, setGenerateFeedbackRating] = useState<GenerateFeedbackRating>('')
   const [generateFeedbackNote, setGenerateFeedbackNote] = useState('')
+  const [bodySelection, setBodySelection] = useState<SelectionRange>({ start: 0, end: 0 })
+  const [bodyFocused, setBodyFocused] = useState(false)
+  const [pendingRewrite, setPendingRewrite] = useState<PendingRewrite | null>(null)
 
   const chapterWordCount = useMemo(() => chapterBody.replace(/\s/g, '').length, [chapterBody])
   const isEdit = Boolean(initialChapter)
@@ -418,6 +428,7 @@ export function useChapterEditor({
       const pos = start + normalizedPaste.length
       target.selectionStart = pos
       target.selectionEnd = pos
+      setBodySelection({ start: pos, end: pos })
     })
   }
 
@@ -455,7 +466,28 @@ export function useChapterEditor({
       const pos = Math.min(start, next.length)
       target.selectionStart = pos
       target.selectionEnd = pos
+      setBodySelection({ start: pos, end: pos })
     })
+  }
+
+  function handleBodySelect(start: number, end: number) {
+    const safeStart = Math.max(0, Math.min(start, chapterBody.length))
+    const safeEnd = Math.max(0, Math.min(end, chapterBody.length))
+    setBodySelection({ start: safeStart, end: safeEnd })
+  }
+
+  function getSelectedBodyText() {
+    if (bodySelection.end <= bodySelection.start) return ''
+    return chapterBody.slice(bodySelection.start, bodySelection.end).trim()
+  }
+
+  function handleBodyFocus() {
+    setBodyFocused(true)
+  }
+
+  function handleBodyBlur() {
+    setBodyFocused(false)
+    setBodySelection({ start: 0, end: 0 })
   }
 
   async function handleSave() {
@@ -647,6 +679,110 @@ export function useChapterEditor({
     await runGenerateWithInstruction(instruction)
   }
 
+  async function handleRewriteSelectedBody(extraPrompt: string, selectionOverride?: SelectionRange) {
+    const range = selectionOverride ?? bodySelection
+    const selected = range.end > range.start ? chapterBody.slice(range.start, range.end).trim() : ''
+    if (!selected) {
+      const msg = '请先在正文里选中要重写的段落。'
+      onNotifyError(msg)
+      setLocalError(msg)
+      return
+    }
+    const actionPrompt = extraPrompt.trim() || '请在不改变剧情事实的前提下优化这段文字，使表达更自然、节奏更顺。'
+    const rewriteInstruction = [
+      '【局部重写任务】',
+      '你只需要重写“待重写段落”，不要扩写整章，不要输出解释。',
+      '输出要求：返回 JSON，其中 body 字段仅包含“重写后的该段文本”。',
+      actionPrompt,
+      '',
+      '【待重写段落】',
+      selected,
+    ].join('\n')
+
+    if (chapterNumber <= 0 || volumeID <= 0) {
+      const msg = '请先确认分卷和章节编号。'
+      onNotifyError(msg)
+      setLocalError(msg)
+      return
+    }
+
+    setLocalError('')
+    setLocalSuccess('')
+    setGenerating(true)
+    try {
+      const safeCharacterIDs = selectedCharacterIDs.filter((id) => validCharacterIDSet.has(id))
+      const safeLoreEntryIDs = selectedLoreEntryIDs.filter((id) => validLoreEntryIDSet.has(id))
+      const data = await generateChapterStream(
+        token,
+        novelId,
+        {
+          volume_id: volumeID,
+          chapter_number: chapterNumber,
+          title: chapterTitle.trim(),
+          generation_instruction: rewriteInstruction,
+          character_ids: safeCharacterIDs,
+          lore_entry_ids: safeLoreEntryIDs,
+          target_word_min: 0,
+          target_word_max: 0,
+          avoid_translation_tone: avoidTranslationTone,
+          avoid_modern_slang: avoidModernSlang,
+          keep_pov_consistent: keepPovConsistent,
+          keep_tense_consistent: keepTenseConsistent,
+          recent_chapter_count: recentChapterCount,
+        },
+        (event) => {
+          if (event.type === 'progress' && Number.isFinite(event.elapsed_seconds)) {
+            setGeneratingSeconds((prev) => Math.max(prev, event.elapsed_seconds))
+          }
+        },
+      )
+      const rewritten = data.body.trim()
+      if (!rewritten) {
+        throw new Error('重写结果为空')
+      }
+      setPendingRewrite({
+        start: range.start,
+        end: range.end,
+        original: chapterBody.slice(range.start, range.end),
+        rewritten,
+      })
+      onNotifySuccess('局部重写已生成，请选择应用或放弃。')
+      setLocalSuccess('局部重写已生成，请确认是否替换。')
+    } catch (e) {
+      const msg = mapGenerateErrorMessage(e)
+      onNotifyError(msg)
+      setLocalError(msg)
+    } finally {
+      setGenerating(false)
+    }
+  }
+
+  function applyPendingRewrite() {
+    if (!pendingRewrite) return
+    const currentOriginal = chapterBody.slice(pendingRewrite.start, pendingRewrite.end)
+    if (currentOriginal !== pendingRewrite.original) {
+      const msg = '原文已变化，无法应用本次替换。请重新选中后重写。'
+      onNotifyError(msg)
+      setLocalError(msg)
+      setPendingRewrite(null)
+      return
+    }
+    const nextBody = `${chapterBody.slice(0, pendingRewrite.start)}${pendingRewrite.rewritten}${chapterBody.slice(pendingRewrite.end)}`
+    const normalized = ensureIndentedBody(nextBody)
+    const end = Math.min(pendingRewrite.start + pendingRewrite.rewritten.length, normalized.length)
+    setChapterBody(normalized)
+    setBodySelection({ start: pendingRewrite.start, end })
+    setPendingRewrite(null)
+    onNotifySuccess('已应用局部替换。')
+    setLocalSuccess('局部替换成功，请检查后保存。')
+  }
+
+  function discardPendingRewrite() {
+    if (!pendingRewrite) return
+    setPendingRewrite(null)
+    onNotifySuccess('已放弃本次局部替换。')
+  }
+
   function saveGenerateFeedback() {
     if (!generateFeedbackRating && !generateFeedbackNote.trim()) {
       onNotifyError('请至少填写评分或备注后再保存反馈。')
@@ -721,6 +857,10 @@ export function useChapterEditor({
     groupedCharacterOptions,
     selectedCharacters,
     selectedLoreEntries,
+    bodyFocused,
+    bodySelection,
+    selectedBodyText: getSelectedBodyText(),
+    pendingRewrite,
     setChapterNumber,
     setVolumeID,
     setChapterTitle,
@@ -747,10 +887,16 @@ export function useChapterEditor({
     handleBodyPaste,
     handleBodyCopy,
     handleBodyCut,
+    handleBodyFocus,
+    handleBodyBlur,
+    handleBodySelect,
     handleSave,
     handleGenerate,
     retryGenerate: handleGenerate,
     handleQuickRevise,
+    handleRewriteSelectedBody,
+    applyPendingRewrite,
+    discardPendingRewrite,
     applyGenerateHistory,
     applyTemplate,
     saveGenerateFeedback,
