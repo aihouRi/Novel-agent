@@ -771,10 +771,10 @@ export function useChapterEditor({
     const normalized = ensureIndentedBody(nextBody)
     const end = Math.min(pendingRewrite.start + pendingRewrite.rewritten.length, normalized.length)
     setChapterBody(normalized)
-    setBodySelection({ start: pendingRewrite.start, end })
+    setBodySelection({ start: end, end })
     setPendingRewrite(null)
     onNotifySuccess('已应用局部替换。')
-    setLocalSuccess('局部替换成功，请检查后保存。')
+    setLocalSuccess(`已替换第 ${pendingRewrite.start + 1}~${pendingRewrite.end} 字，请检查后保存。`)
   }
 
   function discardPendingRewrite() {

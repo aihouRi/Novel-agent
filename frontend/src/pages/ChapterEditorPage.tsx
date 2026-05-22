@@ -1129,6 +1129,9 @@ export default function ChapterEditorPage({
               <Typography variant="body2" color="text.secondary">
                 请先确认重写内容，再决定是否替换。
               </Typography>
+              <Typography variant="body2" sx={{ color: '#9a3412', fontWeight: 600 }}>
+                替换范围：第 {(editor.pendingRewrite?.start ?? 0) + 1} ~ {editor.pendingRewrite?.end ?? 0} 字（共 {Math.max(0, (editor.pendingRewrite?.end ?? 0) - (editor.pendingRewrite?.start ?? 0))} 字）
+              </Typography>
               <TextField
                 label="原文（选中段落）"
                 value={editor.pendingRewrite?.original ?? ''}
