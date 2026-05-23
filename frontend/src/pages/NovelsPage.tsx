@@ -24,16 +24,16 @@ import {
 } from '@mui/material'
 import type { AuthUser } from '../api/auth'
 import NovelForm from '../components/novels/NovelForm'
-import ExportDialog from '../components/novels/ExportDialog'
 import NovelSidebar from '../components/novels/NovelSidebar'
 import NovelTopCard from '../components/novels/NovelTopCard'
 import NovelDetailSection from '../components/novels/NovelDetailSection'
-import NovelCharactersSection from '../components/novels/NovelCharactersSection'
-import NovelChaptersSection from '../components/novels/NovelChaptersSection'
-import NovelLoreEntriesSection from '../components/novels/NovelLoreEntriesSection'
 import { useNovelsPage } from '../hooks/useNovelsPage'
 
 const ChapterEditorPage = lazy(() => import('./ChapterEditorPage'))
+const NovelCharactersSection = lazy(() => import('../components/novels/NovelCharactersSection'))
+const NovelChaptersSection = lazy(() => import('../components/novels/NovelChaptersSection'))
+const NovelLoreEntriesSection = lazy(() => import('../components/novels/NovelLoreEntriesSection'))
+const ExportDialog = lazy(() => import('../components/novels/ExportDialog'))
 
 type Props = {
   token: string
@@ -181,80 +181,86 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
             )}
 
             {state.mainTab === 'myNovels' && state.myNovelTab === 'novelCharacters' && (
-              <NovelCharactersSection
-                token={token}
-                selectedNovel={state.selectedNovel}
-                characters={state.characters}
-                characterLoading={state.characterLoading}
-                showCharacterManager={state.showCharacterManager}
-                editingCharacter={state.editingCharacter}
-                onEditCharacter={(character) => { state.setEditingCharacter(character); state.setShowCharacterManager(true) }}
-                onDeleteCharacter={state.setConfirmDeleteCharacterId}
-                onOpenCreateCharacter={() => { state.setEditingCharacter(null); state.setShowCharacterManager(true) }}
-                onDoneCharacterManager={() => {
-                  state.setShowCharacterManager(false)
-                  state.setEditingCharacter(null)
-                  if (state.selectedNovel) void state.refreshCharacters(state.selectedNovel.id)
-                }}
-                onNotifySuccess={state.notifySuccess}
-                onNotifyError={state.notifyError}
-              />
+              <Suspense fallback={<Box sx={{ py: 3, textAlign: 'center' }}>加载角色模块中...</Box>}>
+                <NovelCharactersSection
+                  token={token}
+                  selectedNovel={state.selectedNovel}
+                  characters={state.characters}
+                  characterLoading={state.characterLoading}
+                  showCharacterManager={state.showCharacterManager}
+                  editingCharacter={state.editingCharacter}
+                  onEditCharacter={(character) => { state.setEditingCharacter(character); state.setShowCharacterManager(true) }}
+                  onDeleteCharacter={state.setConfirmDeleteCharacterId}
+                  onOpenCreateCharacter={() => { state.setEditingCharacter(null); state.setShowCharacterManager(true) }}
+                  onDoneCharacterManager={() => {
+                    state.setShowCharacterManager(false)
+                    state.setEditingCharacter(null)
+                    if (state.selectedNovel) void state.refreshCharacters(state.selectedNovel.id)
+                  }}
+                  onNotifySuccess={state.notifySuccess}
+                  onNotifyError={state.notifyError}
+                />
+              </Suspense>
             )}
 
             {state.mainTab === 'myNovels' && state.myNovelTab === 'novelLoreEntries' && (
-              <NovelLoreEntriesSection
-                token={token}
-                selectedNovel={state.selectedNovel}
-                characters={state.characters}
-                loreEntries={state.loreEntries}
-                loreLoading={state.loreLoading}
-                showLoreManager={state.showLoreManager}
-                editingLoreEntry={state.editingLoreEntry}
-                onEditLoreEntry={(entry) => { state.setEditingLoreEntry(entry); state.setShowLoreManager(true) }}
-                onDeleteLoreEntry={state.setConfirmDeleteLoreEntryId}
-                onOpenCreateLoreEntry={() => { state.setEditingLoreEntry(null); state.setShowLoreManager(true) }}
-                onDoneLoreEntryManager={() => {
-                  state.setShowLoreManager(false)
-                  state.setEditingLoreEntry(null)
-                  if (state.selectedNovel) void state.refreshLoreEntries(state.selectedNovel.id)
-                }}
-                onNotifySuccess={state.notifySuccess}
-                onNotifyError={state.notifyError}
-              />
+              <Suspense fallback={<Box sx={{ py: 3, textAlign: 'center' }}>加载设定模块中...</Box>}>
+                <NovelLoreEntriesSection
+                  token={token}
+                  selectedNovel={state.selectedNovel}
+                  characters={state.characters}
+                  loreEntries={state.loreEntries}
+                  loreLoading={state.loreLoading}
+                  showLoreManager={state.showLoreManager}
+                  editingLoreEntry={state.editingLoreEntry}
+                  onEditLoreEntry={(entry) => { state.setEditingLoreEntry(entry); state.setShowLoreManager(true) }}
+                  onDeleteLoreEntry={state.setConfirmDeleteLoreEntryId}
+                  onOpenCreateLoreEntry={() => { state.setEditingLoreEntry(null); state.setShowLoreManager(true) }}
+                  onDoneLoreEntryManager={() => {
+                    state.setShowLoreManager(false)
+                    state.setEditingLoreEntry(null)
+                    if (state.selectedNovel) void state.refreshLoreEntries(state.selectedNovel.id)
+                  }}
+                  onNotifySuccess={state.notifySuccess}
+                  onNotifyError={state.notifyError}
+                />
+              </Suspense>
             )}
 
             {state.mainTab === 'myNovels' && state.myNovelTab === 'novelChapters' && (
-              <NovelChaptersSection
-                selectedNovel={state.selectedNovel}
-                novelTotalWordCount={state.novelTotalWordCount}
-                exportingMarkdown={state.exportingMarkdown}
-                volumes={state.volumes}
-                newVolumeTitle={state.newVolumeTitle}
-                chapterSearch={state.chapterSearch}
-                chapterSort={state.chapterSort}
-                chapterVolumeFilter={state.chapterVolumeFilter}
-                chapterCharacterFilter={state.chapterCharacterFilter}
-                chapterStatusFilter={state.chapterStatusFilter}
-                chapterCharacterOptions={state.chapterCharacterOptions}
-                chapterLoading={state.chapterLoading}
-                visibleChapters={state.visibleChapters}
-                groupedChapters={state.groupedChapters}
-                movingChapterId={state.movingChapterId}
-                onOpenExport={() => state.setExportDialogOpen(true)}
-                onNewVolumeTitleChange={state.setNewVolumeTitle}
-                onCreateVolume={() => void state.handleCreateVolume()}
-                onChapterSearchChange={state.setChapterSearch}
-                onChapterSortChange={state.setChapterSort}
-                onChapterVolumeFilterChange={state.setChapterVolumeFilter}
-                onChapterCharacterFilterChange={state.setChapterCharacterFilter}
-                onChapterStatusFilterChange={state.setChapterStatusFilter}
-                onMoveChapterVolume={(chapter, nextVolumeID) => void state.handleMoveChapterVolume(chapter, nextVolumeID)}
-                onUpdateChapterStatus={(chapter, status) => void state.handleUpdateChapterStatus(chapter, status)}
-                onEditChapter={(chapter) => { state.setChapterEditorTarget(chapter); state.setChapterEditorOpen(true) }}
-                onDeleteChapter={state.setConfirmDeleteChapterId}
-                onCreateChapter={() => { state.setChapterEditorTarget(null); state.setChapterEditorOpen(true) }}
-                onEditVolume={state.openEditVolume}
-              />
+              <Suspense fallback={<Box sx={{ py: 3, textAlign: 'center' }}>加载章节模块中...</Box>}>
+                <NovelChaptersSection
+                  selectedNovel={state.selectedNovel}
+                  novelTotalWordCount={state.novelTotalWordCount}
+                  exportingMarkdown={state.exportingMarkdown}
+                  volumes={state.volumes}
+                  newVolumeTitle={state.newVolumeTitle}
+                  chapterSearch={state.chapterSearch}
+                  chapterSort={state.chapterSort}
+                  chapterVolumeFilter={state.chapterVolumeFilter}
+                  chapterCharacterFilter={state.chapterCharacterFilter}
+                  chapterStatusFilter={state.chapterStatusFilter}
+                  chapterCharacterOptions={state.chapterCharacterOptions}
+                  chapterLoading={state.chapterLoading}
+                  visibleChapters={state.visibleChapters}
+                  groupedChapters={state.groupedChapters}
+                  movingChapterId={state.movingChapterId}
+                  onOpenExport={() => state.setExportDialogOpen(true)}
+                  onNewVolumeTitleChange={state.setNewVolumeTitle}
+                  onCreateVolume={() => void state.handleCreateVolume()}
+                  onChapterSearchChange={state.setChapterSearch}
+                  onChapterSortChange={state.setChapterSort}
+                  onChapterVolumeFilterChange={state.setChapterVolumeFilter}
+                  onChapterCharacterFilterChange={state.setChapterCharacterFilter}
+                  onChapterStatusFilterChange={state.setChapterStatusFilter}
+                  onMoveChapterVolume={(chapter, nextVolumeID) => void state.handleMoveChapterVolume(chapter, nextVolumeID)}
+                  onUpdateChapterStatus={(chapter, status) => void state.handleUpdateChapterStatus(chapter, status)}
+                  onEditChapter={(chapter) => { state.setChapterEditorTarget(chapter); state.setChapterEditorOpen(true) }}
+                  onDeleteChapter={state.setConfirmDeleteChapterId}
+                  onCreateChapter={() => { state.setChapterEditorTarget(null); state.setChapterEditorOpen(true) }}
+                  onEditVolume={state.openEditVolume}
+                />
+              </Suspense>
             )}
           </Box>
         </Stack>
@@ -363,29 +369,31 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
           </DialogActions>
         </Dialog>
 
-        <ExportDialog
-          open={state.exportDialogOpen}
-          exporting={state.exportingMarkdown}
-          scope={state.exportScope}
-          status={state.exportStatus}
-          volumeId={state.exportVolumeID}
-          fromChapter={state.exportFromChapter}
-          toChapter={state.exportToChapter}
-          includeBody={state.includeBody}
-          includeSummary={state.includeSummary}
-          includeOutline={state.includeOutline}
-          volumes={state.volumes}
-          onClose={() => state.setExportDialogOpen(false)}
-          onScopeChange={state.setExportScope}
-          onStatusChange={state.setExportStatus}
-          onVolumeIdChange={state.setExportVolumeID}
-          onFromChapterChange={state.setExportFromChapter}
-          onToChapterChange={state.setExportToChapter}
-          onIncludeBodyChange={state.setIncludeBody}
-          onIncludeSummaryChange={state.setIncludeSummary}
-          onIncludeOutlineChange={state.setIncludeOutline}
-          onExport={() => void state.handleExportMarkdown()}
-        />
+        <Suspense fallback={null}>
+          <ExportDialog
+            open={state.exportDialogOpen}
+            exporting={state.exportingMarkdown}
+            scope={state.exportScope}
+            status={state.exportStatus}
+            volumeId={state.exportVolumeID}
+            fromChapter={state.exportFromChapter}
+            toChapter={state.exportToChapter}
+            includeBody={state.includeBody}
+            includeSummary={state.includeSummary}
+            includeOutline={state.includeOutline}
+            volumes={state.volumes}
+            onClose={() => state.setExportDialogOpen(false)}
+            onScopeChange={state.setExportScope}
+            onStatusChange={state.setExportStatus}
+            onVolumeIdChange={state.setExportVolumeID}
+            onFromChapterChange={state.setExportFromChapter}
+            onToChapterChange={state.setExportToChapter}
+            onIncludeBodyChange={state.setIncludeBody}
+            onIncludeSummaryChange={state.setIncludeSummary}
+            onIncludeOutlineChange={state.setIncludeOutline}
+            onExport={() => void state.handleExportMarkdown()}
+          />
+        </Suspense>
 
         <Snackbar open={state.successOpen && Boolean(state.message)} autoHideDuration={2500} onClose={() => state.setSuccessOpen(false)} anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}>
           <Alert onClose={() => state.setSuccessOpen(false)} severity="success" variant="filled" sx={{ width: '100%' }}>{state.message}</Alert>
