@@ -1,3 +1,4 @@
+import { Suspense, lazy } from 'react'
 import {
   Alert,
   Box,
@@ -22,7 +23,6 @@ import {
   TextField,
 } from '@mui/material'
 import type { AuthUser } from '../api/auth'
-import ChapterEditorPage from './ChapterEditorPage'
 import NovelForm from '../components/novels/NovelForm'
 import ExportDialog from '../components/novels/ExportDialog'
 import NovelSidebar from '../components/novels/NovelSidebar'
@@ -32,6 +32,8 @@ import NovelCharactersSection from '../components/novels/NovelCharactersSection'
 import NovelChaptersSection from '../components/novels/NovelChaptersSection'
 import NovelLoreEntriesSection from '../components/novels/NovelLoreEntriesSection'
 import { useNovelsPage } from '../hooks/useNovelsPage'
+
+const ChapterEditorPage = lazy(() => import('./ChapterEditorPage'))
 
 type Props = {
   token: string
@@ -44,21 +46,23 @@ export default function NovelsPage({ token, user, onLogout }: Props) {
 
   if (state.chapterEditorOpen && state.selectedNovel && state.mainTab === 'myNovels' && state.myNovelTab === 'novelChapters') {
     return (
-      <ChapterEditorPage
-        token={token}
-        novelId={state.selectedNovel.id}
-        novelTitle={state.selectedNovel.title}
-        recentChapterCountDefault={state.selectedNovel.recent_chapter_count}
-        volumes={state.volumes}
-        characters={state.characters}
-        loreEntries={state.loreEntries}
-        initialChapter={state.chapterEditorTarget}
-        defaultChapterNumber={state.nextChapterNumber}
-        onBack={() => { state.setChapterEditorOpen(false); state.setChapterEditorTarget(null) }}
-        onSaved={state.handleChapterSaved}
-        onNotifySuccess={state.notifySuccess}
-        onNotifyError={state.notifyError}
-      />
+      <Suspense fallback={<Box sx={{ minHeight: '100vh', display: 'grid', placeItems: 'center' }}>加载编辑器中...</Box>}>
+        <ChapterEditorPage
+          token={token}
+          novelId={state.selectedNovel.id}
+          novelTitle={state.selectedNovel.title}
+          recentChapterCountDefault={state.selectedNovel.recent_chapter_count}
+          volumes={state.volumes}
+          characters={state.characters}
+          loreEntries={state.loreEntries}
+          initialChapter={state.chapterEditorTarget}
+          defaultChapterNumber={state.nextChapterNumber}
+          onBack={() => { state.setChapterEditorOpen(false); state.setChapterEditorTarget(null) }}
+          onSaved={state.handleChapterSaved}
+          onNotifySuccess={state.notifySuccess}
+          onNotifyError={state.notifyError}
+        />
+      </Suspense>
     )
   }
 

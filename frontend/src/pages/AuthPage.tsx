@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from 'react'
-import { Alert, Box, Button, Card, CardContent, Container, Stack, TextField, Typography } from '@mui/material'
+import { Suspense, lazy, useEffect, useMemo, useState } from 'react'
+import { Alert, Box, Button, Card, CardContent, Container, Stack, TextField, Typography, CircularProgress } from '@mui/material'
 import { login, me, register, type AuthUser } from '../api/auth'
-import NovelsPage from './NovelsPage'
+
+const NovelsPage = lazy(() => import('./NovelsPage'))
 
 type Mode = 'login' | 'register'
 const TOKEN_KEY = 'novel_agent_token'
@@ -79,7 +80,11 @@ export default function AuthPage() {
   }
 
   if (token && user) {
-    return <NovelsPage token={token} user={user} onLogout={handleLogout} />
+    return (
+      <Suspense fallback={<Box sx={{ minHeight: '100vh', display: 'grid', placeItems: 'center' }}><CircularProgress /></Box>}>
+        <NovelsPage token={token} user={user} onLogout={handleLogout} />
+      </Suspense>
+    )
   }
 
   return (
