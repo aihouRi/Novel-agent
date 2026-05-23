@@ -1,6 +1,6 @@
 import CloseIcon from '@mui/icons-material/Close'
-import { Autocomplete, Box, Button, Card, CardContent, Checkbox, FormControl, FormControlLabel, IconButton, InputLabel, MenuItem, Select, Stack, TextField, Typography } from '@mui/material'
-import type { RefObject } from 'react'
+import { Autocomplete, Box, Button, Card, CardContent, Checkbox, Dialog, DialogActions, DialogContent, DialogTitle, FormControl, FormControlLabel, IconButton, InputLabel, MenuItem, Select, Stack, TextField, Typography, useMediaQuery, useTheme } from '@mui/material'
+import { useState, type RefObject } from 'react'
 import type { LoreEntry } from '../../api/loreEntries'
 import type { Volume } from '../../api/volumes'
 import ChapterEditorSidePanelButtons from './ChapterEditorSidePanelButtons'
@@ -22,12 +22,17 @@ export default function ChapterEditorWorkspace({
   loreCategoryLabelMap,
   onOpenHistoryFill,
 }: Props) {
+  const [showGenerateSettingsDialog, setShowGenerateSettingsDialog] = useState(false)
+  const [showFeedbackDialog, setShowFeedbackDialog] = useState(false)
+  const theme = useTheme()
+  const isDesktopWide = useMediaQuery(theme.breakpoints.up('lg'))
+
   return (
     <Box sx={{ maxWidth: 1320, mx: 'auto' }}>
-      <Stack direction={{ xs: 'column', lg: 'row' }} spacing={2} alignItems="flex-start">
+      <Stack direction={isDesktopWide ? 'row' : 'column'} spacing={2} alignItems="stretch">
         <Box sx={{ flex: 1, width: '100%' }}>
-          <Stack direction={{ xs: 'column', lg: 'row' }} spacing={2} alignItems="stretch">
-            <Box sx={{ flex: editor.sidePanel ? 4.6 : 1, display: 'flex', justifyContent: 'center' }}>
+          <Stack direction={isDesktopWide ? 'row' : 'column'} spacing={2} alignItems="stretch">
+            <Box sx={{ flex: isDesktopWide && editor.sidePanel ? 4.6 : 1, minWidth: 0, display: 'flex', justifyContent: 'center' }}>
               <Card variant="outlined" sx={{ borderRadius: 3, width: '100%', maxWidth: 900, transition: 'all 220ms ease' }}>
                 <CardContent>
                   <Stack spacing={2}>
@@ -98,7 +103,8 @@ export default function ChapterEditorWorkspace({
                 variant="outlined"
                 sx={{
                   borderRadius: 3,
-                  flex: 2.4,
+                  flex: isDesktopWide ? 2.4 : undefined,
+                  width: '100%',
                   minWidth: 0,
                   maxWidth: '100%',
                   transition: 'all 220ms ease',
@@ -146,50 +152,54 @@ export default function ChapterEditorWorkspace({
                         )}
                       />
                       <TextField label="生成指令" multiline minRows={20} value={editor.chapterInstruction} onChange={(e) => editor.setChapterInstruction(e.target.value)} fullWidth />
-                      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.2} sx={{ minWidth: 0 }}>
-                        <FormControl sx={{ minWidth: 0, flex: 1 }}>
+                      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ minWidth: 0 }}>
+                        <Button size="small" variant="outlined" onClick={() => setShowGenerateSettingsDialog(true)}>
+                          生成设置
+                        </Button>
+                        <Button size="small" variant="outlined" onClick={() => setShowFeedbackDialog(true)}>
+                          设置反馈
+                        </Button>
+                      </Stack>
+                      <Typography variant="body2" color="text.secondary">
+                        当前设置：最近{editor.recentChapterCount}章，目标{editor.targetWordMin}-{editor.targetWordMax}字
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        风格：{editor.avoidTranslationTone ? '避翻译腔' : '不限'} / {editor.avoidModernSlang ? '避网络口语' : '不限'} / {editor.keepPovConsistent ? '视角一致' : '视角可变'} / {editor.keepTenseConsistent ? '时态一致' : '时态可变'}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        反馈：{editor.generateFeedbackRating ? (editor.generateFeedbackRating === 'satisfied' ? '满意' : editor.generateFeedbackRating === 'neutral' ? '一般' : '不满意') : '未设置'}
+                      </Typography>
+                      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ minWidth: 0 }}>
+                        <FormControl size="small" sx={{ minWidth: 0, flex: 1 }}>
                           <InputLabel id="generate-template-select">生成模板</InputLabel>
                           <Select labelId="generate-template-select" label="生成模板" value={editor.selectedTemplateId} onChange={(e) => editor.applyTemplate(String(e.target.value))}>
                             <MenuItem value="">不使用模板</MenuItem>
                             {editor.generateTemplates.map((tpl: any) => <MenuItem key={tpl.id} value={tpl.id}>{tpl.label}</MenuItem>)}
                           </Select>
                         </FormControl>
-                        <Button variant="outlined" sx={{ whiteSpace: 'nowrap' }} disabled={!editor.selectedTemplateId} onClick={() => editor.applyTemplate(editor.selectedTemplateId)}>重新套用</Button>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          sx={{ whiteSpace: 'nowrap', px: 1.2, minHeight: 36 }}
+                          disabled={!editor.selectedTemplateId}
+                          onClick={() => editor.applyTemplate(editor.selectedTemplateId)}
+                        >
+                          重新套用
+                        </Button>
                       </Stack>
-                      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.2} sx={{ minWidth: 0 }}>
-                        <TextField label="最近章节参考数" type="number" value={editor.recentChapterCount} onChange={(e) => editor.setRecentChapterCount(Math.max(1, Number(e.target.value) || 1))} sx={{ flex: 1 }} inputProps={{ min: 1, max: 20 }} />
-                        <TextField label="目标字数下限" type="number" value={editor.targetWordMin} onChange={(e) => editor.setTargetWordMin(Math.max(0, Number(e.target.value) || 0))} sx={{ flex: 1 }} />
-                        <TextField label="目标字数上限" type="number" value={editor.targetWordMax} onChange={(e) => editor.setTargetWordMax(Math.max(0, Number(e.target.value) || 0))} sx={{ flex: 1 }} />
-                      </Stack>
-                      <Card variant="outlined" sx={{ borderRadius: 2, bgcolor: '#f8fafc' }}>
-                        <CardContent sx={{ py: 1.5 }}>
-                          <Stack spacing={1.2}>
-                            <Typography variant="subtitle2">生成反馈（用于下一次自动优化）</Typography>
-                            <FormControl fullWidth size="small">
-                              <InputLabel id="generate-feedback-rating-label">评分</InputLabel>
-                              <Select labelId="generate-feedback-rating-label" label="评分" value={editor.generateFeedbackRating} onChange={(e) => editor.setGenerateFeedbackRating(String(e.target.value))}>
-                                <MenuItem value="">未评分</MenuItem>
-                                <MenuItem value="satisfied">满意</MenuItem>
-                                <MenuItem value="neutral">一般</MenuItem>
-                                <MenuItem value="unsatisfied">不满意</MenuItem>
-                              </Select>
-                            </FormControl>
-                            <TextField label="备注（可选）" value={editor.generateFeedbackNote} onChange={(e) => editor.setGenerateFeedbackNote(e.target.value)} multiline minRows={2} placeholder="例如：减少说教，战斗节奏更快，对话更自然。" fullWidth />
-                            <Stack direction="row" justifyContent="flex-end"><Button size="small" variant="outlined" onClick={editor.saveGenerateFeedback}>保存反馈</Button></Stack>
-                          </Stack>
-                        </CardContent>
-                      </Card>
-                      <Stack spacing={0}>
-                        <FormControlLabel control={<Checkbox checked={editor.avoidTranslationTone} onChange={(e) => editor.setAvoidTranslationTone(e.target.checked)} />} label="避免翻译腔" />
-                        <FormControlLabel control={<Checkbox checked={editor.avoidModernSlang} onChange={(e) => editor.setAvoidModernSlang(e.target.checked)} />} label="避免现代网络口语" />
-                        <FormControlLabel control={<Checkbox checked={editor.keepPovConsistent} onChange={(e) => editor.setKeepPovConsistent(e.target.checked)} />} label="保持叙事视角一致" />
-                        <FormControlLabel control={<Checkbox checked={editor.keepTenseConsistent} onChange={(e) => editor.setKeepTenseConsistent(e.target.checked)} />} label="保持时态一致" />
-                      </Stack>
-                      <Button variant="outlined" onClick={() => void editor.retryGenerate()} disabled={editor.generating || !editor.chapterInstruction.trim() || editor.volumeID <= 0 || editor.chapterNumber <= 0 || (editor.targetWordMin > 0 && editor.targetWordMax > 0 && editor.targetWordMin > editor.targetWordMax)}>重试生成</Button>
-                      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ minWidth: 0 }}>
-                        <Button variant="outlined" onClick={() => void editor.handleQuickRevise('polish')} disabled={editor.generating || !editor.chapterBody.trim()}>快速润色</Button>
-                        <Button variant="outlined" onClick={() => void editor.handleQuickRevise('compress')} disabled={editor.generating || !editor.chapterBody.trim()}>快速压缩</Button>
-                        <Button variant="outlined" onClick={() => void editor.handleQuickRevise('reflow')} disabled={editor.generating || !editor.chapterBody.trim()}>重排段落</Button>
+                      <Stack direction="row" spacing={0.8} sx={{ minWidth: 0, flexWrap: 'nowrap' }}>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          sx={{ py: 0.35, px: 0.9, minWidth: 0, flex: 1, fontSize: 13, whiteSpace: 'nowrap' }}
+                          onClick={() => void editor.retryGenerate()}
+                          disabled={editor.generating || !editor.chapterInstruction.trim() || editor.volumeID <= 0 || editor.chapterNumber <= 0 || (editor.targetWordMin > 0 && editor.targetWordMax > 0 && editor.targetWordMin > editor.targetWordMax)}
+                        >
+                          重试生成
+                        </Button>
+                        <Button size="small" variant="outlined" sx={{ py: 0.35, px: 0.9, minWidth: 0, flex: 1, fontSize: 13, whiteSpace: 'nowrap' }} onClick={() => void editor.handleQuickRevise('polish')} disabled={editor.generating || !editor.chapterBody.trim()}>快速润色</Button>
+                        <Button size="small" variant="outlined" sx={{ py: 0.35, px: 0.9, minWidth: 0, flex: 1, fontSize: 13, whiteSpace: 'nowrap' }} onClick={() => void editor.handleQuickRevise('compress')} disabled={editor.generating || !editor.chapterBody.trim()}>快速压缩</Button>
+                        <Button size="small" variant="outlined" sx={{ py: 0.35, px: 0.9, minWidth: 0, flex: 1, fontSize: 13, whiteSpace: 'nowrap' }} onClick={() => void editor.handleQuickRevise('reflow')} disabled={editor.generating || !editor.chapterBody.trim()}>重排段落</Button>
                       </Stack>
                     </Stack>
                   )}
@@ -237,10 +247,67 @@ export default function ChapterEditorWorkspace({
           </Stack>
         </Box>
 
-        <Stack spacing={0.8} sx={{ width: 88, flexShrink: 0, position: { lg: 'sticky' }, top: { lg: 110 } }}>
-          <ChapterEditorSidePanelButtons sidePanel={editor.sidePanel} onToggle={(panel) => editor.setSidePanel((p: any) => (p === panel ? null : panel))} />
+        <Stack
+          spacing={0.8}
+          sx={{
+            width: isDesktopWide ? 88 : '100%',
+            flexShrink: 0,
+            position: isDesktopWide ? 'sticky' : 'static',
+            top: isDesktopWide ? 110 : 'auto',
+            alignSelf: isDesktopWide ? 'flex-start' : 'stretch',
+          }}
+        >
+          <ChapterEditorSidePanelButtons
+            sidePanel={editor.sidePanel}
+            direction={isDesktopWide ? 'column' : 'row'}
+            onToggle={(panel) => editor.setSidePanel((p: any) => (p === panel ? null : panel))}
+          />
         </Stack>
       </Stack>
+
+      <Dialog open={showGenerateSettingsDialog} onClose={() => setShowGenerateSettingsDialog(false)} fullWidth maxWidth="sm">
+        <DialogTitle>生成设置</DialogTitle>
+        <DialogContent>
+          <Stack spacing={1.2} sx={{ mt: 1 }}>
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.2}>
+              <TextField label="最近章节参考数" type="number" value={editor.recentChapterCount} onChange={(e) => editor.setRecentChapterCount(Math.max(1, Number(e.target.value) || 1))} sx={{ flex: 1 }} inputProps={{ min: 1, max: 20 }} />
+              <TextField label="目标字数下限" type="number" value={editor.targetWordMin} onChange={(e) => editor.setTargetWordMin(Math.max(0, Number(e.target.value) || 0))} sx={{ flex: 1 }} />
+              <TextField label="目标字数上限" type="number" value={editor.targetWordMax} onChange={(e) => editor.setTargetWordMax(Math.max(0, Number(e.target.value) || 0))} sx={{ flex: 1 }} />
+            </Stack>
+            <Stack spacing={0}>
+              <FormControlLabel control={<Checkbox checked={editor.avoidTranslationTone} onChange={(e) => editor.setAvoidTranslationTone(e.target.checked)} />} label="避免翻译腔" />
+              <FormControlLabel control={<Checkbox checked={editor.avoidModernSlang} onChange={(e) => editor.setAvoidModernSlang(e.target.checked)} />} label="避免现代网络口语" />
+              <FormControlLabel control={<Checkbox checked={editor.keepPovConsistent} onChange={(e) => editor.setKeepPovConsistent(e.target.checked)} />} label="保持叙事视角一致" />
+              <FormControlLabel control={<Checkbox checked={editor.keepTenseConsistent} onChange={(e) => editor.setKeepTenseConsistent(e.target.checked)} />} label="保持时态一致" />
+            </Stack>
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowGenerateSettingsDialog(false)}>完成</Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={showFeedbackDialog} onClose={() => setShowFeedbackDialog(false)} fullWidth maxWidth="sm">
+        <DialogTitle>设置反馈</DialogTitle>
+        <DialogContent>
+          <Stack spacing={1.2} sx={{ mt: 1 }}>
+            <FormControl fullWidth size="small">
+              <InputLabel id="generate-feedback-rating-label">评分</InputLabel>
+              <Select labelId="generate-feedback-rating-label" label="评分" value={editor.generateFeedbackRating} onChange={(e) => editor.setGenerateFeedbackRating(String(e.target.value))}>
+                <MenuItem value="">未评分</MenuItem>
+                <MenuItem value="satisfied">满意</MenuItem>
+                <MenuItem value="neutral">一般</MenuItem>
+                <MenuItem value="unsatisfied">不满意</MenuItem>
+              </Select>
+            </FormControl>
+            <TextField label="备注（可选）" value={editor.generateFeedbackNote} onChange={(e) => editor.setGenerateFeedbackNote(e.target.value)} multiline minRows={4} placeholder="例如：减少说教，战斗节奏更快，对话更自然。" fullWidth />
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowFeedbackDialog(false)}>取消</Button>
+          <Button variant="contained" onClick={() => { editor.saveGenerateFeedback(); setShowFeedbackDialog(false) }}>保存反馈</Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   )
 }

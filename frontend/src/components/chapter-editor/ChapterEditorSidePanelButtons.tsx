@@ -5,6 +5,7 @@ type SidePanel = 'summary' | 'outline' | 'instruction' | 'history' | 'snapshot' 
 type Props = {
   sidePanel: SidePanel
   onToggle: (panel: Exclude<SidePanel, null>) => void
+  direction?: 'row' | 'column'
 }
 
 const panels: Array<{ key: Exclude<SidePanel, null>; label: string }> = [
@@ -15,10 +16,10 @@ const panels: Array<{ key: Exclude<SidePanel, null>; label: string }> = [
   { key: 'snapshot', label: '快照' },
 ]
 
-export default function ChapterEditorSidePanelButtons({ sidePanel, onToggle }: Props) {
+export default function ChapterEditorSidePanelButtons({ sidePanel, onToggle, direction = 'column' }: Props) {
   return (
     <Box sx={{ mt: 1, width: '100%' }}>
-      <Stack direction="column" spacing={0.8}>
+      <Stack direction={direction} spacing={0.8}>
         {panels.map((panel) => {
           const active = sidePanel === panel.key
           return (
@@ -34,6 +35,7 @@ export default function ChapterEditorSidePanelButtons({ sidePanel, onToggle }: P
                 py: 0.65,
                 fontSize: 13,
                 lineHeight: 1.2,
+                flex: direction === 'row' ? 1 : undefined,
                 fontWeight: 700,
                 color: active ? '#ffffff' : '#374151',
                 bgcolor: active ? '#0f766e' : '#f8fafc',
