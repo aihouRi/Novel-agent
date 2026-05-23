@@ -1,6 +1,6 @@
 # Novel Agent V1 设计书
 
-更新时间：2026-05-22
+更新时间：2026-05-23
 
 ## 1. 文档目的
 本设计书用于定义 V1 的目标、范围与约束，作为 MVP 之后的迭代基线。
@@ -176,6 +176,23 @@
   - 指令区新增「生成设置」与「设置反馈」弹窗，压缩主面板占地并统一参数入口。
   - 快速操作按钮缩小并并排，减少窄宽场景遮挡。
   - 写作页响应式断点从 `xl` 调整为 `lg`，提升常见桌面宽度下的可用性。
+- V1-12 已完成：前端加载性能收尾（不改功能）
+  - 页面级懒加载：
+    - `AuthPage` 登录后按需加载 `NovelsPage`
+    - `NovelsPage` 按需加载 `ChapterEditorPage`
+  - 小说工作区子模块懒加载：
+    - `NovelCharactersSection`
+    - `NovelLoreEntriesSection`
+    - `NovelChaptersSection`
+    - `ExportDialog`
+  - Vite 分包策略：
+    - `vendor-mui` 与 `vendor-core` 拆分
+  - 构建结果收敛：
+    - `index` ≈ `6.9 kB`
+    - `NovelsPage` ≈ `40.3 kB`
+    - `ChapterEditorPage` ≈ `60.9 kB`
+    - `vendor-core` ≈ `198.1 kB`
+    - `vendor-mui` ≈ `269.5 kB`
 
 ## 6. V1 非目标
 - RAG / 向量数据库
