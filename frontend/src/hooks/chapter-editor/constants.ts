@@ -1,0 +1,67 @@
+import type { GenerateTemplate } from './types'
+
+export const INDENT = '　　'
+export const TEMPLATE_KEY_PREFIX = 'novel_agent_generate_template'
+
+export const GENERATE_TEMPLATES: GenerateTemplate[] = [
+  {
+    id: 'stable-default',
+    label: '稳定输出（推荐）',
+    targetWordMin: 2000,
+    targetWordMax: 2300,
+    recentChapterCount: 2,
+    avoidTranslationTone: true,
+    avoidModernSlang: true,
+    keepPovConsistent: true,
+    keepTenseConsistent: true,
+    instructionSeed: '目标：严格按设定推进剧情，保证人物动机清晰，段落节奏稳定，结尾留轻钩子。',
+  },
+  {
+    id: 'xianxia-main',
+    label: '修仙主线推进',
+    targetWordMin: 2200,
+    targetWordMax: 3200,
+    recentChapterCount: 4,
+    avoidTranslationTone: true,
+    avoidModernSlang: true,
+    keepPovConsistent: true,
+    keepTenseConsistent: true,
+    instructionSeed: '目标：推进主线冲突并回收一个旧伏笔；结尾保留下一章钩子。',
+  },
+  {
+    id: 'battle',
+    label: '战斗章节',
+    targetWordMin: 1800,
+    targetWordMax: 2600,
+    recentChapterCount: 3,
+    avoidTranslationTone: true,
+    avoidModernSlang: true,
+    keepPovConsistent: true,
+    keepTenseConsistent: true,
+    instructionSeed: '目标：按“试探-爆发-收束”推进战斗，体现战术变化与人物状态变化。',
+  },
+  {
+    id: 'transition',
+    label: '日常过渡',
+    targetWordMin: 1400,
+    targetWordMax: 2200,
+    recentChapterCount: 2,
+    avoidTranslationTone: true,
+    avoidModernSlang: true,
+    keepPovConsistent: true,
+    keepTenseConsistent: true,
+    instructionSeed: '目标：过渡但保持信息增量（关系/资源/线索至少一项变化）。',
+  },
+  {
+    id: 'emotion',
+    label: '情绪与关系',
+    targetWordMin: 1600,
+    targetWordMax: 2400,
+    recentChapterCount: 3,
+    avoidTranslationTone: true,
+    avoidModernSlang: true,
+    keepPovConsistent: true,
+    keepTenseConsistent: true,
+    instructionSeed: '目标：围绕主视角人物推进关系变化，突出行为细节与心理变化对应。',
+  },
+]

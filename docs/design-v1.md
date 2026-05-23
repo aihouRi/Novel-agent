@@ -171,6 +171,7 @@
 - V1-3（增量）已完成：前端结构重构第六轮（不改功能）
   - 抽离 `ChapterEditorFloatingActions` 组件，统一底部悬浮操作区渲染。
   - 抽离 `useChapterEditorDialogs` hook，集中管理页面弹窗与局部重写流程状态。
+  - `useChapterEditor` 深拆为多模块：`types/constants/text/errors/useBodyEditing/useChapterEditorPersistence/useChapterGeneration`。
   - 修复指令侧栏面板在窄宽布局下的溢出问题（按钮尺寸与侧栏约束优化）。
   - 指令区新增「生成设置」与「设置反馈」弹窗，压缩主面板占地并统一参数入口。
   - 快速操作按钮缩小并并排，减少窄宽场景遮挡。

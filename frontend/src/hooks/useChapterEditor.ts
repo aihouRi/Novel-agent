@@ -1,136 +1,14 @@
-import { ClipboardEvent, KeyboardEvent, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { createChapter, generateChapterStream, type Chapter, updateChapter } from '../api/chapters'
-import { APIError } from '../api/http'
 import type { Character } from '../api/characters'
 import type { LoreEntry } from '../api/loreEntries'
 import type { Volume } from '../api/volumes'
-
-type SidePanel = 'summary' | 'outline' | 'instruction' | 'history' | 'snapshot' | null
-type GenerateHistoryItem = {
-  createdAt: string
-  outline: string
-  body: string
-  summary: string
-  model?: string
-  totalTokens?: number
-  instructionPreview: string
-}
-type GenerateTemplate = {
-  id: string
-  label: string
-  targetWordMin: number
-  targetWordMax: number
-  recentChapterCount: number
-  avoidTranslationTone: boolean
-  avoidModernSlang: boolean
-  keepPovConsistent: boolean
-  keepTenseConsistent: boolean
-  instructionSeed: string
-}
-type GenerateFeedbackRating = 'satisfied' | 'neutral' | 'unsatisfied' | ''
-type GenerateFeedback = {
-  rating: GenerateFeedbackRating
-  note: string
-  updatedAt: string
-}
-type QuickReviseAction = 'polish' | 'compress' | 'reflow'
-type SelectionRange = { start: number; end: number }
-type PendingRewrite = {
-  start: number
-  end: number
-  original: string
-  rewritten: string
-}
-type ChapterSnapshotItem = {
-  createdAt: string
-  chapterTitle: string
-  chapterStatus: 'draft' | 'review' | 'final'
-  body: string
-  outline: string
-  summary: string
-}
-
-type Params = {
-  token: string
-  novelId: number
-  initialChapter?: Chapter | null
-  defaultChapterNumber?: number
-  volumes: Volume[]
-  characters: Character[]
-  loreEntries: LoreEntry[]
-  recentChapterCountDefault: number
-  onNotifySuccess: (msg: string) => void
-  onNotifyError: (msg: string) => void
-  onSaved: () => Promise<void> | void
-  onBack: () => void
-}
-
-type CharacterOption = Character & { group: string }
-
-const INDENT = '　　'
-const TEMPLATE_KEY_PREFIX = 'novel_agent_generate_template'
-const GENERATE_TEMPLATES: GenerateTemplate[] = [
-  {
-    id: 'stable-default',
-    label: '稳定输出（推荐）',
-    targetWordMin: 2000,
-    targetWordMax: 2300,
-    recentChapterCount: 2,
-    avoidTranslationTone: true,
-    avoidModernSlang: true,
-    keepPovConsistent: true,
-    keepTenseConsistent: true,
-    instructionSeed: '目标：严格按设定推进剧情，保证人物动机清晰，段落节奏稳定，结尾留轻钩子。',
-  },
-  {
-    id: 'xianxia-main',
-    label: '修仙主线推进',
-    targetWordMin: 2200,
-    targetWordMax: 3200,
-    recentChapterCount: 4,
-    avoidTranslationTone: true,
-    avoidModernSlang: true,
-    keepPovConsistent: true,
-    keepTenseConsistent: true,
-    instructionSeed: '目标：推进主线冲突并回收一个旧伏笔；结尾保留下一章钩子。',
-  },
-  {
-    id: 'battle',
-    label: '战斗章节',
-    targetWordMin: 1800,
-    targetWordMax: 2600,
-    recentChapterCount: 3,
-    avoidTranslationTone: true,
-    avoidModernSlang: true,
-    keepPovConsistent: true,
-    keepTenseConsistent: true,
-    instructionSeed: '目标：按“试探-爆发-收束”推进战斗，体现战术变化与人物状态变化。',
-  },
-  {
-    id: 'transition',
-    label: '日常过渡',
-    targetWordMin: 1400,
-    targetWordMax: 2200,
-    recentChapterCount: 2,
-    avoidTranslationTone: true,
-    avoidModernSlang: true,
-    keepPovConsistent: true,
-    keepTenseConsistent: true,
-    instructionSeed: '目标：过渡但保持信息增量（关系/资源/线索至少一项变化）。',
-  },
-  {
-    id: 'emotion',
-    label: '情绪与关系',
-    targetWordMin: 1600,
-    targetWordMax: 2400,
-    recentChapterCount: 3,
-    avoidTranslationTone: true,
-    avoidModernSlang: true,
-    keepPovConsistent: true,
-    keepTenseConsistent: true,
-    instructionSeed: '目标：围绕主视角人物推进关系变化，突出行为细节与心理变化对应。',
-  },
-]
+import { GENERATE_TEMPLATES, INDENT, TEMPLATE_KEY_PREFIX } from './chapter-editor/constants'
+import { ensureIndentedBody } from './chapter-editor/text'
+import type { CharacterOption, ChapterSnapshotItem, GenerateFeedback, GenerateFeedbackRating, GenerateHistoryItem, Params, PendingRewrite, QuickReviseAction, SelectionRange, SidePanel } from './chapter-editor/types'
+import { useBodyEditing } from './chapter-editor/useBodyEditing'
+import { useChapterEditorPersistence } from './chapter-editor/useChapterEditorPersistence'
+import { useChapterGeneration } from './chapter-editor/useChapterGeneration'
 
 export function useChapterEditor({
   token,
@@ -242,286 +120,79 @@ export function useChapterEditor({
     if (!matched) setVolumeID(isEdit ? volumes[0].id : latestVolumeID)
   }, [isEdit, latestVolumeID, volumeID, volumes])
 
-  useEffect(() => {
-    const raw = localStorage.getItem(recentCharacterKey)
-    if (!raw) return
-    try {
-      const parsed = JSON.parse(raw) as number[]
-      if (Array.isArray(parsed)) setRecentCharacterIDs(parsed.filter((id) => Number.isFinite(id)))
-    } catch {
-      localStorage.removeItem(recentCharacterKey)
-    }
-  }, [recentCharacterKey])
+  useChapterEditorPersistence({
+    isEdit,
+    latestVolumeID,
+    recentChapterCountDefault,
+    draftKey,
+    recentCharacterKey,
+    templateKey,
+    generateHistoryKey,
+    generateFeedbackKey,
+    chapterSnapshotKey,
+    volumeID,
+    setVolumeID,
+    chapterNumber,
+    setChapterNumber,
+    chapterTitle,
+    setChapterTitle,
+    chapterBody,
+    setChapterBody,
+    chapterSummary,
+    setChapterSummary,
+    chapterOutline,
+    setChapterOutline,
+    chapterStatus,
+    setChapterStatus,
+    chapterInstruction,
+    setChapterInstruction,
+    selectedCharacterIDs,
+    setSelectedCharacterIDs,
+    selectedLoreEntryIDs,
+    setSelectedLoreEntryIDs,
+    targetWordMin,
+    setTargetWordMin,
+    targetWordMax,
+    setTargetWordMax,
+    avoidTranslationTone,
+    setAvoidTranslationTone,
+    avoidModernSlang,
+    setAvoidModernSlang,
+    keepPovConsistent,
+    setKeepPovConsistent,
+    keepTenseConsistent,
+    setKeepTenseConsistent,
+    recentChapterCount,
+    setRecentChapterCount,
+    generating,
+    setGeneratingSeconds,
+    setRecentCharacterIDs,
+    setSelectedTemplateId,
+    setGenerateHistory,
+    setGenerateFeedbackRating,
+    setGenerateFeedbackNote,
+    setChapterSnapshots,
+    validCharacterIDSet,
+    validLoreEntryIDSet,
+    templateIds: GENERATE_TEMPLATES.map((t) => t.id),
+  })
 
-  useEffect(() => {
-    const saved = localStorage.getItem(templateKey)
-    if (!saved) return
-    if (GENERATE_TEMPLATES.some((t) => t.id === saved)) setSelectedTemplateId(saved)
-  }, [templateKey])
-
-  useEffect(() => {
-    const raw = localStorage.getItem(generateHistoryKey)
-    if (!raw) {
-      setGenerateHistory([])
-      return
-    }
-    try {
-      const parsed = JSON.parse(raw) as GenerateHistoryItem[]
-      if (Array.isArray(parsed)) setGenerateHistory(parsed.slice(0, 3))
-      else setGenerateHistory([])
-    } catch {
-      localStorage.removeItem(generateHistoryKey)
-      setGenerateHistory([])
-    }
-  }, [generateHistoryKey])
-
-  useEffect(() => {
-    const raw = localStorage.getItem(generateFeedbackKey)
-    if (!raw) {
-      setGenerateFeedbackRating('')
-      setGenerateFeedbackNote('')
-      return
-    }
-    try {
-      const parsed = JSON.parse(raw) as GenerateFeedback
-      setGenerateFeedbackRating(parsed.rating || '')
-      setGenerateFeedbackNote(parsed.note || '')
-    } catch {
-      localStorage.removeItem(generateFeedbackKey)
-      setGenerateFeedbackRating('')
-      setGenerateFeedbackNote('')
-    }
-  }, [generateFeedbackKey])
-
-  useEffect(() => {
-    const raw = localStorage.getItem(chapterSnapshotKey)
-    if (!raw) {
-      setChapterSnapshots([])
-      return
-    }
-    try {
-      const parsed = JSON.parse(raw) as ChapterSnapshotItem[]
-      if (Array.isArray(parsed)) setChapterSnapshots(parsed.slice(0, 10))
-      else setChapterSnapshots([])
-    } catch {
-      localStorage.removeItem(chapterSnapshotKey)
-      setChapterSnapshots([])
-    }
-  }, [chapterSnapshotKey])
-
-  useEffect(() => {
-    const saved = localStorage.getItem(draftKey)
-    if (!saved) return
-    try {
-      const draft = JSON.parse(saved) as {
-        volumeID: number
-        chapterNumber: number
-        chapterTitle: string
-        chapterBody: string
-        chapterSummary: string
-        chapterOutline: string
-        chapterStatus?: 'draft' | 'review' | 'final'
-        chapterInstruction: string
-        selectedCharacterIDs?: number[]
-        selectedLoreEntryIDs?: number[]
-        targetWordMin?: number
-        targetWordMax?: number
-        avoidTranslationTone?: boolean
-        avoidModernSlang?: boolean
-        keepPovConsistent?: boolean
-        keepTenseConsistent?: boolean
-        recentChapterCount?: number
-      }
-      if (isEdit) setVolumeID(draft.volumeID ?? volumeID)
-      else setVolumeID(latestVolumeID)
-      setChapterNumber(draft.chapterNumber ?? chapterNumber)
-      setChapterTitle(draft.chapterTitle ?? '')
-      setChapterBody(ensureIndentedBody(draft.chapterBody ?? ''))
-      setChapterSummary(draft.chapterSummary ?? '')
-      setChapterOutline(draft.chapterOutline ?? '')
-      setChapterStatus(draft.chapterStatus ?? 'draft')
-      setChapterInstruction(draft.chapterInstruction ?? '')
-      setSelectedCharacterIDs(Array.isArray(draft.selectedCharacterIDs) ? draft.selectedCharacterIDs.filter((id) => validCharacterIDSet.has(id)) : [])
-      setSelectedLoreEntryIDs(Array.isArray(draft.selectedLoreEntryIDs) ? draft.selectedLoreEntryIDs.filter((id) => validLoreEntryIDSet.has(id)) : [])
-      setTargetWordMin(Number.isFinite(draft.targetWordMin) ? Math.max(0, Number(draft.targetWordMin)) : 1800)
-      setTargetWordMax(Number.isFinite(draft.targetWordMax) ? Math.max(0, Number(draft.targetWordMax)) : 2600)
-      setAvoidTranslationTone(draft.avoidTranslationTone ?? true)
-      setAvoidModernSlang(draft.avoidModernSlang ?? true)
-      setKeepPovConsistent(draft.keepPovConsistent ?? true)
-      setKeepTenseConsistent(draft.keepTenseConsistent ?? true)
-      setRecentChapterCount(Number.isFinite(draft.recentChapterCount) ? Math.max(1, Number(draft.recentChapterCount)) : Math.max(1, recentChapterCountDefault || 3))
-    } catch {
-      localStorage.removeItem(draftKey)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draftKey, isEdit, latestVolumeID, recentChapterCountDefault, validCharacterIDSet, validLoreEntryIDSet])
-
-  useEffect(() => {
-    if (!generating) {
-      setGeneratingSeconds(0)
-      return
-    }
-    const startedAt = Date.now()
-    setGeneratingSeconds(0)
-    const id = window.setInterval(() => {
-      setGeneratingSeconds(Math.floor((Date.now() - startedAt) / 1000))
-    }, 1000)
-    return () => window.clearInterval(id)
-  }, [generating])
-
-  useEffect(() => {
-    const id = window.setTimeout(() => {
-      const draft = {
-        volumeID,
-        chapterNumber,
-        chapterTitle,
-        chapterBody,
-        chapterSummary,
-        chapterOutline,
-        chapterStatus,
-        chapterInstruction,
-        selectedCharacterIDs,
-        selectedLoreEntryIDs,
-        targetWordMin,
-        targetWordMax,
-        avoidTranslationTone,
-        avoidModernSlang,
-        keepPovConsistent,
-        keepTenseConsistent,
-        recentChapterCount,
-      }
-      localStorage.setItem(draftKey, JSON.stringify(draft))
-    }, 500)
-    return () => window.clearTimeout(id)
-  }, [draftKey, volumeID, chapterNumber, chapterTitle, chapterBody, chapterSummary, chapterOutline, chapterStatus, chapterInstruction, selectedCharacterIDs, selectedLoreEntryIDs, targetWordMin, targetWordMax, avoidTranslationTone, avoidModernSlang, keepPovConsistent, keepTenseConsistent, recentChapterCount])
-
-  function handleBodyKeyDown(e: KeyboardEvent<HTMLDivElement>) {
-    const target = e.target as HTMLTextAreaElement
-    if (!target) return
-    const start = target.selectionStart
-    const end = target.selectionEnd
-    if (start !== end) return
-
-    const lineStart = chapterBody.lastIndexOf('\n', start - 1) + 1
-    const indentEnd = lineStart + INDENT.length
-
-    if (e.key === 'Backspace' && start <= indentEnd && lineStart > 0) {
-      e.preventDefault()
-      const merged = `${chapterBody.slice(0, lineStart - 1)}${chapterBody.slice(indentEnd)}`
-      setChapterBody(merged)
-      window.requestAnimationFrame(() => {
-        const nextPos = lineStart - 1
-        target.selectionStart = nextPos
-        target.selectionEnd = nextPos
-      })
-      return
-    }
-
-    if (e.key === 'Backspace' && start <= indentEnd) {
-      e.preventDefault()
-      return
-    }
-
-    if (e.key === 'Delete' && start < indentEnd) {
-      e.preventDefault()
-      return
-    }
-
-    if (e.key !== 'Enter') return
-    e.preventDefault()
-    const next = `${chapterBody.slice(0, start)}\n${INDENT}${chapterBody.slice(end)}`
-    setChapterBody(next)
-    window.requestAnimationFrame(() => {
-      target.selectionStart = start + 1 + INDENT.length
-      target.selectionEnd = start + 1 + INDENT.length
-    })
-  }
-
-  function handleBodyPaste(e: ClipboardEvent<HTMLDivElement>) {
-    const target = e.target as HTMLTextAreaElement
-    if (!target) return
-    e.preventDefault()
-
-    const raw = e.clipboardData.getData('text')
-    const normalizedPaste = raw.replace(/\r\n/g, '\n')
-
-    let start = target.selectionStart
-    let end = target.selectionEnd
-
-    const lineStart = chapterBody.lastIndexOf('\n', start - 1) + 1
-    const indentEnd = lineStart + INDENT.length
-
-    if (start < indentEnd) start = indentEnd
-    if (end < indentEnd) end = indentEnd
-
-    const next = `${chapterBody.slice(0, start)}${normalizedPaste}${chapterBody.slice(end)}`
-    setChapterBody(next)
-
-    window.requestAnimationFrame(() => {
-      const pos = start + normalizedPaste.length
-      target.selectionStart = pos
-      target.selectionEnd = pos
-      setBodySelection({ start: pos, end: pos })
-    })
-  }
-
-  function stripIndentForClipboard(text: string): string {
-    return text
-      .split('\n')
-      .map((line) => (line.startsWith(INDENT) ? line.slice(INDENT.length) : line))
-      .join('\n')
-  }
-
-  function handleBodyCopy(e: ClipboardEvent<HTMLDivElement>) {
-    const target = e.target as HTMLTextAreaElement
-    if (!target) return
-    const selected = target.value.slice(target.selectionStart, target.selectionEnd)
-    if (!selected) return
-    e.preventDefault()
-    e.clipboardData.setData('text/plain', stripIndentForClipboard(selected))
-  }
-
-  function handleBodyCut(e: ClipboardEvent<HTMLDivElement>) {
-    const target = e.target as HTMLTextAreaElement
-    if (!target) return
-    const start = target.selectionStart
-    const end = target.selectionEnd
-    if (start === end) return
-
-    e.preventDefault()
-    const selected = target.value.slice(start, end)
-    e.clipboardData.setData('text/plain', stripIndentForClipboard(selected))
-
-    const next = ensureIndentedBody(`${chapterBody.slice(0, start)}${chapterBody.slice(end)}`)
-    setChapterBody(next)
-
-    window.requestAnimationFrame(() => {
-      const pos = Math.min(start, next.length)
-      target.selectionStart = pos
-      target.selectionEnd = pos
-      setBodySelection({ start: pos, end: pos })
-    })
-  }
-
-  function handleBodySelect(start: number, end: number) {
-    const safeStart = Math.max(0, Math.min(start, chapterBody.length))
-    const safeEnd = Math.max(0, Math.min(end, chapterBody.length))
-    setBodySelection({ start: safeStart, end: safeEnd })
-  }
-
-  function getSelectedBodyText() {
-    if (bodySelection.end <= bodySelection.start) return ''
-    return chapterBody.slice(bodySelection.start, bodySelection.end).trim()
-  }
-
-  function handleBodyFocus() {
-    setBodyFocused(true)
-  }
-
-  function handleBodyBlur() {
-    setBodyFocused(false)
-    setBodySelection({ start: 0, end: 0 })
-  }
+  const {
+    handleBodyKeyDown,
+    handleBodyPaste,
+    handleBodyCopy,
+    handleBodyCut,
+    handleBodySelect,
+    getSelectedBodyText,
+    handleBodyFocus,
+    handleBodyBlur,
+  } = useBodyEditing({
+    chapterBody,
+    setChapterBody,
+    bodySelection,
+    setBodySelection,
+    setBodyFocused,
+  })
 
   async function handleSave() {
     if (chapterNumber <= 0) {
@@ -575,314 +246,80 @@ export function useChapterEditor({
     }
   }
 
-  function buildQuickReviseInstruction(action: QuickReviseAction): string {
-    const body = chapterBody.trim()
-    if (!body) return ''
-    const base = chapterInstruction.trim()
-    const actionPromptMap: Record<QuickReviseAction, string> = {
-      polish:
-        '请在不改变剧情事实与人物关系的前提下润色正文：减少翻译腔，优化句式与节奏，保留中文网文可读性。',
-      compress:
-        '请在不改变核心剧情与人物动机的前提下压缩正文至更紧凑版本：删冗句、减重复、保留关键转折和情绪。',
-      reflow:
-        '请重排正文段落与节奏：加强分段与停顿，让阅读更顺滑；不要改动剧情事实与主要信息。',
-    }
-    const suffix = `【快速修订任务】\n${actionPromptMap[action]}\n\n【待修订正文】\n${body}`
-    return base ? `${base}\n\n${suffix}` : suffix
-  }
-
-  async function runGenerateWithInstruction(instructionInput: string) {
-    if (chapterNumber <= 0) {
-      const msg = '章节编号必须大于 0。'
-      onNotifyError(msg)
-      setLocalError(msg)
-      return
-    }
-    if (volumeID <= 0) {
-      const msg = '请先选择分卷。'
-      onNotifyError(msg)
-      setLocalError(msg)
-      return
-    }
-    if (!instructionInput.trim()) {
-      const msg = '请先填写生成指令。'
-      onNotifyError(msg)
-      setLocalError(msg)
-      return
-    }
-    if (targetWordMin > 0 && targetWordMax > 0 && targetWordMin > targetWordMax) {
-      const msg = '目标字数范围无效：下限不能大于上限。'
-      onNotifyError(msg)
-      setLocalError(msg)
-      return
-    }
-
-    setLocalError('')
-    setLocalSuccess('')
-    setCanRetryGenerate(false)
-    setGenerating(true)
-    try {
-      const safeCharacterIDs = selectedCharacterIDs.filter((id) => validCharacterIDSet.has(id))
-      const safeLoreEntryIDs = selectedLoreEntryIDs.filter((id) => validLoreEntryIDSet.has(id))
-      const feedbackHint = buildFeedbackHint(generateFeedbackRating, generateFeedbackNote)
-      const generationInstruction = feedbackHint
-        ? `${instructionInput.trim()}\n\n【上一轮反馈（请严格修正）】\n${feedbackHint}`
-        : instructionInput.trim()
-      const data = await generateChapterStream(
-        token,
-        novelId,
-        {
-        volume_id: volumeID,
-        chapter_number: chapterNumber,
-        title: chapterTitle.trim(),
-        generation_instruction: generationInstruction,
-        character_ids: safeCharacterIDs,
-        lore_entry_ids: safeLoreEntryIDs,
-        target_word_min: targetWordMin,
-        target_word_max: targetWordMax,
-        avoid_translation_tone: avoidTranslationTone,
-        avoid_modern_slang: avoidModernSlang,
-        keep_pov_consistent: keepPovConsistent,
-        keep_tense_consistent: keepTenseConsistent,
-        recent_chapter_count: recentChapterCount,
-        },
-        (event) => {
-          if (event.type === 'progress' && Number.isFinite(event.elapsed_seconds)) {
-            setGeneratingSeconds((prev) => Math.max(prev, event.elapsed_seconds))
-          }
-        },
-      )
-      if (safeCharacterIDs.length > 0) {
-        const merged = Array.from(new Set([...safeCharacterIDs, ...recentCharacterIDs])).slice(0, 30)
-        setRecentCharacterIDs(merged)
-        localStorage.setItem(recentCharacterKey, JSON.stringify(merged))
-      }
-      const generatedBodyWordCount = data.body.replace(/\s/g, '').length
-      if (targetWordMin > 0 && generatedBodyWordCount < Math.floor(targetWordMin * 0.85)) {
-        const msg = `生成结果疑似不完整（正文约 ${generatedBodyWordCount} 字，低于目标下限）。请重试，或适当放宽目标字数。`
-        onNotifyError(msg)
-        setLocalError(msg)
-        setCanRetryGenerate(true)
-        return
-      }
-      setChapterOutline(data.outline)
-      setChapterBody(ensureIndentedBody(data.body))
-      setChapterSummary(data.summary)
-      setSidePanel('outline')
-      const totalTokens = data.usage?.total_tokens ?? 0
-      const usageText = totalTokens > 0 ? ` 本次消耗约 ${totalTokens} tokens。` : ''
-      onNotifySuccess(`AI 生成完成。${usageText}`.trim())
-      setLocalSuccess(`AI 生成完成，请检查后再保存。${usageText}`)
-      const nextHistory: GenerateHistoryItem[] = [
-        {
-          createdAt: new Date().toISOString(),
-          outline: data.outline,
-          body: data.body,
-          summary: data.summary,
-          model: data.model,
-          totalTokens: totalTokens > 0 ? totalTokens : undefined,
-          instructionPreview: instructionInput.trim().slice(0, 80),
-        },
-        ...generateHistory,
-      ].slice(0, 3)
-      setGenerateHistory(nextHistory)
-      localStorage.setItem(generateHistoryKey, JSON.stringify(nextHistory))
-      setCanRetryGenerate(false)
-    } catch (e) {
-      const msg = mapGenerateErrorMessage(e)
-      onNotifyError(msg)
-      setLocalError(msg)
-      setCanRetryGenerate(true)
-    } finally {
-      setGenerating(false)
-    }
-  }
-
-  async function handleGenerate() {
-    await runGenerateWithInstruction(chapterInstruction)
-  }
-
-  async function handleQuickRevise(action: QuickReviseAction) {
-    const instruction = buildQuickReviseInstruction(action)
-    if (!instruction) {
-      const msg = '请先填写或生成正文，再使用快速修订。'
-      onNotifyError(msg)
-      setLocalError(msg)
-      return
-    }
-    await runGenerateWithInstruction(instruction)
-  }
-
-  async function handleRewriteSelectedBody(extraPrompt: string, selectionOverride?: SelectionRange) {
-    const range = selectionOverride ?? bodySelection
-    const selected = range.end > range.start ? chapterBody.slice(range.start, range.end).trim() : ''
-    if (!selected) {
-      const msg = '请先在正文里选中要重写的段落。'
-      onNotifyError(msg)
-      setLocalError(msg)
-      return
-    }
-    const actionPrompt = extraPrompt.trim() || '请在不改变剧情事实的前提下优化这段文字，使表达更自然、节奏更顺。'
-    const rewriteInstruction = [
-      '【局部重写任务】',
-      '你只需要重写“待重写段落”，不要扩写整章，不要输出解释。',
-      '输出要求：返回 JSON，其中 body 字段仅包含“重写后的该段文本”。',
-      actionPrompt,
-      '',
-      '【待重写段落】',
-      selected,
-    ].join('\n')
-
-    if (chapterNumber <= 0 || volumeID <= 0) {
-      const msg = '请先确认分卷和章节编号。'
-      onNotifyError(msg)
-      setLocalError(msg)
-      return
-    }
-
-    setLocalError('')
-    setLocalSuccess('')
-    setGenerating(true)
-    try {
-      const safeCharacterIDs = selectedCharacterIDs.filter((id) => validCharacterIDSet.has(id))
-      const safeLoreEntryIDs = selectedLoreEntryIDs.filter((id) => validLoreEntryIDSet.has(id))
-      const data = await generateChapterStream(
-        token,
-        novelId,
-        {
-          volume_id: volumeID,
-          chapter_number: chapterNumber,
-          title: chapterTitle.trim(),
-          generation_instruction: rewriteInstruction,
-          character_ids: safeCharacterIDs,
-          lore_entry_ids: safeLoreEntryIDs,
-          target_word_min: 0,
-          target_word_max: 0,
-          avoid_translation_tone: avoidTranslationTone,
-          avoid_modern_slang: avoidModernSlang,
-          keep_pov_consistent: keepPovConsistent,
-          keep_tense_consistent: keepTenseConsistent,
-          recent_chapter_count: recentChapterCount,
-        },
-        (event) => {
-          if (event.type === 'progress' && Number.isFinite(event.elapsed_seconds)) {
-            setGeneratingSeconds((prev) => Math.max(prev, event.elapsed_seconds))
-          }
-        },
-      )
-      const rewritten = data.body.trim()
-      if (!rewritten) {
-        throw new Error('重写结果为空')
-      }
-      setPendingRewrite({
-        start: range.start,
-        end: range.end,
-        original: chapterBody.slice(range.start, range.end),
-        rewritten,
-      })
-      onNotifySuccess('局部重写已生成，请选择应用或放弃。')
-      setLocalSuccess('局部重写已生成，请确认是否替换。')
-    } catch (e) {
-      const msg = mapGenerateErrorMessage(e)
-      onNotifyError(msg)
-      setLocalError(msg)
-    } finally {
-      setGenerating(false)
-    }
-  }
-
-  function applyPendingRewrite() {
-    if (!pendingRewrite) return
-    const currentOriginal = chapterBody.slice(pendingRewrite.start, pendingRewrite.end)
-    if (currentOriginal !== pendingRewrite.original) {
-      const msg = '原文已变化，无法应用本次替换。请重新选中后重写。'
-      onNotifyError(msg)
-      setLocalError(msg)
-      setPendingRewrite(null)
-      return
-    }
-    const nextBody = `${chapterBody.slice(0, pendingRewrite.start)}${pendingRewrite.rewritten}${chapterBody.slice(pendingRewrite.end)}`
-    const normalized = ensureIndentedBody(nextBody)
-    const end = Math.min(pendingRewrite.start + pendingRewrite.rewritten.length, normalized.length)
-    setChapterBody(normalized)
-    setBodySelection({ start: end, end })
-    setPendingRewrite(null)
-    onNotifySuccess('已应用局部替换。')
-    setLocalSuccess(`已替换第 ${pendingRewrite.start + 1}~${pendingRewrite.end} 字，请检查后保存。`)
-  }
-
-  function discardPendingRewrite() {
-    if (!pendingRewrite) return
-    setPendingRewrite(null)
-    onNotifySuccess('已放弃本次局部替换。')
-  }
-
-  function saveGenerateFeedback() {
-    if (!generateFeedbackRating && !generateFeedbackNote.trim()) {
-      onNotifyError('请至少填写评分或备注后再保存反馈。')
-      return
-    }
-    const payload: GenerateFeedback = {
-      rating: generateFeedbackRating,
-      note: generateFeedbackNote.trim(),
-      updatedAt: new Date().toISOString(),
-    }
-    localStorage.setItem(generateFeedbackKey, JSON.stringify(payload))
-    onNotifySuccess('本章生成反馈已保存。下次生成会自动参考。')
-  }
-
-  function applyGenerateHistory(index: number) {
-    const item = generateHistory[index]
-    if (!item) return
-    setChapterOutline(item.outline)
-    setChapterBody(ensureIndentedBody(item.body))
-    setChapterSummary(item.summary)
-    setSidePanel('outline')
-    onNotifySuccess('已回填历史生成版本。')
-  }
-
-  function applyTemplate(templateId: string) {
-    const template = GENERATE_TEMPLATES.find((t) => t.id === templateId)
-    if (!template) return
-    setSelectedTemplateId(template.id)
-    localStorage.setItem(templateKey, template.id)
-    setTargetWordMin(template.targetWordMin)
-    setTargetWordMax(template.targetWordMax)
-    setRecentChapterCount(template.recentChapterCount)
-    setAvoidTranslationTone(template.avoidTranslationTone)
-    setAvoidModernSlang(template.avoidModernSlang)
-    setKeepPovConsistent(template.keepPovConsistent)
-    setKeepTenseConsistent(template.keepTenseConsistent)
-    if (!chapterInstruction.trim()) setChapterInstruction(template.instructionSeed)
-    onNotifySuccess(`已套用模板：${template.label}`)
-  }
-
-  function saveChapterSnapshot() {
-    const item: ChapterSnapshotItem = {
-      createdAt: new Date().toISOString(),
-      chapterTitle: chapterTitle.trim(),
-      chapterStatus,
-      body: chapterBody,
-      outline: chapterOutline,
-      summary: chapterSummary,
-    }
-    const next = [item, ...chapterSnapshots].slice(0, 10)
-    setChapterSnapshots(next)
-    localStorage.setItem(chapterSnapshotKey, JSON.stringify(next))
-    onNotifySuccess('章节快照已保存。')
-  }
-
-  function applyChapterSnapshot(index: number) {
-    const item = chapterSnapshots[index]
-    if (!item) return
-    setChapterTitle(item.chapterTitle)
-    setChapterStatus(item.chapterStatus)
-    setChapterBody(ensureIndentedBody(item.body))
-    setChapterOutline(item.outline)
-    setChapterSummary(item.summary)
-    onNotifySuccess('已回填章节快照。')
-    setSidePanel('snapshot')
-  }
+  const {
+    handleGenerate,
+    retryGenerate,
+    handleQuickRevise,
+    handleRewriteSelectedBody,
+    applyPendingRewrite,
+    discardPendingRewrite,
+    saveGenerateFeedback,
+    applyGenerateHistory,
+    applyTemplate,
+    saveChapterSnapshot,
+    applyChapterSnapshot,
+  } = useChapterGeneration({
+    token,
+    novelId,
+    chapterNumber,
+    volumeID,
+    chapterTitle,
+    chapterBody,
+    chapterInstruction,
+    chapterOutline,
+    chapterSummary,
+    chapterStatus,
+    targetWordMin,
+    targetWordMax,
+    avoidTranslationTone,
+    avoidModernSlang,
+    keepPovConsistent,
+    keepTenseConsistent,
+    recentChapterCount,
+    selectedCharacterIDs,
+    selectedLoreEntryIDs,
+    validCharacterIDSet,
+    validLoreEntryIDSet,
+    recentCharacterIDs,
+    generateHistory,
+    generateFeedbackRating,
+    generateFeedbackNote,
+    bodySelection,
+    pendingRewrite,
+    chapterSnapshots,
+    recentCharacterKey,
+    generateHistoryKey,
+    generateFeedbackKey,
+    templateKey,
+    chapterSnapshotKey,
+    onNotifySuccess,
+    onNotifyError,
+    setLocalError,
+    setLocalSuccess,
+    setCanRetryGenerate,
+    setGenerating,
+    setGeneratingSeconds,
+    setRecentCharacterIDs,
+    setGenerateHistory,
+    setChapterOutline,
+    setChapterBody,
+    setChapterSummary,
+    setSidePanel,
+    setPendingRewrite,
+    setBodySelection,
+    setSelectedTemplateId,
+    setTargetWordMin,
+    setTargetWordMax,
+    setRecentChapterCount,
+    setAvoidTranslationTone,
+    setAvoidModernSlang,
+    setKeepPovConsistent,
+    setKeepTenseConsistent,
+    setChapterInstruction,
+    setChapterTitle,
+    setChapterStatus,
+    setChapterSnapshots,
+  })
 
   return {
     chapterNumber,
@@ -968,69 +405,4 @@ export function useChapterEditor({
     saveGenerateFeedback,
     ensureIndentedBody,
   }
-}
-
-function buildFeedbackHint(rating: GenerateFeedbackRating, note: string): string {
-  const parts: string[] = []
-  if (rating) {
-    if (rating === 'satisfied') parts.push('评分：满意（保持当前风格与节奏）。')
-    if (rating === 'neutral') parts.push('评分：一般（在结构与表达上继续优化）。')
-    if (rating === 'unsatisfied') parts.push('评分：不满意（需明显修正内容质量与稳定性）。')
-  }
-  if (note.trim()) {
-    parts.push(`备注：${note.trim()}`)
-  }
-  return parts.join('\n')
-}
-
-function mapGenerateErrorMessage(error: unknown): string {
-  if (error instanceof APIError) {
-    switch (error.code) {
-      case 'AI_OUTPUT_INVALID':
-        return '生成失败：模型输出格式异常。建议点击重试，或缩短并明确你的生成指令。'
-      case 'AI_REQUEST_FAILED':
-        return '生成失败：模型请求异常。请检查 API 设置（写作页右上角「AI 设置」）、额度、模型配置或稍后重试。'
-      case 'AUTH_UNAUTHORIZED':
-        return '登录状态已失效，请重新登录。'
-      case 'NOVEL_NOT_FOUND':
-        return '当前小说不存在或无权限访问。'
-      default:
-        break
-    }
-  }
-
-  const raw = error instanceof Error ? error.message : '生成章节失败'
-  const msg = raw.toLowerCase()
-
-  if (msg.includes('ai output parse failed') || msg.includes('openai returned invalid json output')) {
-    return '生成失败：模型输出格式异常。建议点击重试，或缩短并明确你的生成指令。'
-  }
-  if (
-    msg.includes('openai api key is not configured') ||
-    msg.includes('尚未配置 openai api key') ||
-    msg.includes('ai service request failed') ||
-    msg.includes('openai request failed') ||
-    msg.includes('401') ||
-    msg.includes('403') ||
-    msg.includes('429')
-  ) {
-    return '生成失败：模型请求异常。请检查 API 设置（写作页右上角「AI 设置」）、额度、模型配置或稍后重试。'
-  }
-  if (
-    msg.includes('timeout') ||
-    msg.includes('deadline exceeded') ||
-    msg.includes('network error') ||
-    msg.includes('failed to fetch')
-  ) {
-    return '生成失败：请求超时或网络异常。建议缩短目标字数后重试。'
-  }
-  return raw
-}
-
-function ensureIndentedBody(text: string): string {
-  if (!text) return INDENT
-  const lines = text.split('\n')
-  return lines
-    .map((line) => (line.startsWith(INDENT) ? line : `${INDENT}${line}`))
-    .join('\n')
 }
