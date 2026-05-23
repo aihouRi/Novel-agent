@@ -1,18 +1,18 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useChapterEditor } from './useChapterEditor'
-import { createChapter, generateChapter, updateChapter } from '../api/chapters'
+import { createChapter, generateChapterStream, updateChapter } from '../api/chapters'
 import { APIError } from '../api/http'
 
 vi.mock('../api/chapters', () => ({
   createChapter: vi.fn(),
   updateChapter: vi.fn(),
-  generateChapter: vi.fn(),
+  generateChapterStream: vi.fn(),
 }))
 
 const mockedCreateChapter = vi.mocked(createChapter)
 const mockedUpdateChapter = vi.mocked(updateChapter)
-const mockedGenerateChapter = vi.mocked(generateChapter)
+const mockedGenerateChapterStream = vi.mocked(generateChapterStream)
 
 function createParams(): any {
   return {
@@ -66,7 +66,7 @@ describe('useChapterEditor', () => {
   })
 
   it('生成失败后应显示错误并允许重试', async () => {
-    mockedGenerateChapter.mockRejectedValueOnce(new Error('生成失败'))
+    mockedGenerateChapterStream.mockRejectedValueOnce(new Error('生成失败'))
     const params = createParams()
 
     const { result } = renderHook(() => useChapterEditor(params))
@@ -86,7 +86,7 @@ describe('useChapterEditor', () => {
   })
 
   it('ai output parse failed 应映射为可读提示', async () => {
-    mockedGenerateChapter.mockRejectedValueOnce(new APIError('ai output parse failed, please retry', 502, 'AI_OUTPUT_INVALID'))
+    mockedGenerateChapterStream.mockRejectedValueOnce(new APIError('ai output parse failed, please retry', 502, 'AI_OUTPUT_INVALID'))
     const params = createParams()
 
     const { result } = renderHook(() => useChapterEditor(params))
@@ -106,7 +106,7 @@ describe('useChapterEditor', () => {
   })
 
   it('保存失败不应保留生成重试状态', async () => {
-    mockedGenerateChapter.mockRejectedValueOnce(new Error('生成失败'))
+    mockedGenerateChapterStream.mockRejectedValueOnce(new Error('生成失败'))
     mockedCreateChapter.mockRejectedValueOnce(new Error('保存失败'))
     const params = createParams()
 
@@ -133,7 +133,7 @@ describe('useChapterEditor', () => {
   })
 
   it('生成请求应带上 lore_entry_ids 且成功后重试状态为 false', async () => {
-    mockedGenerateChapter.mockResolvedValueOnce({
+    mockedGenerateChapterStream.mockResolvedValueOnce({
       outline: '大纲',
       body: '正文',
       summary: '总结',
@@ -146,6 +146,8 @@ describe('useChapterEditor', () => {
       result.current.setChapterInstruction('继续推进剧情')
       result.current.setSelectedCharacterIDs([21])
       result.current.setSelectedLoreEntryIDs([31])
+      result.current.setTargetWordMin(0)
+      result.current.setTargetWordMax(0)
     })
 
     await act(async () => {
@@ -153,12 +155,12 @@ describe('useChapterEditor', () => {
     })
 
     await waitFor(() => {
-      expect(mockedGenerateChapter).toHaveBeenCalledTimes(1)
-      expect(mockedGenerateChapter.mock.calls[0][2]).toMatchObject({
+      expect(mockedGenerateChapterStream).toHaveBeenCalledTimes(1)
+      expect(mockedGenerateChapterStream.mock.calls[0][2]).toMatchObject({
         character_ids: [21],
         lore_entry_ids: [31],
-        target_word_min: 1800,
-        target_word_max: 2600,
+        target_word_min: 0,
+        target_word_max: 0,
         avoid_translation_tone: true,
         avoid_modern_slang: true,
         keep_pov_consistent: true,
@@ -216,7 +218,7 @@ describe('useChapterEditor', () => {
   })
 
   it('应仅保留最近 3 条生成历史', async () => {
-    mockedGenerateChapter
+    mockedGenerateChapterStream
       .mockResolvedValueOnce({ outline: 'o1', body: 'b1', summary: 's1', usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 } })
       .mockResolvedValueOnce({ outline: 'o2', body: 'b2', summary: 's2', usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 } })
       .mockResolvedValueOnce({ outline: 'o3', body: 'b3', summary: 's3', usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 } })
@@ -227,6 +229,8 @@ describe('useChapterEditor', () => {
 
     act(() => {
       result.current.setChapterInstruction('继续推进剧情')
+      result.current.setTargetWordMin(0)
+      result.current.setTargetWordMax(0)
     })
 
     await act(async () => { await result.current.handleGenerate() })
@@ -237,6 +241,32 @@ describe('useChapterEditor', () => {
     expect(result.current.generateHistory.length).toBe(3)
     expect(result.current.generateHistory[0].outline).toBe('o4')
     expect(result.current.generateHistory[2].outline).toBe('o2')
+  })
+
+  it('生成结果过短时应提示不完整并允许重试', async () => {
+    mockedGenerateChapterStream.mockResolvedValueOnce({
+      outline: '大纲',
+      body: '太短',
+      summary: '总结',
+    })
+    const params = createParams()
+    const { result } = renderHook(() => useChapterEditor(params))
+
+    act(() => {
+      result.current.setChapterInstruction('继续推进剧情')
+      result.current.setTargetWordMin(2000)
+      result.current.setTargetWordMax(2300)
+    })
+
+    await act(async () => {
+      await result.current.handleGenerate()
+    })
+
+    await waitFor(() => {
+      expect(result.current.localError).toContain('生成结果疑似不完整')
+      expect(result.current.canRetryGenerate).toBe(true)
+      expect(result.current.generateHistory.length).toBe(0)
+    })
   })
 
   it('应可套用生成模板并写入参数', async () => {
