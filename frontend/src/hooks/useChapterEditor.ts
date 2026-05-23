@@ -1,11 +1,13 @@
-import { useEffect, useMemo, useState } from 'react'
-import { createChapter, generateChapterStream, type Chapter, updateChapter } from '../api/chapters'
+import { useEffect, useMemo } from 'react'
+import { createChapter, type Chapter, updateChapter } from '../api/chapters'
 import type { Character } from '../api/characters'
 import type { LoreEntry } from '../api/loreEntries'
 import type { Volume } from '../api/volumes'
 import { GENERATE_TEMPLATES, INDENT, TEMPLATE_KEY_PREFIX } from './chapter-editor/constants'
 import { ensureIndentedBody } from './chapter-editor/text'
-import type { CharacterOption, ChapterSnapshotItem, GenerateFeedback, GenerateFeedbackRating, GenerateHistoryItem, Params, PendingRewrite, QuickReviseAction, SelectionRange, SidePanel } from './chapter-editor/types'
+import type { CharacterOption, Params } from './chapter-editor/types'
+import { useChapterEditorCoreState } from './chapter-editor/useChapterEditorCoreState'
+import { useChapterEditorAiState } from './chapter-editor/useChapterEditorAiState'
 import { useBodyEditing } from './chapter-editor/useBodyEditing'
 import { useChapterEditorPersistence } from './chapter-editor/useChapterEditorPersistence'
 import { useChapterGeneration } from './chapter-editor/useChapterGeneration'
@@ -33,39 +35,85 @@ export function useChapterEditor({
     }).id
   }, [volumes])
 
-  const [chapterNumber, setChapterNumber] = useState(initialChapter?.chapter_number ?? defaultChapterNumber)
-  const [volumeID, setVolumeID] = useState<number>(initialChapter?.volume_id ?? latestVolumeID)
-  const [chapterTitle, setChapterTitle] = useState(initialChapter?.title ?? '')
-  const [chapterBody, setChapterBody] = useState(ensureIndentedBody(initialChapter?.body ?? INDENT))
-  const [chapterSummary, setChapterSummary] = useState(initialChapter?.summary ?? '')
-  const [chapterOutline, setChapterOutline] = useState(initialChapter?.outline ?? '')
-  const [chapterStatus, setChapterStatus] = useState<'draft' | 'review' | 'final'>(initialChapter?.status ?? 'draft')
-  const [chapterInstruction, setChapterInstruction] = useState(initialChapter?.generation_instruction ?? '')
-  const [recentChapterCount, setRecentChapterCount] = useState(Math.max(1, recentChapterCountDefault || 3))
-  const [targetWordMin, setTargetWordMin] = useState(1800)
-  const [targetWordMax, setTargetWordMax] = useState(2600)
-  const [avoidTranslationTone, setAvoidTranslationTone] = useState(true)
-  const [avoidModernSlang, setAvoidModernSlang] = useState(true)
-  const [keepPovConsistent, setKeepPovConsistent] = useState(true)
-  const [keepTenseConsistent, setKeepTenseConsistent] = useState(true)
-  const [selectedCharacterIDs, setSelectedCharacterIDs] = useState<number[]>([])
-  const [selectedLoreEntryIDs, setSelectedLoreEntryIDs] = useState<number[]>([])
-  const [saving, setSaving] = useState(false)
-  const [generating, setGenerating] = useState(false)
-  const [generatingSeconds, setGeneratingSeconds] = useState(0)
-  const [sidePanel, setSidePanel] = useState<SidePanel>(null)
-  const [localSuccess, setLocalSuccess] = useState('')
-  const [localError, setLocalError] = useState('')
-  const [canRetryGenerate, setCanRetryGenerate] = useState(false)
-  const [recentCharacterIDs, setRecentCharacterIDs] = useState<number[]>([])
-  const [generateHistory, setGenerateHistory] = useState<GenerateHistoryItem[]>([])
-  const [selectedTemplateId, setSelectedTemplateId] = useState<string>('')
-  const [generateFeedbackRating, setGenerateFeedbackRating] = useState<GenerateFeedbackRating>('')
-  const [generateFeedbackNote, setGenerateFeedbackNote] = useState('')
-  const [bodySelection, setBodySelection] = useState<SelectionRange>({ start: 0, end: 0 })
-  const [bodyFocused, setBodyFocused] = useState(false)
-  const [pendingRewrite, setPendingRewrite] = useState<PendingRewrite | null>(null)
-  const [chapterSnapshots, setChapterSnapshots] = useState<ChapterSnapshotItem[]>([])
+  const coreState = useChapterEditorCoreState({
+    initialChapter,
+    defaultChapterNumber,
+    latestVolumeID,
+    recentChapterCountDefault,
+  })
+  const aiState = useChapterEditorAiState()
+
+  const {
+    chapterNumber,
+    volumeID,
+    chapterTitle,
+    chapterBody,
+    chapterSummary,
+    chapterOutline,
+    chapterStatus,
+    chapterInstruction,
+    recentChapterCount,
+    targetWordMin,
+    targetWordMax,
+    avoidTranslationTone,
+    avoidModernSlang,
+    keepPovConsistent,
+    keepTenseConsistent,
+    selectedCharacterIDs,
+    selectedLoreEntryIDs,
+    saving,
+    generating,
+    generatingSeconds,
+    sidePanel,
+    localSuccess,
+    localError,
+    canRetryGenerate,
+    bodySelection,
+    bodyFocused,
+    pendingRewrite,
+    setChapterNumber,
+    setVolumeID,
+    setChapterTitle,
+    setChapterBody,
+    setChapterSummary,
+    setChapterOutline,
+    setChapterStatus,
+    setChapterInstruction,
+    setRecentChapterCount,
+    setTargetWordMin,
+    setTargetWordMax,
+    setAvoidTranslationTone,
+    setAvoidModernSlang,
+    setKeepPovConsistent,
+    setKeepTenseConsistent,
+    setSelectedCharacterIDs,
+    setSelectedLoreEntryIDs,
+    setSaving,
+    setGenerating,
+    setGeneratingSeconds,
+    setSidePanel,
+    setLocalSuccess,
+    setLocalError,
+    setCanRetryGenerate,
+    setBodySelection,
+    setBodyFocused,
+    setPendingRewrite,
+  } = coreState
+
+  const {
+    recentCharacterIDs,
+    generateHistory,
+    selectedTemplateId,
+    generateFeedbackRating,
+    generateFeedbackNote,
+    chapterSnapshots,
+    setRecentCharacterIDs,
+    setGenerateHistory,
+    setSelectedTemplateId,
+    setGenerateFeedbackRating,
+    setGenerateFeedbackNote,
+    setChapterSnapshots,
+  } = aiState
 
   const chapterWordCount = useMemo(() => chapterBody.replace(/\s/g, '').length, [chapterBody])
   const isEdit = Boolean(initialChapter)
@@ -259,66 +307,76 @@ export function useChapterEditor({
     saveChapterSnapshot,
     applyChapterSnapshot,
   } = useChapterGeneration({
-    token,
-    novelId,
-    chapterNumber,
-    volumeID,
-    chapterTitle,
-    chapterBody,
-    chapterInstruction,
-    chapterOutline,
-    chapterSummary,
-    chapterStatus,
-    targetWordMin,
-    targetWordMax,
-    avoidTranslationTone,
-    avoidModernSlang,
-    keepPovConsistent,
-    keepTenseConsistent,
-    recentChapterCount,
-    selectedCharacterIDs,
-    selectedLoreEntryIDs,
-    validCharacterIDSet,
-    validLoreEntryIDSet,
-    recentCharacterIDs,
-    generateHistory,
-    generateFeedbackRating,
-    generateFeedbackNote,
-    bodySelection,
-    pendingRewrite,
-    chapterSnapshots,
-    recentCharacterKey,
-    generateHistoryKey,
-    generateFeedbackKey,
-    templateKey,
-    chapterSnapshotKey,
-    onNotifySuccess,
-    onNotifyError,
-    setLocalError,
-    setLocalSuccess,
-    setCanRetryGenerate,
-    setGenerating,
-    setGeneratingSeconds,
-    setRecentCharacterIDs,
-    setGenerateHistory,
-    setChapterOutline,
-    setChapterBody,
-    setChapterSummary,
-    setSidePanel,
-    setPendingRewrite,
-    setBodySelection,
-    setSelectedTemplateId,
-    setTargetWordMin,
-    setTargetWordMax,
-    setRecentChapterCount,
-    setAvoidTranslationTone,
-    setAvoidModernSlang,
-    setKeepPovConsistent,
-    setKeepTenseConsistent,
-    setChapterInstruction,
-    setChapterTitle,
-    setChapterStatus,
-    setChapterSnapshots,
+    request: {
+      token,
+      novelId,
+      chapterNumber,
+      volumeID,
+      chapterTitle,
+      chapterBody,
+      chapterInstruction,
+      chapterOutline,
+      chapterSummary,
+      chapterStatus,
+      targetWordMin,
+      targetWordMax,
+      avoidTranslationTone,
+      avoidModernSlang,
+      keepPovConsistent,
+      keepTenseConsistent,
+      recentChapterCount,
+      selectedCharacterIDs,
+      selectedLoreEntryIDs,
+    },
+    state: {
+      validCharacterIDSet,
+      validLoreEntryIDSet,
+      recentCharacterIDs,
+      generateHistory,
+      generateFeedbackRating,
+      generateFeedbackNote,
+      bodySelection,
+      pendingRewrite,
+      chapterSnapshots,
+    },
+    storageKeys: {
+      recentCharacterKey,
+      generateHistoryKey,
+      generateFeedbackKey,
+      templateKey,
+      chapterSnapshotKey,
+    },
+    notify: {
+      onNotifySuccess,
+      onNotifyError,
+    },
+    setters: {
+      setLocalError,
+      setLocalSuccess,
+      setCanRetryGenerate,
+      setGenerating,
+      setGeneratingSeconds,
+      setRecentCharacterIDs,
+      setGenerateHistory,
+      setChapterOutline,
+      setChapterBody,
+      setChapterSummary,
+      setSidePanel,
+      setPendingRewrite,
+      setBodySelection,
+      setSelectedTemplateId,
+      setTargetWordMin,
+      setTargetWordMax,
+      setRecentChapterCount,
+      setAvoidTranslationTone,
+      setAvoidModernSlang,
+      setKeepPovConsistent,
+      setKeepTenseConsistent,
+      setChapterInstruction,
+      setChapterTitle,
+      setChapterStatus,
+      setChapterSnapshots,
+    },
   })
 
   return {
