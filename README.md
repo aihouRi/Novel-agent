@@ -1,3 +1,227 @@
+**English** | [中文](#novel-agent-中文)
+
+# Novel Agent
+
+Novel Agent is an MVP web app for writing long-form Chinese novels.  
+The current version completes the minimal loop of "settings management -> AI generation -> edit and save -> export".
+
+## Current Features (MVP)
+
+- User authentication: sign up, log in, get the current user
+- Novel management: create, view, edit, delete
+- Character management: create, view, edit, delete (with deletion protection for important characters)
+- Volume management: create, rename, assign chapters to volumes
+- Chapter management: create, view, edit, delete, dedicated writing page
+- AI chapter generation: returns `outline/body/summary` and fills them back into the editor
+- Markdown export: selectable range and content (body/summary/outline)
+
+## Tech Stack
+
+- Backend: Go + Echo
+- Frontend: React + TypeScript + Vite + MUI
+- Database: MySQL
+- Auth: JWT
+- AI: OpenAI API / Gemini API
+
+## Project Structure
+
+- `backend/`: Go backend
+- `frontend/`: React frontend
+- `docs/`: documentation (design docs and phase records)
+- `docker-compose.yml`: local MySQL
+
+## Local Setup
+
+### 1) Start MySQL
+
+```bash
+docker compose up -d mysql
+```
+
+Default connection:
+- host: `127.0.0.1`
+- port: `3306`
+- database: `novel_agent`
+- user: `novel`
+- password: `novel`
+
+### 2) Start the Backend
+
+```bash
+cd backend
+go mod tidy
+go run ./cmd/api
+```
+
+Default address:
+- `http://localhost:8080`
+
+Health checks:
+- `GET /health`
+- `GET /health/db`
+
+### 3) Start the Frontend
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Default address:
+- `http://localhost:5173`
+
+## Backend Environment Variables
+
+- `PORT` (default `8080`)
+- `MYSQL_DSN` (defaults to the local docker MySQL)
+- `JWT_SECRET`
+- `OPENAI_API_KEY` (required to enable AI generation)
+- `OPENAI_BASE_URL` (default `https://api.openai.com/v1`)
+- `OPENAI_MODEL` (default `gpt-4o-mini`)
+- `GEMINI_API_KEY` (set this when generating with Gemini)
+- `GEMINI_BASE_URL` (default `https://generativelanguage.googleapis.com/v1beta`)
+- `GEMINI_MODEL` (default `gemini-2.5-flash`)
+
+Notes:
+- You can also save per-user settings (Provider/Key/Base URL/Model) in the frontend under "User menu -> AI Settings".
+- Per-user settings take precedence over environment variables for chapter generation.
+
+## Environments (dev / test / prod)
+
+The repository provides the following template files:
+- `.env.example`: general template
+- `.env.dev.example`: local development template
+- `.env.test.example`: test template (for integration tests)
+
+Recommended conventions:
+- `dev`: connects to the `novel_agent` development database, `INTEGRATION_TEST=0`
+- `test`: connects to the `novel_agent_test` test database, `INTEGRATION_TEST=1`
+- `prod`: documentation placeholder only; real configuration will be provided at the deployment stage
+
+Local loading example (zsh/bash):
+
+```bash
+cd backend
+set -a
+source ../.env.dev
+set +a
+go run ./cmd/api
+```
+
+Integration test loading example (zsh/bash):
+
+```bash
+cd backend
+set -a
+source ../.env.test
+set +a
+go test ./... -run Integration -v
+```
+
+## Database Migrations
+
+Migration files are in `backend/migrations/` and are applied in file order.  
+The project currently applies SQL migrations manually (via `docker compose exec mysql ...`).
+
+## Database Backup and Restore (Recommended)
+
+Back up the database before high-risk operations (bulk testing, schema changes, import/export).
+
+### Backup
+
+```bash
+./scripts/db-backup.sh
+```
+
+Optional arguments:
+- 1st argument: database name (default `novel_agent`)
+- 2nd argument: output directory (default `./backups`)
+
+Example:
+
+```bash
+./scripts/db-backup.sh novel_agent ./backups
+```
+
+### Restore
+
+```bash
+./scripts/db-restore.sh <backup.sql>
+```
+
+The optional 2nd argument is the database name (default `novel_agent`).
+
+Notes:
+- Restore runs `DROP DATABASE` and then recreates it, so it overwrites existing data.
+- The script requires you to type `YES` manually as a second confirmation.
+
+## Testing and Safety Rules
+
+### Default Safe Tests (No Database Access)
+
+```bash
+cd backend
+go test ./...
+```
+
+The default tests in this repository are safe tests and do not wipe the database.
+
+### Integration Tests (Must Be Explicitly Enabled)
+
+Database integration tests run only when all of the following hold:
+- Explicitly enabled: `INTEGRATION_TEST=1`
+- `MYSQL_DSN` points to a test database whose name contains `_test`
+
+Example (for illustration only; adjust to the actual test files):
+
+```bash
+cd backend
+INTEGRATION_TEST=1 MYSQL_DSN='novel:novel@tcp(127.0.0.1:3306)/novel_agent_test?parseTime=true&charset=utf8mb4,utf8' go test ./internal/repository -run Integration -v
+```
+
+Do not run integration tests against the main development database or the production database.
+
+## Core API (Summary)
+
+- Auth:
+  - `POST /auth/register`
+  - `POST /auth/login`
+  - `GET /auth/me`
+- Novels:
+  - `GET/POST /novels`
+  - `GET/PUT/DELETE /novels/:id`
+- Characters:
+  - `GET/POST /novels/:novelId/characters`
+  - `GET/PUT/DELETE /novels/:novelId/characters/:id`
+- Volumes:
+  - `GET/POST /novels/:novelId/volumes`
+  - `PUT /novels/:novelId/volumes/:id`
+- Chapters:
+  - `GET/POST /novels/:novelId/chapters`
+  - `GET/PUT/DELETE /novels/:novelId/chapters/:id`
+  - `POST /novels/:novelId/chapters/generate`
+- Lore Entries:
+  - `GET/POST /novels/:novelId/lore-entries`
+  - `GET/PUT/DELETE /novels/:novelId/lore-entries/:id`
+- Export:
+  - `POST /novels/:novelId/export`
+  - `GET /novels/:novelId/export/markdown` (legacy-compatible)
+- User AI Settings:
+  - `GET /users/me/ai-settings`
+  - `PUT /users/me/ai-settings`
+
+## Documentation
+
+- MVP design doc (matches the current implementation): [docs/design.md](docs/design.md)
+- V1 design doc: [docs/design-v1.md](docs/design-v1.md)
+- V1 roadmap: [docs/roadmap-v1.md](docs/roadmap-v1.md)
+- AI chapter generation tuning guide: [docs/ai-generation-guide.md](docs/ai-generation-guide.md)
+
+---
+
+<a id="novel-agent-中文"></a>
+
 # Novel Agent
 
 Novel Agent 是一个面向长篇中文小说创作的 MVP Web App。  
